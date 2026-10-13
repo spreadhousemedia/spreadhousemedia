@@ -1,42 +1,35 @@
 import { createClient } from '@supabase/supabase-js'
 import { mockDb, type MockQr } from './mockDb'
 
-const envUrl = import.meta.env.VITE_SUPABASE_URL || ''
-const envAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || ''
+const DEFAULT_SUPABASE_URL = 'https://dvuuturphjumffqyigtz.supabase.co'
+const DEFAULT_SUPABASE_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR2dXV0dXJwaGp1bWZmcXlpZ3R6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE4Nzk2NTMsImV4cCI6MjEwNzQ1NTY1M30.9oiTvJCDnX9j8EQylGoHlgctew0LBoPdVahnPMOO5Q8'
+
+const rawUrl = (import.meta.env.VITE_SUPABASE_URL || '').trim()
+const rawKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim()
+
+const isPlaceholder = (val: string) =>
+  !val ||
+  val.includes('placeholder') ||
+  val.includes('your-project') ||
+  val.includes('your-anon-key')
+
+const envUrl = isPlaceholder(rawUrl) ? DEFAULT_SUPABASE_URL : rawUrl
+const envAnonKey = isPlaceholder(rawKey) ? DEFAULT_SUPABASE_ANON_KEY : rawKey
 
 // Check if app is in Offline/Demo mode
-// Safe to read localStorage here — this is a browser-only module loaded after DOM is ready
 function computeOfflineMode(): boolean {
   try {
-    const isPlaceholderUrl =
-      !envUrl ||
-      envUrl.includes('placeholder') ||
-      envUrl.includes('your-project') ||
-      envUrl === 'https://your-project.supabase.co'
-    const isPlaceholderKey =
-      !envAnonKey ||
-      envAnonKey.includes('your-anon-key') ||
-      envAnonKey === 'your-anon-key'
-    // Only use offline mode if BOTH credentials are placeholders OR explicit opt-in
     const explicitOffline = localStorage.getItem('spreadnfc_offline_mode') === 'true'
-    return (isPlaceholderUrl && isPlaceholderKey) || explicitOffline
+    return explicitOffline
   } catch {
-    // localStorage may be unavailable in some sandboxed environments
-    return (
-      !envUrl ||
-      envUrl.includes('placeholder') ||
-      envUrl.includes('your-project') ||
-      envUrl === 'https://your-project.supabase.co'
-    )
+    return false
   }
 }
 
 export const isOfflineMode = computeOfflineMode()
 
-const realClient = createClient(
-  envUrl && !envUrl.includes('your-project') ? envUrl : 'https://placeholder.supabase.co',
-  envAnonKey && !envAnonKey.includes('your-anon-key') ? envAnonKey : 'placeholder-anon-key',
-)
+const realClient = createClient(envUrl, envAnonKey)
 
 // Helper to attach batch name to a QR record
 function attachBatch(qr: MockQr) {
