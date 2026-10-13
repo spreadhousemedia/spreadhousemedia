@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <title>Spread NFC — Smart Dynamic QR & NFC Cards for Modern Businesses</title>
+    <meta name="description" content="Update your physical QR standees, NFC cards, and stickers anytime without reprinting. Smart dynamic QR codes with instant mobile scanning and private password protection. spreadnfc.in" />
+    
+    <script>
+      (function() {
+        try {
+          localStorage.removeItem('tapflow_theme');
+          localStorage.setItem('spreadnfc_theme', 'light');
+          document.documentElement.classList.remove('dark');
+          document.documentElement.setAttribute('data-theme', 'light');
+          document.documentElement.style.colorScheme = 'light';
+        } catch (e) {}
+      })();
+    </script>
+
+    <!-- Google Fonts: Plus Jakarta Sans, Instrument Serif, JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&display=swap" rel="stylesheet" />
+  </head>
+  <body class="bg-white text-zinc-900 antialiased selection:bg-[#3978F6] selection:text-white transition-colors duration-150">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

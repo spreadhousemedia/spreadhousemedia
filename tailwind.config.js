@@ -1,0 +1,70 @@
+export default {
+  darkMode: 'class',
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  theme: {
+    extend: {
+      colors: {
+        midnight: {
+          DEFAULT: '#080D18',
+          surface: '#101A2B',
+          card: '#151F31',
+          950: '#080D18',
+          900: '#101A2B',
+          800: '#151F31',
+          700: '#1E2D44',
+        },
+        surface: {
+          DEFAULT: '#FFFFFF',
+          white: '#FFFFFF',
+          editorial: '#F8F9FB',
+          soft: '#F8F9FB',
+          neutral: '#F1F3F6',
+          subtle: '#F1F3F6',
+          border: '#DCE2EA',
+        },
+        ink: {
+          DEFAULT: '#111827',
+          primary: '#111827',
+          secondary: '#626B78',
+          muted: '#626B78',
+          light: '#F8FAFC',
+          mutedDark: '#A7B2C2',
+        },
+        electric: {
+          DEFAULT: '#3978F6',
+          hover: '#2563eb',
+          blue: '#3978F6',
+          cyan: '#8CE8F0',
+        },
+        'cyan-glow': {
+          DEFAULT: '#8CE8F0',
+        },
+        brand: {
+          50: '#f0f7ff',
+          100: '#e0effe',
+          200: '#bae0fd',
+          300: '#7cc7fb',
+          400: '#38a9f8',
+          500: '#3978F6',
+          600: '#2563eb',
+          700: '#1d4ed8',
+          800: '#1e40af',
+          900: '#101A2B',
+          950: '#080D18',
+        },
+      },
+      fontFamily: {
+        sans: ['Plus Jakarta Sans', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
+        serif: ['Instrument Serif', 'Georgia', 'Cambria', 'serif'],
+        mono: ['JetBrains Mono', 'Menlo', 'monospace'],
+      },
+      boxShadow: {
+        'glow-cyan': '0 0 60px -15px rgba(140, 232, 240, 0.25)',
+        'glow-blue': '0 0 70px -15px rgba(57, 120, 246, 0.3)',
+        'editorial': '0 1px 3px rgba(0, 0, 0, 0.04), 0 6px 24px -4px rgba(17, 24, 39, 0.04)',
+        'card-dark': '0 12px 36px -8px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08)',
+      },
+    },
+  },
+  plugins: [],
+}
