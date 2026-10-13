@@ -44,24 +44,37 @@ export function isValidPassword(value: string): boolean {
 }
 
 /**
- * Best-effort check that a URL actually resolves before we let anyone save it
- * as a QR destination. Runs client-side with `mode: 'no-cors'` deliberately —
- * this still performs the real DNS/TCP/TLS handshake (so a dead domain
- * rejects), but the response is opaque so we never see or leak its contents.
- * A server-side check would need the database itself to fetch arbitrary
- * admin/customer-supplied URLs, which is a textbook SSRF vector; checking
- * from the browser keeps it in the same trust boundary as the person simply
- * clicking the link themselves.
+ * Validates a URL is well-formed and has a reachable-looking structure.
+ *
+ * NOTE: We intentionally do NOT use fetch() to check reachability here.
+ * Many major sites (Instagram, Facebook, Google, etc.) block cross-origin
+ * fetch requests — even with `mode: 'no-cors'` — which causes false negatives
+ * where perfectly valid destination URLs are rejected. The URL format
+ * validation above (isValidDestinationUrl) is the correct gate.
+ *
+ * This function exists to catch obvious user mistakes like completely empty
+ * hostnames or local-only addresses that would never work as public QR destinations.
  */
-export async function isUrlReachable(url: string, timeoutMs = 6000): Promise<boolean> {
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+export async function isUrlReachable(url: string, _timeoutMs = 6000): Promise<boolean> {
+  // Always return true — we rely on isValidDestinationUrl for format checking.
+  // Real-world URLs like instagram.com, facebook.com, etc. are always blocked
+  // by CORS so fetch-based checks produce false failures.
   try {
-    await fetch(url, { mode: 'no-cors', signal: controller.signal, redirect: 'follow' })
+    const parsed = new URL(url)
+    // Reject localhost / 127.x / private IPs as QR destinations
+    const host = parsed.hostname.toLowerCase()
+    if (
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === '0.0.0.0' ||
+      host.startsWith('192.168.') ||
+      host.startsWith('10.') ||
+      host.endsWith('.local')
+    ) {
+      return false
+    }
     return true
   } catch {
     return false
-  } finally {
-    clearTimeout(timeoutId)
   }
 }

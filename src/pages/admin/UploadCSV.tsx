@@ -6,6 +6,7 @@ import {
   AlertCircle,
   FileSpreadsheet,
   Download,
+  ExternalLink,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { parseCsvFile, downloadSampleCsv, type CsvRawRow } from '../../lib/csv'
@@ -270,9 +271,10 @@ export function UploadCSV() {
             <span className="theme-text-muted hidden sm:inline opacity-40">•</span>
             <Link
               to="/admin/manage"
-              className="theme-text-muted w-full sm:w-auto font-medium hover:text-white"
+              className="inline-flex items-center gap-1.5 w-full sm:w-auto font-semibold text-brand-600 dark:text-brand-400 hover:underline"
             >
-              Go to Manage QR
+              <ExternalLink className="h-3.5 w-3.5" />
+              View Imported QRs in Manage
             </Link>
           </div>
         </div>

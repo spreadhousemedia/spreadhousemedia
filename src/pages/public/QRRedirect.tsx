@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { Spinner } from '../../components/Spinner'
 
-type ViewState = 'loading' | 'not_found' | 'inactive' | 'redirecting' | 'error'
+type ViewState = 'loading' | 'not_found' | 'inactive' | 'redirecting' | 'setup' | 'error'
 
 export function QRRedirect() {
   const { qrNumber } = useParams<{ qrNumber: string }>()
@@ -21,7 +21,12 @@ export function QRRedirect() {
       const { data, error } = await supabase.rpc('get_qr_redirect', { p_qr_number: qrNumber })
       if (cancelled) return
 
-      if (error || !data || data.length === 0) {
+      if (error) {
+        setState('error')
+        return
+      }
+
+      if (!data || data.length === 0) {
         setState('not_found')
         return
       }
@@ -32,15 +37,20 @@ export function QRRedirect() {
         return
       }
 
-      setState('redirecting')
-
       // First scan of a freshly created QR: no destination has been set yet.
       // Send the scanner straight to the setup flow instead of nowhere.
       if (!row.destination_url) {
-        navigate(`/update?qr=${encodeURIComponent(qrNumber)}`, { replace: true })
+        setState('setup')
+        // Use a small delay so the user sees a helpful message before redirect
+        setTimeout(() => {
+          if (!cancelled) {
+            navigate(`/update?qr=${encodeURIComponent(qrNumber)}`, { replace: true })
+          }
+        }, 800)
         return
       }
 
+      setState('redirecting')
       window.location.replace(row.destination_url)
     }
 
@@ -59,13 +69,21 @@ export function QRRedirect() {
             <p className="mt-4 text-sm font-medium text-gray-600">Connecting to destination…</p>
           </>
         )}
+        {state === 'setup' && (
+          <>
+            <Spinner size={32} className="mx-auto text-brand-600" />
+            <p className="mt-4 text-sm font-medium text-gray-600">Setting up your device…</p>
+          </>
+        )}
         {state === 'not_found' && (
           <>
             <IconCircle tone="red">
               <path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
             </IconCircle>
             <h1 className="mt-4 text-lg font-semibold text-gray-900">Device Not Found</h1>
-            <p className="mt-2 text-sm text-gray-500">Please check the serial number and try again.</p>
+            <p className="mt-2 text-sm text-gray-500">
+              QR code <span className="font-mono font-bold">{qrNumber}</span> is not registered. Please check the serial number and try again.
+            </p>
           </>
         )}
         {state === 'inactive' && (
@@ -80,8 +98,14 @@ export function QRRedirect() {
         )}
         {state === 'error' && (
           <>
-            <h1 className="text-lg font-semibold text-gray-900">Something went wrong</h1>
-            <p className="mt-2 text-sm text-gray-500">Please try again later.</p>
+            <IconCircle tone="red">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 8v4M12 16h.01" strokeLinecap="round" />
+            </IconCircle>
+            <h1 className="text-lg font-semibold text-gray-900">Service Unavailable</h1>
+            <p className="mt-2 text-sm text-gray-500">
+              Could not connect to the QR service. Please try again in a moment.
+            </p>
           </>
         )}
       </div>

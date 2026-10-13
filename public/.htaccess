@@ -2,10 +2,11 @@
   RewriteEngine On
   RewriteBase /
 
-  # ⚡ Ultra-Fast QR Redirection Engine (Sub-20ms on Hostinger)
-  # Intercepts /q/{qrNumber} directly via PHP without downloading React bundle
+  # ⚡ QR Redirect Engine — intercepts /q/{id} before React loads
+  # PHP handles it server-side: <25ms, no JS bundle downloaded
   RewriteRule ^q/([A-Za-z0-9_-]+)/?$ redirect.php?qr=$1 [L,QSA]
 
+  # SPA fallback — all other routes serve index.html for React Router
   RewriteRule ^index\.html$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
@@ -14,35 +15,22 @@
 </IfModule>
 
 # ============================================================
-# SECURITY HEADERS — Industry-grade hardening
+# SECURITY HEADERS
 # ============================================================
 <IfModule mod_headers.c>
-  # Prevent MIME-type sniffing
   Header always set X-Content-Type-Options "nosniff"
-
-  # Disallow site from being embedded in an iframe (clickjacking protection)
   Header always set X-Frame-Options "DENY"
-
-  # Enable XSS filter in older browsers
   Header always set X-XSS-Protection "1; mode=block"
-
-  # Strict Transport Security: force HTTPS for 1 year + subdomains
   Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
-
-  # Control how much referrer information is shared
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
-
-  # Content-Security-Policy: restrict resource origins
-  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
-
-  # Permissions Policy: disable unused browser features
-  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
-
-  # Remove server version leak
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
   Header always unset X-Powered-By
   Header always unset Server
 
-  # Cache control for HTML pages (no cache)
+  # Content-Security-Policy
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+
+  # HTML — never cache (SPA needs fresh index.html every time)
   <FilesMatch "\.(html)$">
     Header always set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
     Header always set Pragma "no-cache"
@@ -50,46 +38,57 @@
 </IfModule>
 
 # ============================================================
-# Gzip / Brotli Compression for fast loading
+# GZIP COMPRESSION
 # ============================================================
 <IfModule mod_deflate.c>
-  AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript application/json image/svg+xml
+  AddOutputFilterByType DEFLATE text/html text/plain text/css text/javascript application/javascript application/json image/svg+xml
 </IfModule>
 
 # ============================================================
-# Browser Caching for static assets (Sub-second repeat loads)
+# BROWSER CACHING — Static assets (hashed filenames = safe)
 # ============================================================
 <IfModule mod_expires.c>
   ExpiresActive On
-  ExpiresByType image/jpg "access plus 1 year"
-  ExpiresByType image/jpeg "access plus 1 year"
-  ExpiresByType image/gif "access plus 1 year"
-  ExpiresByType image/png "access plus 1 year"
-  ExpiresByType image/svg+xml "access plus 1 year"
-  ExpiresByType image/webp "access plus 1 year"
-  ExpiresByType text/css "access plus 1 month"
-  ExpiresByType application/javascript "access plus 1 month"
+  ExpiresByType image/jpg           "access plus 1 year"
+  ExpiresByType image/jpeg          "access plus 1 year"
+  ExpiresByType image/png           "access plus 1 year"
+  ExpiresByType image/svg+xml       "access plus 1 year"
+  ExpiresByType image/webp          "access plus 1 year"
+  ExpiresByType image/x-icon        "access plus 1 year"
+  ExpiresByType text/css            "access plus 6 months"
+  ExpiresByType application/javascript "access plus 6 months"
 </IfModule>
 
 # ============================================================
-# Block access to sensitive files
+# BLOCK SENSITIVE FILES FROM HTTP ACCESS
+# PHP can still read them from the filesystem — only HTTP is blocked.
 # ============================================================
-<FilesMatch "(\.env|\.env\.example|supabase_schema\.sql|package\.json|package-lock\.json|vite\.config\.ts|tsconfig\.json)">
+
+# Block .env and config files
+<FilesMatch "(\.env|\.env\.example|supabase_schema\.sql|package\.json|package-lock\.json|vite\.config\.ts|tsconfig\.json)$">
   Order Allow,Deny
   Deny from all
 </FilesMatch>
 
-# Block dotfiles
+# Block ALL dotfiles (including .htaccess itself from being downloaded)
 <FilesMatch "^\.">
   Order Allow,Deny
   Deny from all
 </FilesMatch>
 
-# Block PHP execution everywhere except root (protect redirect.php only)
+# Block config.php from HTTP — PHP reads it internally
+<Files "config.php">
+  Order Allow,Deny
+  Deny from all
+</Files>
+
+# Block ALL PHP files from HTTP access by default...
 <FilesMatch "\.php$">
   Order Allow,Deny
   Deny from all
 </FilesMatch>
+
+# ...except redirect.php (our QR engine — must be web-accessible)
 <Files "redirect.php">
   Order Deny,Allow
   Allow from all

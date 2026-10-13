@@ -8,15 +8,26 @@ const envAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || ''
 // Safe to read localStorage here — this is a browser-only module loaded after DOM is ready
 function computeOfflineMode(): boolean {
   try {
+    const isPlaceholderUrl =
+      !envUrl ||
+      envUrl.includes('placeholder') ||
+      envUrl.includes('your-project') ||
+      envUrl === 'https://your-project.supabase.co'
+    const isPlaceholderKey =
+      !envAnonKey ||
+      envAnonKey.includes('your-anon-key') ||
+      envAnonKey === 'your-anon-key'
+    // Only use offline mode if BOTH credentials are placeholders OR explicit opt-in
+    const explicitOffline = localStorage.getItem('spreadnfc_offline_mode') === 'true'
+    return (isPlaceholderUrl && isPlaceholderKey) || explicitOffline
+  } catch {
+    // localStorage may be unavailable in some sandboxed environments
     return (
       !envUrl ||
       envUrl.includes('placeholder') ||
       envUrl.includes('your-project') ||
-      localStorage.getItem('spreadnfc_offline_mode') === 'true'
+      envUrl === 'https://your-project.supabase.co'
     )
-  } catch {
-    // localStorage may be unavailable in some sandboxed environments
-    return !envUrl || envUrl.includes('placeholder') || envUrl.includes('your-project')
   }
 }
 
@@ -230,26 +241,14 @@ export const supabase = {
       }
     }
 
-    // Try real Supabase; if offline or network drops, seamlessly fall back to mockDb
+    // Try real Supabase; do NOT fall back to mockDb on network failures for live site.
+    // A production network failure should surface as an error, not silently serve
+    // stale localStorage data that has no real QR records.
     try {
       const res = await realClient.rpc(name, params)
-      if (res.error && res.error.message?.includes('Failed to fetch')) {
-        // Do NOT call supabase.rpc() again — that causes infinite recursion.
-        // Instead, directly dispatch to mockDb the same way the offline branch does.
-        switch (name) {
-          case 'admin_create_single_qr': return mockDb.createSingleQr(params)
-          case 'admin_create_batch': return mockDb.createBatch(params)
-          case 'admin_process_qr_csv': return mockDb.processCsv(params)
-          case 'admin_reset_qr_password': return mockDb.resetPassword(params)
-          case 'request_qr_update': return mockDb.requestQrUpdate(params)
-          case 'confirm_qr_update': return mockDb.confirmQrUpdate(params)
-          case 'get_qr_redirect': return mockDb.getQrRedirect(params)
-          default: return { data: { ok: true }, error: null }
-        }
-      }
       return res
     } catch {
-      return { data: null, error: { message: 'Database connection failed.' } }
+      return { data: null, error: { message: 'Database connection failed. Please check your internet connection and try again.' } }
     }
   },
 }

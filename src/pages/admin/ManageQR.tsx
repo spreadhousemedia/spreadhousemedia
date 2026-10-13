@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   Search,
   Filter,
@@ -20,6 +20,8 @@ import {
   Radio,
   QrCode as QrCodeIcon,
   Plus,
+  UploadCloud,
+  RefreshCw,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { qrPublicUrl } from '../../lib/config'
@@ -325,13 +327,45 @@ export function ManageQR() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div>
-        <h1 className="theme-text-main text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight">
-          Manage QR Codes
-        </h1>
-        <p className="theme-text-muted mt-1 text-xs sm:text-sm">
-          Search, filter, update, bulk download and manage all your dynamic QR codes.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="theme-text-main text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight">
+            Manage QR Codes
+          </h1>
+          <p className="theme-text-muted mt-1 text-xs sm:text-sm">
+            Search, filter, update, bulk download and manage all your dynamic QR codes.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              invalidateAdminQrCache()
+              load()
+              // Re-fetch batches list too
+              supabase
+                .from('batches')
+                .select('id, batch_name, series_prefix, start_number, end_number, total_qr_codes, created_at, updated_at')
+                .order('batch_name')
+                .then((res: any) => {
+                  const data = res?.data
+                  if (data) setBatches(data as Batch[])
+                })
+            }}
+            title="Refresh list"
+            className="theme-subtle flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold theme-hover transition-colors"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
+          <Link
+            to="/admin/upload"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-brand-700 shadow-md shadow-brand-600/20 transition-all"
+          >
+            <UploadCloud className="h-3.5 w-3.5" />
+            Import & Sync CSV
+          </Link>
+        </div>
       </div>
 
       {/* Filter and Search Bar */}
