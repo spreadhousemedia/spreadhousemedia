@@ -2,11 +2,7 @@
   RewriteEngine On
   RewriteBase /
 
-  # ⚡ QR Redirect Engine — intercepts /q/{id} before React loads
-  # PHP handles it server-side: <25ms, no JS bundle downloaded
-  RewriteRule ^q/([A-Za-z0-9_-]+)/?$ redirect.php?qr=$1 [L,QSA]
-
-  # SPA fallback — all other routes serve index.html for React Router
+  # SPA fallback — all routes serve index.html for React Router
   RewriteRule ^index\.html$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
@@ -75,21 +71,3 @@
   Order Allow,Deny
   Deny from all
 </FilesMatch>
-
-# Block config.php from HTTP — PHP reads it internally
-<Files "config.php">
-  Order Allow,Deny
-  Deny from all
-</Files>
-
-# Block ALL PHP files from HTTP access by default...
-<FilesMatch "\.php$">
-  Order Allow,Deny
-  Deny from all
-</FilesMatch>
-
-# ...except redirect.php (our QR engine — must be web-accessible)
-<Files "redirect.php">
-  Order Deny,Allow
-  Allow from all
-</Files>
