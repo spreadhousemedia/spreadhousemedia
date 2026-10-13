@@ -12,16 +12,16 @@ export function CtaFooter() {
       {/* Client-Focused Pre-Footer CTA */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16 relative z-10 border-b border-surface-border">
         <div className="max-w-4xl mx-auto bg-surface-soft border border-surface-border rounded-3xl p-8 sm:p-14 shadow-lg text-center space-y-6 relative overflow-hidden">
-          <div className="absolute -top-24 -right-24 w-64 h-64 bg-electric/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -top-24 -right-24 w-64 h-64 bg-lavender/10 rounded-full blur-3xl pointer-events-none" />
 
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-mono font-medium tracking-wider text-electric bg-electric/10 border border-electric/20">
-            <span className="w-1.5 h-1.5 rounded-full bg-electric animate-pulse" />
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-mono font-medium tracking-wider text-lavender bg-lavender/10 border border-lavender/20">
+            <span className="w-1.5 h-1.5 rounded-full bg-lavender animate-pulse" />
             <span>SELF-SERVICE PORTAL • INSTANT LIVE CHANGES</span>
           </div>
 
           <h2 className="text-3xl sm:text-5xl font-extrabold text-ink tracking-tight leading-tight">
             Ready to Update Your{' '}
-            <span className="font-editorial italic font-normal text-electric">
+            <span className="font-editorial italic font-normal text-lavender">
               Physical QR Standee?
             </span>
           </h2>
@@ -33,7 +33,7 @@ export function CtaFooter() {
           <div className="pt-3 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               to="/update"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-xl font-bold text-sm text-white bg-electric hover:bg-electric-hover transition-all duration-200 shadow-md"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-xl font-bold text-sm text-white bg-lavender hover:bg-lavender-hover transition-all duration-200 shadow-md shadow-lavender/25 hover:shadow-glow-lavender"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
@@ -78,28 +78,28 @@ export function CtaFooter() {
             <h4 className="text-xs font-bold uppercase tracking-wider text-ink mb-3.5">Store &amp; Showcase</h4>
             <ul className="space-y-2.5 text-xs text-ink-muted">
               <li>
-                <Link to="/products" className="text-electric hover:text-electric-hover font-semibold transition-colors flex items-center gap-1.5">
+                <Link to="/products" className="text-lavender hover:text-lavender-hover font-semibold transition-colors flex items-center gap-1.5">
                   <span>Smart Cards &amp; Standees</span>
-                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-electric/10 text-electric font-mono">SHOP</span>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-lavender/10 text-lavender font-mono">SHOP</span>
                 </Link>
               </li>
               <li>
-                <Link to="/contact" className="hover:text-electric transition-colors">
+                <Link to="/contact" className="hover:text-lavender transition-colors">
                   Corporate Team Bundles
                 </Link>
               </li>
               <li>
-                <a href="/#how-it-works" className="hover:text-electric transition-colors">
+                <a href="/#how-it-works" className="hover:text-lavender transition-colors">
                   How NFC &amp; QR Works
                 </a>
               </li>
               <li>
-                <a href="/#about" className="hover:text-electric transition-colors">
+                <a href="/#about" className="hover:text-lavender transition-colors">
                   About the Founder
                 </a>
               </li>
               <li>
-                <a href="/#faq" className="hover:text-electric transition-colors">
+                <a href="/#faq" className="hover:text-lavender transition-colors">
                   Common Questions
                 </a>
               </li>
@@ -111,7 +111,7 @@ export function CtaFooter() {
             <h4 className="text-xs font-bold uppercase tracking-wider text-ink mb-3.5">Helpdesk &amp; Updates</h4>
             <ul className="space-y-2.5 text-xs text-ink-muted">
               <li>
-                <Link to="/update" className="text-electric hover:text-electric-hover font-semibold transition-colors flex items-center gap-1.5">
+                <Link to="/update" className="text-lavender hover:text-lavender-hover font-semibold transition-colors flex items-center gap-1.5">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <path d="M5 12h14M12 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
@@ -119,17 +119,17 @@ export function CtaFooter() {
                 </Link>
               </li>
               <li>
-                <Link to="/support" className="hover:text-electric transition-colors font-medium">
+                <Link to="/support" className="hover:text-lavender transition-colors font-medium">
                   Support Helpdesk &amp; Ticket Tracking
                 </Link>
               </li>
               <li>
-                <Link to="/contact" className="hover:text-electric transition-colors">
+                <Link to="/contact" className="hover:text-lavender transition-colors">
                   Contact Studio &amp; Enterprise Sales
                 </Link>
               </li>
               <li>
-                <a href="/#interactive-demo" className="hover:text-electric transition-colors">
+                <a href="/#interactive-demo" className="hover:text-lavender transition-colors">
                   Interactive Simulator
                 </a>
               </li>

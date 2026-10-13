@@ -87,20 +87,20 @@ export function ProductsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white text-[#111827] flex flex-col selection:bg-[#3978F6] selection:text-white">
+    <div className="min-h-screen bg-ghost text-[#111827] flex flex-col selection:bg-lavender selection:text-white">
       <Navbar />
 
       <main className="flex-1 pt-24 sm:pt-28 pb-20">
         {/* Hero Section */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 text-center">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold tracking-wider text-[#3978F6] bg-[#3978F6]/10 border border-[#3978F6]/20 mb-5">
-            <span className="w-2 h-2 rounded-full bg-[#3978F6] animate-pulse" />
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold tracking-wider text-lavender bg-lavender/10 border border-lavender/20 mb-5">
+            <span className="w-2 h-2 rounded-full bg-lavender animate-pulse" />
             <span>SMART HARDWARE • ZERO SUBSCRIPTION FEES</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-[#111827] tracking-tight max-w-4xl mx-auto leading-tight">
             Smart Contactless Cards &amp; Stands{' '}
-            <span className="text-[#3978F6]">With Infinite Possibilities.</span>
+            <span className="text-lavender font-editorial italic font-normal">With Infinite Possibilities.</span>
           </h1>
 
           <p className="mt-4 sm:mt-5 text-base sm:text-lg text-[#626B78] max-w-2xl mx-auto leading-relaxed">
@@ -123,8 +123,8 @@ export function ProductsPage() {
                 onClick={() => setActiveCategory(tab.id)}
                 className={`px-4 sm:px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 ${
                   activeCategory === tab.id
-                    ? 'bg-[#3978F6] text-white shadow-md'
-                    : 'bg-white text-[#626B78] hover:text-[#111827] border border-[#DCE2EA] hover:border-slate-300 hover:bg-[#F8F9FB]'
+                    ? 'bg-lavender text-white shadow-md shadow-lavender/25'
+                    : 'bg-white text-[#626B78] hover:text-[#111827] border border-[#DCE2EA] hover:border-lavender/40 hover:bg-[#F5F7FC]'
                 }`}
               >
                 {tab.label}
@@ -133,9 +133,9 @@ export function ProductsPage() {
           </div>
 
           {/* Bulk Tier Discount Banner */}
-          <div className="mt-8 max-w-3xl mx-auto bg-gradient-to-r from-blue-50 via-indigo-50 to-blue-50 border border-[#3978F6]/20 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4 text-left shadow-sm">
+          <div className="mt-8 max-w-3xl mx-auto bg-gradient-to-r from-lavender/10 via-purple-50/50 to-lavender/10 border border-lavender/20 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4 text-left shadow-sm">
             <div className="flex items-center gap-3.5">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#3978F6] text-white font-bold text-lg shadow-sm">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-lavender text-white font-bold text-lg shadow-sm shadow-lavender/25">
                 %
               </div>
               <div>
@@ -145,7 +145,7 @@ export function ProductsPage() {
             </div>
             <Link
               to="/contact"
-              className="shrink-0 px-4 py-2 rounded-xl text-xs font-bold text-[#3978F6] bg-white border border-[#3978F6]/30 hover:bg-[#3978F6] hover:text-white transition-all shadow-sm"
+              className="shrink-0 px-4 py-2 rounded-xl text-xs font-bold text-lavender bg-white border border-lavender/30 hover:bg-lavender hover:text-white transition-all shadow-sm"
             >
               Custom Team Quote
             </Link>
@@ -156,7 +156,7 @@ export function ProductsPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {loading ? (
             <div className="text-center py-24">
-              <div className="inline-block w-8 h-8 border-4 border-[#3978F6] border-t-transparent rounded-full animate-spin mb-3" />
+              <div className="inline-block w-8 h-8 border-4 border-lavender border-t-transparent rounded-full animate-spin mb-3" />
               <p className="text-sm font-semibold text-[#626B78]">Loading hardware catalogue...</p>
             </div>
           ) : filteredProducts.length === 0 ? (
@@ -172,7 +172,7 @@ export function ProductsPage() {
               {filteredProducts.map((product) => (
               <div
                 key={product.id}
-                className="group relative flex flex-col bg-white rounded-3xl border border-[#DCE2EA] hover:border-[#3978F6]/50 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden"
+                className="group relative flex flex-col bg-white rounded-3xl border border-[#DCE2EA] hover:border-lavender/50 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden"
               >
                 {/* Visual Card Mockup Render Box */}
                 <div className={`relative h-60 w-full bg-gradient-to-br ${product.previewGradient} p-6 flex flex-col justify-between overflow-hidden`}>
@@ -214,11 +214,11 @@ export function ProductsPage() {
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         {product.badge && (
-                          <span className="inline-block text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-md bg-[#3978F6]/10 text-[#3978F6] mb-1.5 font-mono">
+                          <span className="inline-block text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-md bg-lavender/10 text-lavender mb-1.5 font-mono border border-lavender/20">
                             {product.badge}
                           </span>
                         )}
-                        <h3 className="text-lg font-extrabold text-[#111827] group-hover:text-[#3978F6] transition-colors">
+                        <h3 className="text-lg font-extrabold text-[#111827] group-hover:text-lavender transition-colors">
                           {product.title}
                         </h3>
                       </div>
@@ -254,7 +254,7 @@ export function ProductsPage() {
                     <button
                       type="button"
                       onClick={() => openCustomizer(product)}
-                      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-[#3978F6] hover:bg-[#2563eb] shadow-sm group-hover:shadow-[0_0_70px_-15px_rgba(57,120,246,0.4)] transition-all duration-200"
+                      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-lavender hover:bg-lavender-hover shadow-md shadow-lavender/25 group-hover:shadow-glow-lavender transition-all duration-200"
                     >
                       <span>Customize &amp; Order</span>
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -328,7 +328,7 @@ export function ProductsPage() {
                   </div>
                   <div className="flex justify-between border-t border-[#DCE2EA] pt-2 text-sm">
                     <span className="font-bold text-[#111827]">Total Payable:</span>
-                    <strong className="text-[#3978F6] font-extrabold">₹{finalPrice}</strong>
+                    <strong className="text-lavender font-extrabold">₹{finalPrice}</strong>
                   </div>
                 </div>
 
@@ -359,7 +359,7 @@ export function ProductsPage() {
                 <div className="flex flex-col justify-between space-y-4">
                   <div>
                     <span className="text-xs font-bold uppercase tracking-wider text-[#626B78] mb-2 block">
-                      Live Physical Preview
+                       Live Physical Preview
                     </span>
 
                     {/* Digital Card Preview Box */}
@@ -398,7 +398,7 @@ export function ProductsPage() {
                   <div className="bg-[#F8F9FB] border border-[#DCE2EA] rounded-2xl p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <label htmlFor="order-quantity-input" className="text-xs font-bold text-[#111827]">Quantity</label>
-                      <span className="text-xs font-mono font-bold text-[#3978F6]">
+                      <span className="text-xs font-mono font-bold text-lavender">
                         {discountPct > 0 ? `${discountPct}% Bulk Tier Discount Applied` : 'Standard Pricing'}
                       </span>
                     </div>
@@ -437,7 +437,7 @@ export function ProductsPage() {
                             onClick={() => setOrderQuantity(num)}
                             className={`px-2 py-1 rounded-lg text-[10px] font-mono font-bold transition-all ${
                               orderQuantity === num
-                                ? 'bg-[#3978F6] text-white'
+                                ? 'bg-lavender text-white shadow-sm'
                                 : 'bg-white border border-[#DCE2EA] text-[#626B78] hover:text-[#111827]'
                             }`}
                           >
@@ -465,7 +465,7 @@ export function ProductsPage() {
                       </div>
                       <div className="flex justify-between text-sm font-extrabold text-[#111827] pt-1.5 border-t border-[#DCE2EA]">
                         <span>Total Amount:</span>
-                        <span className="text-[#3978F6] text-base">₹{finalPrice}</span>
+                        <span className="text-lavender text-base">₹{finalPrice}</span>
                       </div>
                     </div>
                   </div>
@@ -484,7 +484,7 @@ export function ProductsPage() {
                       value={cardholderName}
                       onChange={(e) => setCardholderName(e.target.value)}
                       placeholder="e.g. Dr. Sarah Jenkins"
-                      className="w-full px-4 py-2.5 rounded-xl border border-[#DCE2EA] bg-white text-xs sm:text-sm font-medium text-[#111827] placeholder:text-[#9CA3AF] focus:border-[#3978F6] focus:ring-1 focus:ring-[#3978F6] outline-none transition-colors"
+                      className="w-full px-4 py-2.5 rounded-xl border border-[#DCE2EA] bg-white text-xs sm:text-sm font-medium text-[#111827] placeholder:text-[#9CA3AF] focus:border-lavender focus:ring-1 focus:ring-lavender outline-none transition-colors"
                     />
                   </div>
 
@@ -498,7 +498,7 @@ export function ProductsPage() {
                       value={companyTitle}
                       onChange={(e) => setCompanyTitle(e.target.value)}
                       placeholder="e.g. Chief Technology Officer • Acme Corp"
-                      className="w-full px-4 py-2.5 rounded-xl border border-[#DCE2EA] bg-white text-xs sm:text-sm font-medium text-[#111827] placeholder:text-[#9CA3AF] focus:border-[#3978F6] focus:ring-1 focus:ring-[#3978F6] outline-none transition-colors"
+                      className="w-full px-4 py-2.5 rounded-xl border border-[#DCE2EA] bg-white text-xs sm:text-sm font-medium text-[#111827] placeholder:text-[#9CA3AF] focus:border-lavender focus:ring-1 focus:ring-lavender outline-none transition-colors"
                     />
                   </div>
 
@@ -514,7 +514,7 @@ export function ProductsPage() {
                         value={customerEmail}
                         onChange={(e) => setCustomerEmail(e.target.value)}
                         placeholder="alex@example.com"
-                        className="w-full px-3.5 py-2 rounded-xl border border-[#DCE2EA] bg-white text-xs sm:text-sm font-medium text-[#111827] placeholder:text-[#9CA3AF] focus:border-[#3978F6] focus:ring-1 focus:ring-[#3978F6] outline-none transition-colors"
+                        className="w-full px-3.5 py-2 rounded-xl border border-[#DCE2EA] bg-white text-xs sm:text-sm font-medium text-[#111827] placeholder:text-[#9CA3AF] focus:border-lavender focus:ring-1 focus:ring-lavender outline-none transition-colors"
                       />
                     </div>
                     <div>
@@ -528,7 +528,7 @@ export function ProductsPage() {
                         value={customerPhone}
                         onChange={(e) => setCustomerPhone(e.target.value)}
                         placeholder="+91 98765 43210"
-                        className="w-full px-3.5 py-2 rounded-xl border border-[#DCE2EA] bg-white text-xs sm:text-sm font-medium text-[#111827] placeholder:text-[#9CA3AF] focus:border-[#3978F6] focus:ring-1 focus:ring-[#3978F6] outline-none transition-colors"
+                        className="w-full px-3.5 py-2 rounded-xl border border-[#DCE2EA] bg-white text-xs sm:text-sm font-medium text-[#111827] placeholder:text-[#9CA3AF] focus:border-lavender focus:ring-1 focus:ring-lavender outline-none transition-colors"
                       />
                     </div>
                   </div>
@@ -544,7 +544,7 @@ export function ProductsPage() {
                       value={destinationUrl}
                       onChange={(e) => setDestinationUrl(e.target.value)}
                       placeholder="https://linkedin.com/in/yourname"
-                      className="w-full px-4 py-2.5 rounded-xl border border-[#DCE2EA] bg-white text-xs sm:text-sm font-medium text-[#111827] placeholder:text-[#9CA3AF] focus:border-[#3978F6] focus:ring-1 focus:ring-[#3978F6] outline-none transition-colors"
+                      className="w-full px-4 py-2.5 rounded-xl border border-[#DCE2EA] bg-white text-xs sm:text-sm font-medium text-[#111827] placeholder:text-[#9CA3AF] focus:border-lavender focus:ring-1 focus:ring-lavender outline-none transition-colors"
                     />
                     <p className="mt-1 text-[11px] text-[#626B78]">
                       Don&apos;t worry — you can update this destination link anytime later using your card&apos;s password.
@@ -564,7 +564,7 @@ export function ProductsPage() {
                           onClick={() => setSelectedColor(color.name)}
                           className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
                             selectedColor === color.name
-                              ? 'border-[#3978F6] bg-blue-50 text-[#3978F6] font-bold'
+                              ? 'border-lavender bg-lavender/10 text-lavender font-bold'
                               : 'border-[#DCE2EA] bg-white text-[#626B78] hover:text-[#111827] hover:border-slate-300'
                           }`}
                         >
@@ -590,7 +590,7 @@ export function ProductsPage() {
                   <div className="pt-2">
                     <button
                       type="submit"
-                      className="w-full py-3.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-[#3978F6] hover:bg-[#2563eb] shadow-md hover:shadow-[0_0_70px_-15px_rgba(57,120,246,0.4)] transition-all duration-200 flex items-center justify-center gap-2"
+                      className="w-full py-3.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-lavender hover:bg-lavender-hover shadow-md hover:shadow-glow-lavender transition-all duration-200 flex items-center justify-center gap-2"
                     >
                       <span>Proceed to Order (₹{finalPrice})</span>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">

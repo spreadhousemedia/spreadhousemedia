@@ -64,12 +64,12 @@ export function HowItWorks() {
     <section id="how-it-works" className="py-28 bg-white relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-medium tracking-wider text-electric bg-electric/10 border border-electric/20 mb-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-medium tracking-wider text-lavender bg-lavender/10 border border-lavender/20 mb-4">
             04 // OPERATIONAL LIFECYCLE
           </div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-ink tracking-tight leading-tight">
             How Smart Dynamic QR Codes{' '}
-            <span className="font-editorial italic font-normal text-electric">
+            <span className="font-editorial italic font-normal text-lavender">
               Transform Daily Operations
             </span>
           </h2>
@@ -82,23 +82,23 @@ export function HowItWorks() {
           {steps.map((step) => (
             <div
               key={step.num}
-              className="group relative flex flex-col justify-between bg-surface-soft hover:bg-white rounded-2xl p-7 border border-surface-border hover:border-electric/40 transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
+              className="group relative flex flex-col justify-between bg-surface-soft hover:bg-white rounded-2xl p-7 border border-surface-border hover:border-lavender/40 transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
             >
               <div>
                 <div className="flex items-center justify-between mb-6">
-                  <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-white border border-surface-border text-electric shadow-xs group-hover:bg-electric group-hover:text-white transition-colors duration-200">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-white border border-surface-border text-lavender shadow-xs group-hover:bg-lavender group-hover:text-white transition-colors duration-200">
                     {step.icon}
                   </span>
-                  <span className="font-editorial italic text-4xl font-light text-slate-300 group-hover:text-electric transition-colors">
+                  <span className="font-editorial italic text-4xl font-light text-slate-300 group-hover:text-lavender transition-colors">
                     {step.num}
                   </span>
                 </div>
 
-                <span className="text-[10px] font-mono font-semibold tracking-wider text-electric uppercase">
+                <span className="text-[10px] font-mono font-semibold tracking-wider text-lavender uppercase">
                   {step.category}
                 </span>
 
-                <h3 className="text-lg font-bold text-ink mt-1.5 mb-2.5 group-hover:text-electric transition-colors">
+                <h3 className="text-lg font-bold text-ink mt-1.5 mb-2.5 group-hover:text-lavender transition-colors">
                   {step.title}
                 </h3>
 
@@ -125,10 +125,10 @@ export function HowItWorks() {
 
         {/* Step-by-step editorial light banner for updating */}
         <div id="how-to-update" className="mt-16 bg-surface-soft text-ink rounded-3xl p-8 sm:p-10 border border-surface-border shadow-lg relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8">
-          <div className="absolute -right-20 -top-20 w-80 h-80 bg-electric/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -right-20 -top-20 w-80 h-80 bg-lavender/10 rounded-full blur-3xl pointer-events-none" />
           <div className="space-y-2 text-center md:text-left relative z-10">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono uppercase tracking-wider text-electric bg-electric/10 border border-electric/20 font-semibold">
-              <span className="w-1.5 h-1.5 rounded-full bg-electric animate-pulse" />
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono uppercase tracking-wider text-lavender bg-lavender/10 border border-lavender/20 font-semibold">
+              <span className="w-1.5 h-1.5 rounded-full bg-lavender animate-pulse" />
               Immediate Self-Service
             </div>
             <h3 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-ink">
@@ -140,7 +140,7 @@ export function HowItWorks() {
           </div>
           <Link
             to="/update"
-            className="shrink-0 relative z-10 inline-flex items-center gap-2.5 px-7 py-3.5 rounded-xl font-bold text-sm text-white bg-electric hover:bg-electric-hover shadow-md transition-all duration-200"
+            className="shrink-0 relative z-10 inline-flex items-center gap-2.5 px-7 py-3.5 rounded-xl font-bold text-sm text-white bg-lavender hover:bg-lavender-hover shadow-md shadow-lavender/25 hover:shadow-glow-lavender transition-all duration-200"
           >
             <span>Open Update Portal</span>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">

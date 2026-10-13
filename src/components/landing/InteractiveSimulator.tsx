@@ -97,13 +97,13 @@ export function InteractiveSimulator() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="text-center max-w-3xl mx-auto mb-14">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-medium tracking-wider text-electric bg-electric/10 border border-electric/20 mb-4">
-            <span className="w-1.5 h-1.5 rounded-full bg-electric animate-pulse" />
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-medium tracking-wider text-lavender bg-lavender/10 border border-lavender/20 mb-4">
+            <span className="w-1.5 h-1.5 rounded-full bg-lavender animate-pulse" />
             03 // LIVE CLIENT SIMULATOR
           </div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-ink leading-tight">
             See How Simple It Is to{' '}
-            <span className="font-editorial italic font-normal text-electric">
+            <span className="font-editorial italic font-normal text-lavender">
               Update Your Link
             </span>
           </h2>
@@ -183,7 +183,7 @@ export function InteractiveSimulator() {
                         onClick={() => setTargetUrl(p.url)}
                         className={`text-xs px-3 py-1.5 rounded-lg border transition-all ${
                           targetUrl === p.url
-                            ? 'bg-electric/15 border-electric text-electric font-semibold'
+                            ? 'bg-lavender/15 border-lavender text-lavender font-semibold'
                             : 'bg-surface-soft border-surface-border text-ink-muted hover:text-ink hover:bg-surface-subtle'
                         }`}
                       >
@@ -205,7 +205,7 @@ export function InteractiveSimulator() {
                 type="button"
                 onClick={handleSimulateScan}
                 disabled={simulatingRedirect}
-                className="w-full flex items-center justify-center gap-2.5 py-3.5 px-5 rounded-xl font-bold text-sm bg-electric hover:bg-electric-hover text-white shadow-md transition-all duration-200 disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-2.5 py-3.5 px-5 rounded-xl font-bold text-sm bg-lavender hover:bg-lavender-hover text-white shadow-md shadow-lavender/25 hover:shadow-glow-lavender transition-all duration-200 disabled:opacity-50"
               >
                 {simulatingRedirect ? (
                   <>
@@ -227,8 +227,8 @@ export function InteractiveSimulator() {
 
               {/* Simulation Result feedback */}
               {redirectLog && (
-                <div className="mt-3.5 p-4 bg-electric/10 border border-electric/30 rounded-xl font-mono text-xs text-electric flex items-center gap-2.5">
-                  <span className="w-2 h-2 rounded-full bg-electric animate-ping shrink-0" />
+                <div className="mt-3.5 p-4 bg-lavender/10 border border-lavender/30 rounded-xl font-mono text-xs text-lavender flex items-center gap-2.5">
+                  <span className="w-2 h-2 rounded-full bg-lavender animate-ping shrink-0" />
                   <span className="break-all">{redirectLog}</span>
                 </div>
               )}

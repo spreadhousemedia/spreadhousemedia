@@ -42,7 +42,7 @@ export function AboutFounderSection() {
             <div className="lg:col-span-5 flex flex-col items-center text-center">
               <div className="relative group">
                 {/* Ambient glow behind image */}
-                <div className="absolute inset-0 bg-gradient-to-tr from-electric/20 to-cyan-500/20 rounded-3xl blur-xl transition-all duration-300 group-hover:blur-2xl" />
+                <div className="absolute inset-0 bg-gradient-to-tr from-lavender/25 to-cetacean/25 rounded-3xl blur-xl transition-all duration-300 group-hover:blur-2xl" />
 
                 {/* Portrait Image */}
                 <div className="relative w-64 h-80 sm:w-72 sm:h-96 rounded-3xl overflow-hidden border-2 border-white shadow-2xl bg-white">

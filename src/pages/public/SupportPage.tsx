@@ -216,7 +216,7 @@ export function SupportPage() {
                         onClick={() => setCategory(cat.id)}
                         className={`p-3.5 rounded-2xl border text-left transition-all ${
                           category === cat.id
-                            ? 'border-electric bg-blue-50/70 shadow-xs ring-1 ring-electric'
+                            ? 'border-electric bg-lavender/10 shadow-xs ring-1 ring-electric'
                             : 'border-surface-border bg-white hover:bg-slate-50'
                         }`}
                       >
@@ -348,7 +348,7 @@ export function SupportPage() {
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-xs sm:text-sm font-bold text-white bg-electric hover:bg-electric-hover shadow-md hover:shadow-glow-blue transition-all disabled:opacity-50"
+                    className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-xs sm:text-sm font-bold text-white bg-electric hover:bg-electric-hover shadow-md hover:shadow-glow-lavender transition-all disabled:opacity-50"
                   >
                     <span>{submitting ? 'Submitting Query...' : 'Submit Query'}</span>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">

@@ -48,12 +48,12 @@ export function ComparisonSection() {
     <section id="comparison" className="py-28 bg-white relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto mb-16">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-medium tracking-wider text-electric bg-electric/10 border border-electric/20 mb-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-medium tracking-wider text-lavender bg-lavender/10 border border-lavender/20 mb-4">
             06 // COMPARATIVE ANALYSIS
           </div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-ink tracking-tight leading-tight">
             Traditional Static QR vs.{' '}
-            <span className="font-editorial italic font-normal text-electric">
+            <span className="font-editorial italic font-normal text-lavender">
               Spread NFC Dynamic QR
             </span>
           </h2>
@@ -69,7 +69,7 @@ export function ComparisonSection() {
                 <tr className="border-b border-surface-border bg-surface-soft">
                   <th className="py-5 px-6 font-bold text-ink w-1/4">Feature</th>
                   <th className="py-5 px-6 font-bold text-ink-muted w-3/8">Traditional Static QR</th>
-                  <th className="py-5 px-6 font-bold text-electric bg-electric/5 w-3/8">
+                  <th className="py-5 px-6 font-bold text-lavender bg-lavender/5 w-3/8">
                     Spread NFC Smart Dynamic QR
                   </th>
                 </tr>
@@ -84,7 +84,7 @@ export function ComparisonSection() {
                         <span>{row.staticQr}</span>
                       </div>
                     </td>
-                    <td className="py-5 px-6 text-ink bg-electric/5 font-medium">
+                    <td className="py-5 px-6 text-ink bg-lavender/5 font-medium">
                       <div className="flex items-start gap-2.5">
                         <span className="text-emerald-600 shrink-0 font-bold">✓</span>
                         <span>{row.spreadNfc}</span>

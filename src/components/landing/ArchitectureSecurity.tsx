@@ -52,18 +52,18 @@ export function ArchitectureSecurity() {
       {/* Background Architectural Grid Pattern */}
       <div className="absolute inset-0 bg-grid-architectural opacity-50 pointer-events-none" />
 
-      {/* Atmospheric Soft Royal Blue Ambient Glow */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] bg-electric/5 rounded-full blur-[140px] pointer-events-none" />
+      {/* Atmospheric Ambient Glow */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] bg-lavender/5 rounded-full blur-[140px] pointer-events-none" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="text-center max-w-3xl mx-auto mb-16">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-medium tracking-wider text-electric bg-electric/10 border border-electric/20 mb-4">
-            <span className="w-1.5 h-1.5 rounded-full bg-electric animate-pulse" />
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-medium tracking-wider text-lavender bg-lavender/10 border border-lavender/20 mb-4">
+            <span className="w-1.5 h-1.5 rounded-full bg-lavender animate-pulse" />
             08 // TRUST &amp; PROTECTION
           </div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-ink tracking-tight leading-tight">
             Reliability and Security Built for{' '}
-            <span className="font-editorial italic font-normal text-electric">
+            <span className="font-editorial italic font-normal text-lavender">
               Your Brand
             </span>
           </h2>
@@ -76,15 +76,15 @@ export function ArchitectureSecurity() {
           {pillars.map((p, i) => (
             <div
               key={i}
-              className="bg-surface-soft p-7 sm:p-8 rounded-2xl border border-surface-border hover:border-electric/40 hover:bg-white hover:shadow-xl transition-all duration-300 shadow-sm"
+              className="bg-surface-soft p-7 sm:p-8 rounded-2xl border border-surface-border hover:border-lavender/40 hover:bg-white hover:shadow-xl transition-all duration-300 shadow-sm"
             >
               <div className="flex items-center gap-3.5 mb-4">
-                <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-white border border-surface-border text-electric shadow-xs">
+                <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-white border border-surface-border text-lavender shadow-xs">
                   {p.icon}
                 </span>
                 <div>
                   <h3 className="text-lg font-bold text-ink">{p.title}</h3>
-                  <span className="text-[11px] font-mono font-medium text-electric">{p.subtitle}</span>
+                  <span className="text-[11px] font-mono font-medium text-lavender">{p.subtitle}</span>
                 </div>
               </div>
               <p className="text-xs sm:text-sm text-ink-muted leading-relaxed">

@@ -64,7 +64,7 @@ export function Navbar() {
                   key={link.name}
                   to={link.href}
                   className={`transition-colors ${
-                    active ? 'text-electric font-bold' : 'text-ink-muted hover:text-ink'
+                    active ? 'text-lavender font-bold' : 'text-ink-muted hover:text-ink'
                   }`}
                 >
                   {link.name}
@@ -114,7 +114,7 @@ export function Navbar() {
                   to={link.href}
                   onClick={() => setMobileMenuOpen(false)}
                   className={`block text-sm py-1.5 ${
-                    active ? 'text-electric font-bold' : 'font-semibold text-ink-muted hover:text-ink'
+                    active ? 'text-lavender font-bold' : 'font-semibold text-ink-muted hover:text-ink'
                   }`}
                 >
                   {link.name}

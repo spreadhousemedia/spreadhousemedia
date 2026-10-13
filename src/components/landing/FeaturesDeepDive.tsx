@@ -161,12 +161,12 @@ export function FeaturesDeepDive() {
     <section id="benefits" className="py-28 bg-surface-soft border-y border-surface-border relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto mb-16">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-medium tracking-wider text-electric bg-electric/10 border border-electric/20 mb-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-medium tracking-wider text-lavender bg-lavender/10 border border-lavender/20 mb-4">
             05 // CLIENT ADVANTAGES
           </div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-ink tracking-tight leading-tight">
             Built for Real-World{' '}
-            <span className="font-editorial italic font-normal text-electric">
+            <span className="font-editorial italic font-normal text-lavender">
               Business Agility
             </span>
           </h2>
@@ -184,7 +184,7 @@ export function FeaturesDeepDive() {
               onClick={() => setActiveTab(feature.id)}
               className={`px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all duration-200 ${
                 activeTab === feature.id
-                  ? 'bg-electric text-white shadow-md'
+                  ? 'bg-lavender text-white shadow-md shadow-lavender/25'
                   : 'bg-white text-ink-muted hover:text-ink hover:bg-surface-subtle border border-surface-border'
               }`}
             >
@@ -199,7 +199,7 @@ export function FeaturesDeepDive() {
             {/* Left Content */}
             <div className="lg:col-span-7 space-y-6">
               <div className="flex items-center gap-2.5 flex-wrap">
-                <span className="text-[11px] font-mono font-bold tracking-wider text-electric bg-electric/10 px-2.5 py-1 rounded-md border border-electric/20">
+                <span className="text-[11px] font-mono font-bold tracking-wider text-lavender bg-lavender/10 px-2.5 py-1 rounded-md border border-lavender/20">
                   {currentFeature.badge}
                 </span>
                 <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md">
@@ -236,7 +236,7 @@ export function FeaturesDeepDive() {
               <div className="pt-4">
                 <Link
                   to="/update"
-                  className="inline-flex items-center gap-2 text-xs font-bold text-electric hover:text-electric-hover transition-colors"
+                  className="inline-flex items-center gap-2 text-xs font-bold text-lavender hover:text-lavender-hover transition-colors"
                 >
                   <span>Experience the Update Portal</span>
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">

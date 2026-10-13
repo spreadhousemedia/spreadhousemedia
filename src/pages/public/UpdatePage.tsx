@@ -98,7 +98,7 @@ export function UpdatePage() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-surface-soft text-ink px-4 py-12 relative overflow-hidden">
       {/* Diffused ambient light fields */}
       <div className="absolute -top-40 -right-40 w-96 h-96 bg-electric/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-cyan-glow/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-lavender/10 rounded-full blur-3xl pointer-events-none" />
 
       {/* Spread NFC Brand Header */}
       <div className="mb-6 text-center relative z-10">

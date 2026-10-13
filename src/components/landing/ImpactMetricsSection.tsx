@@ -72,10 +72,10 @@ export function ImpactMetricsSection() {
       glow: 'hover:border-electric/40',
     },
     indigo: {
-      badge: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-      iconBg: 'bg-indigo-50 text-indigo-600 border border-indigo-200/60',
-      text: 'text-indigo-600',
-      glow: 'hover:border-indigo-500/40',
+      badge: 'bg-lavender/10 text-lavender border-lavender/25',
+      iconBg: 'bg-lavender/10 text-lavender border border-lavender/20',
+      text: 'text-lavender',
+      glow: 'hover:border-lavender/40',
     },
     amber: {
       badge: 'bg-amber-50 text-amber-700 border-amber-200',

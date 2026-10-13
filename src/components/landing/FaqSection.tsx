@@ -43,12 +43,12 @@ export function FaqSection() {
     <section id="faq" className="py-28 bg-surface-soft border-t border-surface-border relative">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-medium tracking-wider text-electric bg-electric/10 border border-electric/20 mb-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-medium tracking-wider text-lavender bg-lavender/10 border border-lavender/20 mb-4">
             08 // QUESTIONS & ANSWERS
           </div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-ink tracking-tight leading-tight">
             Client & User{' '}
-            <span className="font-editorial italic font-normal text-electric">
+            <span className="font-editorial italic font-normal text-lavender">
               Help Center
             </span>
           </h2>
@@ -68,12 +68,12 @@ export function FaqSection() {
                 <button
                   type="button"
                   onClick={() => setOpenIndex(isOpen ? null : idx)}
-                  className="w-full py-5 px-6 text-left flex items-center justify-between gap-4 font-bold text-ink hover:text-electric transition-colors"
+                  className="w-full py-5 px-6 text-left flex items-center justify-between gap-4 font-bold text-ink hover:text-lavender transition-colors"
                 >
                   <span className="text-sm sm:text-base">{faq.q}</span>
                   <span
                     className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-subtle text-ink-muted transition-transform duration-200 ${
-                      isOpen ? 'rotate-180 bg-electric/10 text-electric' : ''
+                      isOpen ? 'rotate-180 bg-lavender/10 text-lavender' : ''
                     }`}
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">

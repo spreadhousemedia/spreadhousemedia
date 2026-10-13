@@ -33,7 +33,7 @@ export function Login() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-surface-soft px-4 relative overflow-hidden">
       <div className="absolute -top-40 -right-40 w-96 h-96 bg-electric/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-cyan-glow/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-lavender/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="w-full max-w-sm rounded-2xl border border-surface-border bg-white p-8 sm:p-9 shadow-xl relative z-10">
         <div className="mb-6 flex flex-col items-center text-center">

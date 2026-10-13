@@ -136,7 +136,7 @@ export function ContactPage() {
                     </strong>
                     <span className="text-[9px] text-emerald-600 block">{quote.discountPct}% off</span>
                   </div>
-                  <div className="bg-blue-50/80 p-3 rounded-2xl border border-blue-200">
+                  <div className="bg-lavender/10 p-3 rounded-2xl border border-lavender/25">
                     <span className="text-[10px] font-mono text-electric block font-semibold">Est. Total</span>
                     <strong className="text-sm sm:text-base font-extrabold text-electric">₹{quote.total}</strong>
                     <span className="text-[9px] text-ink-muted block">Includes GST</span>
@@ -269,7 +269,7 @@ export function ContactPage() {
                     <button
                       type="submit"
                       disabled={submitting}
-                      className="w-full py-3.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-electric hover:bg-electric-hover shadow-md hover:shadow-glow-blue transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50"
+                      className="w-full py-3.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-electric hover:bg-electric-hover shadow-md hover:shadow-glow-lavender transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50"
                     >
                       <span>{submitting ? 'Submitting Inquiry...' : 'Request Enterprise Quote & Digital Proof'}</span>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -370,7 +370,7 @@ export function ContactPage() {
                   </div>
 
                   <div className="flex items-start gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-editorial border border-surface-border shrink-0 text-indigo-600">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-editorial border border-surface-border shrink-0 text-electric">
                       🏢
                     </div>
                     <div>

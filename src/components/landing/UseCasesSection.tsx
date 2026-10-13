@@ -59,12 +59,12 @@ export function UseCasesSection() {
     <section id="use-cases" className="py-28 bg-surface-soft border-t border-surface-border relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto mb-16">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-medium tracking-wider text-electric bg-electric/10 border border-electric/20 mb-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-medium tracking-wider text-lavender bg-lavender/10 border border-lavender/20 mb-4">
             07 // VERSATILITY
           </div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-ink tracking-tight leading-tight">
             Tailored for Physical{' '}
-            <span className="font-editorial italic font-normal text-electric">
+            <span className="font-editorial italic font-normal text-lavender">
               Business Environments
             </span>
           </h2>
@@ -77,11 +77,11 @@ export function UseCasesSection() {
           {cases.map((c, i) => (
             <div
               key={i}
-              className="bg-white rounded-2xl p-7 border border-surface-border hover:border-electric/40 transition-all duration-200 hover:shadow-xl flex flex-col justify-between"
+              className="bg-white rounded-2xl p-7 border border-surface-border hover:border-lavender/40 transition-all duration-200 hover:shadow-xl flex flex-col justify-between"
             >
               <div>
                 <div className="flex items-center justify-between mb-6">
-                  <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-surface-soft border border-surface-border text-electric">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-surface-soft border border-surface-border text-lavender">
                     {c.icon}
                   </span>
                   <span className="text-[10px] font-mono font-semibold tracking-wider text-ink-muted uppercase bg-surface-subtle px-2.5 py-1 rounded-md">
@@ -89,7 +89,7 @@ export function UseCasesSection() {
                   </span>
                 </div>
                 <h3 className="text-base font-bold text-ink mb-1">{c.title}</h3>
-                <p className="text-xs font-semibold text-electric mb-3">{c.tagline}</p>
+                <p className="text-xs font-semibold text-lavender mb-3">{c.tagline}</p>
                 <p className="text-xs sm:text-sm text-ink-muted leading-relaxed">
                   {c.description}
                 </p>
