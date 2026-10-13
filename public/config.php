@@ -20,7 +20,7 @@
 // ─────────────────────────────────────────────────────────────
 // YOUR SUPABASE CREDENTIALS — Replace with your real values
 // ─────────────────────────────────────────────────────────────
-define('SUPABASE_URL',      'https://YOUR_PROJECT_ID.supabase.co');
+define('SUPABASE_URL',      'https://dvuuturphjumffqyigtz.supabase.co');
 define('SUPABASE_ANON_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.YOUR_REAL_ANON_KEY');
 
 // ─────────────────────────────────────────────────────────────
