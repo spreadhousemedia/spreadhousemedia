@@ -21,7 +21,7 @@
 // YOUR SUPABASE CREDENTIALS — Replace with your real values
 // ─────────────────────────────────────────────────────────────
 define('SUPABASE_URL',      'https://dvuuturphjumffqyigtz.supabase.co');
-define('SUPABASE_ANON_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.YOUR_REAL_ANON_KEY');
+define('SUPABASE_ANON_KEY', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR2dXV0dXJwaGp1bWZmcXlpZ3R6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE4Nzk2NTMsImV4cCI6MjEwNzQ1NTY1M30.9oiTvJCDnX9j8EQylGoHlgctew0LBoPdVahnPMOO5Q8');
 
 // ─────────────────────────────────────────────────────────────
 // YOUR SITE URL — Used in HTML error pages
