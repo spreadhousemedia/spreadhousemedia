@@ -335,7 +335,7 @@ export function UpdatePage() {
                     </p>
                     <ul className="space-y-1.5 text-ink-muted list-disc list-inside">
                       <li>
-                        <strong className="text-ink"> Method 1:</Scan your QR and check the end of the URL you get. Your QR code number!
+                        <strong className="text-ink">Method 1:</strong> Scan your QR and check the end of the URL you get. Your QR code number!
                       </li>
                       <li>
                         <strong className="text-ink">Method 2:</strong> File the complaint in the support section. Choose the appropriate problem. Within 2 business days, we resolve your problem.
@@ -808,3 +808,4 @@ function HeaderBadge({
     </div>
   )
 }
+
