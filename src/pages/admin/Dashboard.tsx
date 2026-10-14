@@ -143,7 +143,7 @@ export function Dashboard() {
         </button>
       </div>
 
-      {/* Summary Stat Cards Grid */}
+            {/* Summary Stat Cards Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-4 lg:gap-5">
         <SummaryCard
           label="Total QR Codes"
@@ -154,20 +154,20 @@ export function Dashboard() {
           subtext="All dynamic QRs"
         />
         <SummaryCard
-          label="Destination Links"
+          label="Active Links"
           value={counts?.destinationLinks}
           type="links"
           loading={loading}
           to="/admin/manage?link=set"
-          subtext={counts ? `${counts.unlinked} unassigned` : undefined}
+          subtext={counts ? `${counts.unlinked} pending` : undefined}
         />
         <SummaryCard
-          label="Active QR Codes"
-          value={counts?.active}
-          type="active"
+          label="Pending Links"
+          value={counts?.unlinked}
+          type="links"
           loading={loading}
-          to="/admin/manage?status=active"
-          subtext="Live redirects"
+          to="/admin/manage?link=unset"
+          subtext="Needs connection"
         />
         <SummaryCard
           label="Inactive QR Codes"
@@ -182,8 +182,8 @@ export function Dashboard() {
           value={counts?.batches}
           type="batches"
           loading={loading}
-          to="/admin/bulk"
-          subtext="Batch series"
+          to="/admin/batches"
+          subtext="View all batches"
           className="col-span-2 sm:col-span-1"
         />
       </div>
@@ -208,7 +208,7 @@ export function Dashboard() {
           </Link>
 
           <Link
-            to="/admin/bulk"
+            to="/admin/batches"
             className="theme-subtle group flex items-center justify-between rounded-xl border px-4 py-3.5 text-sm font-semibold theme-hover transition-all hover:scale-[1.01]"
           >
             <span className="flex items-center gap-2.5">
@@ -718,3 +718,8 @@ function SummaryCard({
 
   return cardContent
 }
+
+
+
+
+

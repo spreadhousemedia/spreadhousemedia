@@ -27,6 +27,7 @@ const BulkQR = lazy(() => import('./pages/admin/BulkQR').then((m) => ({ default:
 const UploadCSV = lazy(() => import('./pages/admin/UploadCSV').then((m) => ({ default: m.UploadCSV })))
 const ManageQR = lazy(() => import('./pages/admin/ManageQR').then((m) => ({ default: m.ManageQR })))
 const DataBackup = lazy(() => import('./pages/admin/DataBackup').then((m) => ({ default: m.DataBackup })))
+const Batches = lazy(() => import('./pages/admin/Batches').then((m) => ({ default: m.Batches })))
 
 function PageFallback() {
   return (
@@ -62,7 +63,7 @@ export default function App() {
                   <Route path="bulk" element={<BulkQR />} />
                   <Route path="upload" element={<UploadCSV />} />
                   <Route path="manage" element={<ManageQR />} />
-                  <Route path="backup" element={<DataBackup />} />
+                  <Route path="backup" element={<DataBackup />} />`n                  <Route path="batches" element={<Batches />} />
                 </Route>
               </Route>
 
@@ -75,3 +76,6 @@ export default function App() {
     </ThemeProvider>
   )
 }
+
+
+
