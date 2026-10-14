@@ -11,6 +11,9 @@ export interface MockQr {
   status: 'active' | 'inactive'
   batch_id: string | null
   password: string
+  password_changed?: boolean
+  claimed_at?: string | null
+  owner_email?: string | null
   scan_count: number
   created_at: string
   updated_at: string
@@ -79,6 +82,9 @@ function initStorage(): { qrs: MockQr[]; batches: MockBatch[] } {
         status: 'active',
         batch_id: 'batch-1',
         password: 'password',
+        password_changed: true,
+        claimed_at: new Date(Date.now() - 86400000 * 2).toISOString(),
+        owner_email: 'cafe.owner@example.com',
         scan_count: 142,
         created_at: new Date(Date.now() - 86400000 * 3).toISOString(),
         updated_at: new Date(Date.now() - 86400000 * 3).toISOString(),
@@ -91,6 +97,9 @@ function initStorage(): { qrs: MockQr[]; batches: MockBatch[] } {
         status: 'active',
         batch_id: 'batch-1',
         password: 'password',
+        password_changed: true,
+        claimed_at: new Date(Date.now() - 86400000 * 1).toISOString(),
+        owner_email: 'bar.manager@example.com',
         scan_count: 89,
         created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
         updated_at: new Date(Date.now() - 86400000 * 2).toISOString(),
@@ -103,6 +112,9 @@ function initStorage(): { qrs: MockQr[]; batches: MockBatch[] } {
         status: 'active',
         batch_id: 'batch-1',
         password: 'password',
+        password_changed: false,
+        claimed_at: null,
+        owner_email: null,
         scan_count: 45,
         created_at: new Date(Date.now() - 86400000 * 1).toISOString(),
         updated_at: new Date(Date.now() - 86400000 * 1).toISOString(),
@@ -115,6 +127,9 @@ function initStorage(): { qrs: MockQr[]; batches: MockBatch[] } {
         status: 'active',
         batch_id: 'batch-1',
         password: 'password',
+        password_changed: false,
+        claimed_at: null,
+        owner_email: null,
         scan_count: 0,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -171,6 +186,9 @@ export const mockDb = {
       status: params.p_status ?? 'active',
       batch_id: null,
       password: params.p_password ?? '123456',
+      password_changed: false,
+      claimed_at: null,
+      owner_email: null,
       scan_count: 0,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -261,6 +279,9 @@ export const mockDb = {
         status: 'active',
         batch_id: batchId,
         password: pwd,
+        password_changed: false,
+        claimed_at: null,
+        owner_email: null,
         scan_count: 0,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -327,6 +348,9 @@ export const mockDb = {
           status: 'active',
           batch_id: null,
           password: pwd,
+          password_changed: false,
+          claimed_at: null,
+          owner_email: null,
           scan_count: 0,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -361,12 +385,69 @@ export const mockDb = {
     return { data: { ok: true }, error: null }
   },
 
+  resetQrUnclaimed(params: { p_qr_id: string; p_new_setup_code: string }) {
+    const qrs = this.getQrs()
+    const target = qrs.find((q) => q.id === params.p_qr_id)
+    if (!target) return { data: { ok: false, error: 'not_found' }, error: null }
+    target.password = params.p_new_setup_code.trim()
+    target.password_changed = false
+    target.claimed_at = null
+    target.owner_email = null
+    target.updated_at = new Date().toISOString()
+    this.saveQrs(qrs)
+    return { data: { ok: true }, error: null }
+  },
+
   requestQrUpdate(params: { p_qr_number: string }) {
     const qrs = this.getQrs()
     const target = qrs.find((q) => q.qr_number.toUpperCase() === params.p_qr_number.trim().toUpperCase())
     if (!target) return { data: { ok: false, error: 'not_found' }, error: null }
     if (target.status !== 'active') return { data: { ok: false, error: 'inactive' }, error: null }
-    return { data: { ok: true }, error: null }
+    return {
+      data: {
+        ok: true,
+        is_claimed: !!target.password_changed,
+        destination_url: target.destination_url,
+        qr_number: target.qr_number,
+        owner_email: target.owner_email,
+      },
+      error: null,
+    }
+  },
+
+  claimQr(params: {
+    p_qr_number: string
+    p_setup_code: string
+    p_new_password: string
+    p_destination_url?: string | null
+    p_owner_email?: string | null
+  }) {
+    const qrs = this.getQrs()
+    const target = qrs.find((q) => q.qr_number.toUpperCase() === params.p_qr_number.trim().toUpperCase())
+    if (!target) return { data: { ok: false, error: 'not_found' }, error: null }
+    if (target.status !== 'active') return { data: { ok: false, error: 'inactive' }, error: null }
+    if (target.password_changed) return { data: { ok: false, error: 'already_claimed' }, error: null }
+
+    if (target.password.trim() !== params.p_setup_code.trim()) {
+      return { data: { ok: false, error: 'wrong_setup_code' }, error: null }
+    }
+
+    if (!params.p_new_password || params.p_new_password.length < 4) {
+      return { data: { ok: false, error: 'password_too_short' }, error: null }
+    }
+
+    target.password = params.p_new_password
+    target.password_changed = true
+    target.claimed_at = new Date().toISOString()
+    if (params.p_destination_url) {
+      target.destination_url = params.p_destination_url.trim()
+    }
+    if (params.p_owner_email) {
+      target.owner_email = params.p_owner_email.trim()
+    }
+    target.updated_at = new Date().toISOString()
+    this.saveQrs(qrs)
+    return { data: { ok: true, qr_number: target.qr_number }, error: null }
   },
 
   confirmQrUpdate(params: { p_qr_number: string; p_new_url: string; p_password: string }) {
@@ -391,7 +472,11 @@ export const mockDb = {
     target.scan_count = (target.scan_count || 0) + 1
     this.saveQrs(qrs)
     return {
-      data: [{ status: target.status, destination_url: target.destination_url }],
+      data: [{
+        status: target.status,
+        destination_url: target.destination_url,
+        is_claimed: !!target.password_changed,
+      }],
       error: null,
     }
   },

@@ -53,3 +53,22 @@ export function invalidateAdminQrCache(): void {
   clearCachePrefix('qr_')
   clearCachePrefix('batches_')
 }
+
+/**
+ * Invalidate cached redirect URL for a specific QR number or all redirects.
+ * Ensures scanners immediately see updated destinations without stale cache.
+ */
+export function invalidateQrRedirectCache(qrNumber?: string): void {
+  if (qrNumber) {
+    const norm = qrNumber.toUpperCase().trim()
+    cacheStore.delete(`redirect_${norm}`)
+    try {
+      sessionStorage.removeItem(`qr_dest_${norm}`)
+    } catch {
+      // ignore in environments without sessionStorage
+    }
+  } else {
+    clearCachePrefix('redirect_')
+  }
+  clearCachePrefix('qr_')
+}

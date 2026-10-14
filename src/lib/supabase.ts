@@ -223,6 +223,10 @@ export const supabase = {
           return mockDb.processCsv(params)
         case 'admin_reset_qr_password':
           return mockDb.resetPassword(params)
+        case 'admin_reset_qr_unclaimed':
+          return mockDb.resetQrUnclaimed(params)
+        case 'customer_claim_qr':
+          return mockDb.claimQr(params)
         case 'request_qr_update':
           return mockDb.requestQrUpdate(params)
         case 'confirm_qr_update':

@@ -8,6 +8,10 @@ export interface QrCode {
   destination_url: string | null
   status: QrStatus
   batch_id: string | null
+  password_changed?: boolean
+  claimed_at?: string | null
+  owner_email?: string | null
+  requires_setup_code?: boolean
   created_at: string
   updated_at: string
 }
@@ -30,7 +34,12 @@ export const RPC_ERROR_MESSAGES: Record<string, string> = {
   inactive: 'This QR code is inactive. Please contact the administrator.',
   invalid_url: 'Please enter a valid URL.',
   wrong_password: 'Incorrect password. Please enter the correct password.',
+  wrong_setup_code: 'Incorrect setup code. Please check the code printed on your packaging slip.',
+  already_claimed: 'This QR card is already activated. Please use your personal password to update the link.',
+  password_mismatch: 'Passwords do not match.',
   rate_limited: 'Too many attempts. Please try again later.',
+  too_many_attempts: 'Too many incorrect attempts. Temporary cooldown active. Please wait 5 minutes before trying again.',
+  missing_setup_code: 'Packaging setup code is required to activate this card.',
   duplicate_qr_number: 'This QR number already exists.',
   invalid_qr_number: 'QR numbers may only contain letters, numbers, hyphens and underscores.',
   missing_qr_name: 'QR name is required.',

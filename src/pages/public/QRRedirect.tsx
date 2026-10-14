@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { Spinner } from '../../components/Spinner'
+import { getCached, setCached } from '../../lib/cache'
 
 type ViewState = 'loading' | 'not_found' | 'inactive' | 'redirecting' | 'setup' | 'error'
 
@@ -18,7 +19,19 @@ export function QRRedirect() {
         setState('not_found')
         return
       }
-      const { data, error } = await supabase.rpc('get_qr_redirect', { p_qr_number: qrNumber })
+
+      const normQr = qrNumber.toUpperCase().trim()
+
+      // 1. Instant Cache Check (sub-millisecond instant redirect for repeated visits/scans)
+      const cachedUrl = getCached<string>(`redirect_${normQr}`)
+      if (cachedUrl) {
+        setState('redirecting')
+        window.location.replace(cachedUrl)
+        return
+      }
+
+      // 2. Fetch destination from database
+      const { data, error } = await supabase.rpc('get_qr_redirect', { p_qr_number: normQr })
       if (cancelled) return
 
       if (error) {
@@ -37,19 +50,20 @@ export function QRRedirect() {
         return
       }
 
-      // First scan of a freshly created QR: no destination has been set yet.
-      // Send the scanner straight to the setup flow instead of nowhere.
-      if (!row.destination_url) {
+      // First scan of a freshly created / unlinked QR: no destination has been set yet.
+      // Route scanner straight to the First-Time Activation flow!
+      if (!row.destination_url || row.destination_url.trim().length === 0) {
         setState('setup')
-        // Use a small delay so the user sees a helpful message before redirect
         setTimeout(() => {
           if (!cancelled) {
-            navigate(`/update?qr=${encodeURIComponent(qrNumber)}`, { replace: true })
+            navigate(`/update?qr=${encodeURIComponent(normQr)}`, { replace: true })
           }
-        }, 800)
+        }, 500)
         return
       }
 
+      // Existing QR code: cache for 30s TTL and redirect immediately WITHOUT login
+      setCached(`redirect_${normQr}`, row.destination_url, 30_000)
       setState('redirecting')
       window.location.replace(row.destination_url)
     }
@@ -72,7 +86,7 @@ export function QRRedirect() {
         {state === 'setup' && (
           <>
             <Spinner size={32} className="mx-auto text-lavender" />
-            <p className="mt-4 text-sm font-medium text-gray-600">Setting up your device…</p>
+            <p className="mt-4 text-sm font-medium text-gray-600">Setting up your new device…</p>
           </>
         )}
         {state === 'not_found' && (
@@ -82,7 +96,7 @@ export function QRRedirect() {
             </IconCircle>
             <h1 className="mt-4 text-lg font-semibold text-gray-900">Device Not Found</h1>
             <p className="mt-2 text-sm text-gray-500">
-              QR code <span className="font-mono font-bold">{qrNumber}</span> is not registered. Please check the serial number and try again.
+              QR code <span className="font-mono font-bold">{qrNumber}</span> is not registered. Please check the QR code number and try again.
             </p>
           </>
         )}

@@ -22,6 +22,8 @@ import {
   Plus,
   UploadCloud,
   RefreshCw,
+  Sparkles,
+  CheckCircle2,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { qrPublicUrl } from '../../lib/config'
@@ -154,7 +156,7 @@ export function ManageQR() {
         setLoading(false)
       }
     }
-  }, [applyFilters, debouncedSearch, statusFilter, batchFilter, page])
+  }, [applyFilters, debouncedSearch, statusFilter, batchFilter, linkFilter, page])
 
   useEffect(() => {
     const cachedBatches = getCached<Batch[]>('batches_list')
@@ -433,6 +435,7 @@ export function ManageQR() {
           </select>
           <Filter className="theme-text-muted absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none" />
         </div>
+
 
         {/* Batch Filter */}
         <div className="relative sm:w-48">
@@ -770,7 +773,7 @@ export function ManageQR() {
                     className="mt-1 h-4 w-4 rounded border-zinc-300 dark:border-zinc-700 text-brand-600"
                   />
                   <div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="theme-text-main font-mono font-bold text-base">
                         {row.qr_number}
                       </span>

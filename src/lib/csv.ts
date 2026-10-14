@@ -28,7 +28,10 @@ export async function downloadSampleCsv(): Promise<void> {
 }
 
 export async function downloadPasswordsCsv(rows: { qr_number: string; password: string }[], fileName: string): Promise<void> {
-  const lines = ['qr_number,password', ...rows.map((r) => `${r.qr_number},${r.password}`)]
+  const lines = [
+    'qr_number,setup_code,instructions',
+    ...rows.map((r) => `${r.qr_number},${r.password},"Customer enters this Setup Code upon first scan to set their own password"`),
+  ]
   downloadBlob(lines.join('\r\n'), fileName.endsWith('.csv') ? fileName : `${fileName}.csv`, 'text/csv;charset=utf-8')
 }
 

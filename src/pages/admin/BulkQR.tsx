@@ -393,7 +393,7 @@ export function BulkQR() {
               className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 px-4 py-3 text-sm font-semibold text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-colors shadow-sm"
             >
               <FileSpreadsheet className="h-4 w-4" />
-              <span>Download Passwords CSV (One-Time Export)</span>
+              <span>Download Packaging Setup Codes CSV (For Welcome Slips)</span>
             </button>
           )}
 
@@ -620,25 +620,9 @@ export function BulkQR() {
 
         <div>
           <label className="theme-text-main mb-2 block text-xs font-semibold uppercase tracking-wider">
-            Password Mode
+            Initial Setup Code Mode (For Packaging Slips)
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            <button
-              type="button"
-              onClick={() => setPasswordMode('common')}
-              className={`flex items-start gap-2.5 rounded-xl border p-3 text-left transition-all ${
-                passwordMode === 'common'
-                  ? 'border-brand-500 bg-brand-500/10 text-brand-500'
-                  : 'theme-subtle theme-hover'
-              }`}
-            >
-              <ShieldCheck className="h-4 w-4 shrink-0 mt-0.5 text-brand-500" />
-              <div>
-                <span className="theme-text-main text-xs font-bold block">Same Password</span>
-                <span className="theme-text-muted text-[11px]">One shared key for all</span>
-              </div>
-            </button>
-
             <button
               type="button"
               onClick={() => setPasswordMode('unique')}
@@ -650,27 +634,49 @@ export function BulkQR() {
             >
               <KeyRound className="h-4 w-4 shrink-0 mt-0.5 text-brand-500" />
               <div>
-                <span className="theme-text-main text-xs font-bold block">Unique Passwords</span>
-                <span className="theme-text-muted text-[11px]">Exportable one-time CSV</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="theme-text-main text-xs font-bold block">Unique Codes</span>
+                  <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.2 rounded">Recommended</span>
+                </div>
+                <span className="theme-text-muted text-[11px]">Separate code per card slip</span>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setPasswordMode('common')}
+              className={`flex items-start gap-2.5 rounded-xl border p-3 text-left transition-all ${
+                passwordMode === 'common'
+                  ? 'border-brand-500 bg-brand-500/10 text-brand-500'
+                  : 'theme-subtle theme-hover'
+              }`}
+            >
+              <ShieldCheck className="h-4 w-4 shrink-0 mt-0.5 text-brand-500" />
+              <div>
+                <span className="theme-text-main text-xs font-bold block">Shared Setup Code</span>
+                <span className="theme-text-muted text-[11px]">For single client / internal team</span>
               </div>
             </button>
           </div>
         </div>
 
         {passwordMode === 'common' && (
-          <Field label="Common Password" error={fieldErrors.commonPassword}>
+          <Field label="Common Setup Code" error={fieldErrors.commonPassword}>
             <input
               value={commonPassword}
               onChange={(e) => setCommonPassword(e.target.value)}
-              placeholder="Applied to every QR in this batch"
+              placeholder="e.g. TF-BATCH-SETUP"
               className={inputClass(!!fieldErrors.commonPassword)}
             />
+            <p className="theme-text-muted mt-1 text-[11px]">
+              This setup code will be printed on all slips in this batch.
+            </p>
           </Field>
         )}
 
         {passwordMode === 'unique' && (
           <p className="rounded-xl border border-brand-200/80 dark:border-brand-500/20 bg-brand-50/70 dark:bg-brand-500/10 p-3 text-xs text-brand-800 dark:text-brand-300">
-            A unique secure password will be generated for every QR in this batch. You will receive a CSV download button once generated.
+            A unique random Setup Code will be generated for each card in this batch. You will receive a CSV download button to print welcome slips for your delivery boxes. Customers will use their code to claim the card and set their own private password.
           </p>
         )}
 

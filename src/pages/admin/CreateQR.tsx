@@ -35,9 +35,16 @@ export function CreateQR() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [created, setCreated] = useState<{ qr_number: string } | null>(null)
+  const [created, setCreated] = useState<{ qr_number: string; setup_code: string } | null>(null)
   const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+
+  // Initialize with a clean auto-generated setup code
+  useEffect(() => {
+    if (!password) {
+      setPassword('TF-' + Math.random().toString(36).slice(2, 6).toUpperCase())
+    }
+  }, [])
 
   useEffect(() => {
     if (!created) {
@@ -52,7 +59,7 @@ export function CreateQR() {
     if (!isValidQrNumber(qrNumber)) errors.qrNumber = 'Use letters, numbers, hyphens or underscores only.'
     if (!qrName.trim()) errors.qrName = 'QR name is required.'
     if (urlValue && !isValidDestinationUrl(urlValue)) errors.destinationUrl = 'Please enter a valid URL.'
-    if (!isValidPassword(password)) errors.password = 'Password must be at least 4 characters.'
+    if (!isValidPassword(password)) errors.password = 'Setup code must be at least 4 characters.'
     setFieldErrors(errors)
     return Object.keys(errors).length === 0
   }
@@ -81,7 +88,7 @@ export function CreateQR() {
       p_qr_number: normalizeQrNumber(qrNumber),
       p_qr_name: qrName.trim(),
       p_destination_url: trimmedUrl,
-      p_password: password,
+      p_password: password.trim(),
       p_status: status,
     })
     setSubmitting(false)
@@ -91,7 +98,7 @@ export function CreateQR() {
       return
     }
     invalidateAdminQrCache()
-    setCreated({ qr_number: data.qr_number })
+    setCreated({ qr_number: data.qr_number, setup_code: password.trim() })
   }
 
   async function handleCopy() {
@@ -105,7 +112,7 @@ export function CreateQR() {
     setQrNumber('')
     setQrName('')
     setDestinationUrl('')
-    setPassword('')
+    setPassword('TF-' + Math.random().toString(36).slice(2, 6).toUpperCase())
     setStatus('active')
     setFieldErrors({})
     setFormError(null)
@@ -123,6 +130,17 @@ export function CreateQR() {
           <p className="theme-text-muted mt-1 text-sm font-mono font-medium">
             {created.qr_number} is ready to print & deploy.
           </p>
+
+          {/* Setup Code Notice for Packaging */}
+          <div className="mt-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 text-left">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-[10px] uppercase tracking-wider text-amber-700">Packaging Setup Code:</span>
+              <span className="font-mono font-extrabold text-sm tracking-wider text-amber-950">{created.setup_code}</span>
+            </div>
+            <p className="text-[11px] text-amber-800/80 mt-1">
+              Print or write this code on the welcome slip inside the box. Customer will use it once to activate their card and set their own password.
+            </p>
+          </div>
 
           {previewDataUrl ? (
             <div className="mx-auto mt-5 flex h-48 w-48 items-center justify-center rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white p-3 shadow-inner">
@@ -239,14 +257,27 @@ export function CreateQR() {
           </p>
         </Field>
 
-        <Field label="Password" icon={Lock} error={fieldErrors.password}>
-          <input
-            type="text"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Password to update this QR later"
-            className={inputClass(!!fieldErrors.password)}
-          />
+        <Field label="Initial Setup Code (Packaging Slip)" icon={Lock} error={fieldErrors.password}>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="e.g. TF-XXXX"
+              className={inputClass(!!fieldErrors.password)}
+            />
+            <button
+              type="button"
+              onClick={() => setPassword('TF-' + Math.random().toString(36).slice(2, 6).toUpperCase())}
+              className="theme-subtle px-3 py-2 rounded-xl border text-xs font-semibold theme-hover shrink-0 transition-colors"
+              title="Generate a random setup code"
+            >
+              Generate
+            </button>
+          </div>
+          <p className="theme-text-muted mt-1.5 text-xs">
+            Print this on the delivery slip inside the box. Customer uses this once upon first scan to claim the card and set their own password.
+          </p>
         </Field>
 
         <div>
