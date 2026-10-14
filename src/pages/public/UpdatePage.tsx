@@ -335,10 +335,10 @@ export function UpdatePage() {
                     </p>
                     <ul className="space-y-1.5 text-ink-muted list-disc list-inside">
                       <li>
-                        <strong className="text-ink">On Smart Cards:</strong> Laser-engraved on the bottom-back of your PVC, Metal, or Bamboo card. Tapping your phone automatically detects it!
+                        <strong className="text-ink"> Method 1:</Scan your QR and check the end of the URL you get. Your QR code number!
                       </li>
                       <li>
-                        <strong className="text-ink">On Tabletop Standees:</strong> Printed directly below the QR code graphic on the acrylic stand.
+                        <strong className="text-ink">Method 2:</strong> File the complaint in the support section. Choose the appropriate problem. Within 2 business days, we resolve your problem.
                       </li>
                     </ul>
                   </div>
