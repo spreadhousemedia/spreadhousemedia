@@ -330,7 +330,7 @@ export function ContactPage() {
                     <div>
                       <span className="font-bold text-ink block">Corporate Sales</span>
                       <a href="mailto:enterprise@spreadnfc.in" className="text-electric hover:underline font-mono">
-                        enterprise@spreadnfc.in
+                       contact@spreadnfc.in
                       </a>
                     </div>
                   </div>
@@ -341,8 +341,8 @@ export function ContactPage() {
                     </div>
                     <div>
                       <span className="font-bold text-ink block">Hardware &amp; Helpdesk</span>
-                      <a href="mailto:support@spreadnfc.in" className="text-electric hover:underline font-mono">
-                        support@spreadnfc.in
+                      <a href="mailto:contact@spreadnfc.in" className="text-electric hover:underline font-mono">
+                        contact@spreadnfc.in
                       </a>
                     </div>
                   </div>
@@ -374,9 +374,9 @@ export function ContactPage() {
                       🏢
                     </div>
                     <div>
-                      <span className="font-bold text-ink block">Hardware Print Studio</span>
+                      <span className="font-bold text-ink block">spreadnfc.in Design And develop By</span>
                       <p className="text-ink-muted leading-relaxed">
-                        ETROMO Digital Innovations Studio<br />
+                        ETROMO.in o<br />
                         Tech Center • India
                       </p>
                     </div>
