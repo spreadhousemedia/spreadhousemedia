@@ -374,10 +374,10 @@ export function ContactPage() {
                       🏢
                     </div>
                     <div>
-                      <span className="font-bold text-ink block">spreadnfc.in Design And develop By</span>
+                      <span className="font-bold text-ink block"> spreadnfc.in Design And develop By </span>
                       <p className="text-ink-muted leading-relaxed">
-                        ETROMO.in o<br />
-                        Tech Center • India
+                        Etromo.in <br />
+                        We design the technology systems for the businesses
                       </p>
                     </div>
                   </div>
