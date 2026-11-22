@@ -33,6 +33,9 @@ CREATE TABLE IF NOT EXISTS public.qr_codes (
     claimed_at TIMESTAMPTZ DEFAULT NULL,
     owner_email TEXT DEFAULT NULL,
     requires_setup_code BOOLEAN NOT NULL DEFAULT true,
+    usage_type TEXT CHECK (usage_type IN ('personal', 'business')) DEFAULT NULL,
+    business_name TEXT DEFAULT NULL,
+    business_purpose TEXT DEFAULT NULL,
     scan_count INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -43,7 +46,47 @@ ALTER TABLE public.qr_codes
     ADD COLUMN IF NOT EXISTS password_changed BOOLEAN NOT NULL DEFAULT false,
     ADD COLUMN IF NOT EXISTS claimed_at TIMESTAMPTZ DEFAULT NULL,
     ADD COLUMN IF NOT EXISTS owner_email TEXT DEFAULT NULL,
-    ADD COLUMN IF NOT EXISTS requires_setup_code BOOLEAN NOT NULL DEFAULT true;
+    ADD COLUMN IF NOT EXISTS requires_setup_code BOOLEAN NOT NULL DEFAULT true,
+    ADD COLUMN IF NOT EXISTS usage_type TEXT CHECK (usage_type IN ('personal', 'business')) DEFAULT NULL,
+    ADD COLUMN IF NOT EXISTS business_name TEXT DEFAULT NULL,
+    ADD COLUMN IF NOT EXISTS business_purpose TEXT DEFAULT NULL;
+
+-- 3A. Personal Multi-Link Digital Profiles (1-to-1 with qr_codes)
+CREATE TABLE IF NOT EXISTS public.qr_profiles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    qr_code_id UUID NOT NULL UNIQUE REFERENCES public.qr_codes(id) ON DELETE CASCADE,
+    profile_name TEXT NOT NULL DEFAULT '',
+    profile_image TEXT DEFAULT NULL,
+    bio TEXT DEFAULT NULL,
+    contact_email TEXT DEFAULT NULL,
+    contact_phone TEXT DEFAULT NULL,
+    public_slug TEXT DEFAULT NULL,
+    theme TEXT NOT NULL DEFAULT 'light' CHECK (theme IN ('light', 'dark')),
+    is_published BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.qr_links (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    qr_profile_id UUID NOT NULL REFERENCES public.qr_profiles(id) ON DELETE CASCADE,
+    platform TEXT NOT NULL,
+    link_title TEXT NOT NULL,
+    destination_url TEXT NOT NULL,
+    icon TEXT DEFAULT NULL,
+    display_order INTEGER NOT NULL DEFAULT 0,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.qr_customer_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    qr_code_id UUID NOT NULL REFERENCES public.qr_codes(id) ON DELETE CASCADE,
+    token_hash TEXT NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
 -- 3B. Rate Limiting Table (Protects against brute-force guessing of setup codes / passwords)
 CREATE TABLE IF NOT EXISTS public.qr_rate_limits (
@@ -773,8 +816,7 @@ END;
 $$;
 
 -- ==============================================================================
--- RPC 7: get_qr_redirect (Blazing-Fast Scanner Redirection, High Concurrency)
--- Note: Advisory locks removed to allow thousands of concurrent scans per second
+-- RPC 7: get_qr_redirect (Mode-Aware High-Concurrency Scanner Resolution)
 -- ==============================================================================
 DROP FUNCTION IF EXISTS public.get_qr_redirect(TEXT);
 CREATE OR REPLACE FUNCTION public.get_qr_redirect(
@@ -783,62 +825,128 @@ CREATE OR REPLACE FUNCTION public.get_qr_redirect(
 RETURNS TABLE (
     status TEXT,
     destination_url TEXT,
-    is_claimed BOOLEAN
+    is_claimed BOOLEAN,
+    usage_type TEXT,
+    public_slug TEXT,
+    is_published BOOLEAN
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 DECLARE
     v_norm_qr TEXT;
 BEGIN
     v_norm_qr := UPPER(TRIM(p_qr_number));
 
-    -- Fast atomic scan counter increment (no advisory lock needed — UPDATE is inherently atomic)
     UPDATE public.qr_codes
     SET scan_count = scan_count + 1
     WHERE qr_number = v_norm_qr;
 
     RETURN QUERY
-    SELECT q.status, q.destination_url,
-           (q.password_changed AND q.destination_url IS NOT NULL AND length(trim(q.destination_url)) > 0) AS is_claimed
+    SELECT
+        q.status,
+        q.destination_url,
+        (
+            q.password_changed
+            OR (q.destination_url IS NOT NULL AND length(trim(q.destination_url)) > 0)
+            OR q.usage_type IS NOT NULL
+        ) AS is_claimed,
+        q.usage_type,
+        p.public_slug,
+        COALESCE(p.is_published, false) AS is_published
     FROM public.qr_codes q
+    LEFT JOIN public.qr_profiles p ON p.qr_code_id = q.id
     WHERE q.qr_number = v_norm_qr;
 END;
 $$;
 
+-- Note: Full Multi-Link helper functions, customer session RPCs (customer_login_qr,
+-- customer_select_usage_mode, customer_save_personal_profile, customer_save_business_settings,
+-- customer_get_dashboard, customer_change_password, get_public_profile, admin_set_qr_usage_type),
+-- and production migration steps are canonically maintained in MULTI_LINK_SYSTEM_MIGRATION.sql.
+
 -- ==============================================================================
--- 8. Grants and Permissions (Ensures client can invoke RPCs without permission errors)
+-- 8. Grants and Permissions (Hardened RLS & Column-Level Security)
 -- ==============================================================================
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
-GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated, service_role;
-
--- Rate limits table grants
-GRANT ALL ON public.qr_rate_limits TO anon, authenticated, service_role;
 
 -- Row Level Security (RLS) Setup
 ALTER TABLE public.qr_codes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.batches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.qr_rate_limits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.qr_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.qr_links ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.qr_customer_sessions ENABLE ROW LEVEL SECURITY;
 
--- PUBLIC: Allow anon read for QR scan redirect (get_qr_redirect RPC uses SECURITY DEFINER)
+-- qr_codes & batches: strictly Admin only (no anon direct table reads; public scans use SECURITY DEFINER RPCs)
+REVOKE ALL ON public.qr_codes FROM anon;
+GRANT ALL ON public.qr_codes TO authenticated, service_role;
+
+REVOKE ALL ON public.batches FROM anon;
+GRANT ALL ON public.batches TO authenticated, service_role;
+
+REVOKE ALL ON public.qr_rate_limits FROM anon, authenticated;
+GRANT ALL ON public.qr_rate_limits TO service_role;
+
+REVOKE ALL ON public.qr_customer_sessions FROM anon, authenticated;
+GRANT ALL ON public.qr_customer_sessions TO service_role;
+
 DROP POLICY IF EXISTS "Public QR Read" ON public.qr_codes;
-CREATE POLICY "Public QR Read" ON public.qr_codes FOR SELECT USING (true);
-
--- PUBLIC: Prohibit direct insert/update/delete by anon — all mutations go through SECURITY DEFINER RPCs
 DROP POLICY IF EXISTS "Public QR Insert/Update/Delete" ON public.qr_codes;
--- (No policy = denied by default for non-SELECT)
 
--- AUTHENTICATED ADMIN: Full access to qr_codes table
 DROP POLICY IF EXISTS "Admin QR All" ON public.qr_codes;
-CREATE POLICY "Admin QR All" ON public.qr_codes FOR ALL USING (auth.role() = 'authenticated');
+CREATE POLICY "Admin QR All" ON public.qr_codes FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
 
 DROP POLICY IF EXISTS "Batches Read" ON public.batches;
-CREATE POLICY "Batches Read" ON public.batches FOR SELECT USING (true);
-
--- AUTHENTICATED ADMIN: Full access to batches
 DROP POLICY IF EXISTS "Batches All" ON public.batches;
-CREATE POLICY "Batches All" ON public.batches FOR ALL USING (auth.role() = 'authenticated');
+CREATE POLICY "Batches All" ON public.batches FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
+
+DROP POLICY IF EXISTS "Public Published Profiles Read" ON public.qr_profiles;
+CREATE POLICY "Public Published Profiles Read" ON public.qr_profiles
+    FOR SELECT
+    USING (
+        is_published = true
+        AND EXISTS (
+            SELECT 1 FROM public.qr_codes q
+            WHERE q.id = qr_profiles.qr_code_id
+              AND q.status = 'active'
+              AND q.usage_type = 'personal'
+        )
+    );
+
+DROP POLICY IF EXISTS "Admin Profiles All" ON public.qr_profiles;
+CREATE POLICY "Admin Profiles All" ON public.qr_profiles
+    FOR ALL
+    USING (public.is_admin())
+    WITH CHECK (public.is_admin());
+
+GRANT SELECT ON public.qr_profiles TO anon;
+GRANT ALL ON public.qr_profiles TO authenticated, service_role;
+
+DROP POLICY IF EXISTS "Public Active Links Read" ON public.qr_links;
+CREATE POLICY "Public Active Links Read" ON public.qr_links
+    FOR SELECT
+    USING (
+        is_active = true
+        AND EXISTS (
+            SELECT 1 FROM public.qr_profiles p
+            JOIN public.qr_codes q ON q.id = p.qr_code_id
+            WHERE p.id = qr_links.qr_profile_id
+              AND p.is_published = true
+              AND q.status = 'active'
+              AND q.usage_type = 'personal'
+        )
+    );
+
+DROP POLICY IF EXISTS "Admin Links All" ON public.qr_links;
+CREATE POLICY "Admin Links All" ON public.qr_links
+    FOR ALL
+    USING (public.is_admin())
+    WITH CHECK (public.is_admin());
+
+GRANT SELECT ON public.qr_links TO anon;
+GRANT ALL ON public.qr_links TO authenticated, service_role;
 
 -- ==============================================================================
 -- 9. PRODUCTS TABLE (Managed via Admin Panel, displayed on /products)
@@ -936,38 +1044,81 @@ CREATE TABLE IF NOT EXISTS public.contact_inquiries (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Enable RLS and Grants for New Tables
+-- Enable RLS and Grants for E-Commerce & Admin Tables (Hardened via public.is_admin())
+CREATE TABLE IF NOT EXISTS public.admin_users (
+    user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    email TEXT NOT NULL UNIQUE,
+    role TEXT NOT NULL DEFAULT 'admin' CHECK (role IN ('admin', 'super_admin')),
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.admin_users ENABLE ROW LEVEL SECURITY;
+
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, auth, pg_temp
+AS $$
+    SELECT auth.role() = 'authenticated'
+       AND (
+           COALESCE(auth.jwt() -> 'app_metadata' ->> 'role', '') IN ('admin', 'super_admin')
+           OR EXISTS (
+               SELECT 1 FROM public.admin_users a
+               WHERE a.user_id = auth.uid() AND a.is_active = true
+           )
+       );
+$$;
+
+REVOKE ALL ON public.admin_users FROM anon, authenticated;
+GRANT SELECT ON public.admin_users TO authenticated;
+GRANT ALL ON public.admin_users TO service_role;
+
+DROP POLICY IF EXISTS "Admins Read Own Allowlist" ON public.admin_users;
+CREATE POLICY "Admins Read Own Allowlist" ON public.admin_users FOR SELECT USING (public.is_admin());
+
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.support_tickets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.contact_inquiries ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Public Products Read" ON public.products;
-CREATE POLICY "Public Products Read" ON public.products FOR SELECT USING (true);
+CREATE POLICY "Public Products Read" ON public.products FOR SELECT USING (is_active = true OR public.is_admin());
 DROP POLICY IF EXISTS "Admin Products All" ON public.products;
-CREATE POLICY "Admin Products All" ON public.products FOR ALL USING (true);
+CREATE POLICY "Admin Products All" ON public.products FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
 
 DROP POLICY IF EXISTS "Public Orders Insert" ON public.orders;
-CREATE POLICY "Public Orders Insert" ON public.orders FOR INSERT WITH CHECK (true);
+CREATE POLICY "Public Orders Insert" ON public.orders FOR INSERT WITH CHECK (payment_status = 'pending' AND order_status = 'pending_verification');
 DROP POLICY IF EXISTS "Public Orders Read" ON public.orders;
-CREATE POLICY "Public Orders Read" ON public.orders FOR SELECT USING (true);
 DROP POLICY IF EXISTS "Admin Orders All" ON public.orders;
-CREATE POLICY "Admin Orders All" ON public.orders FOR ALL USING (true);
+CREATE POLICY "Admin Orders All" ON public.orders FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
 
 DROP POLICY IF EXISTS "Public Support Tickets Insert" ON public.support_tickets;
-CREATE POLICY "Public Support Tickets Insert" ON public.support_tickets FOR INSERT WITH CHECK (true);
+CREATE POLICY "Public Support Tickets Insert" ON public.support_tickets FOR INSERT WITH CHECK (status = 'open');
 DROP POLICY IF EXISTS "Public Support Tickets Read" ON public.support_tickets;
-CREATE POLICY "Public Support Tickets Read" ON public.support_tickets FOR SELECT USING (true);
 DROP POLICY IF EXISTS "Admin Support Tickets All" ON public.support_tickets;
-CREATE POLICY "Admin Support Tickets All" ON public.support_tickets FOR ALL USING (true);
+CREATE POLICY "Admin Support Tickets All" ON public.support_tickets FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
 
 DROP POLICY IF EXISTS "Public Inquiries Insert" ON public.contact_inquiries;
-CREATE POLICY "Public Inquiries Insert" ON public.contact_inquiries FOR INSERT WITH CHECK (true);
+CREATE POLICY "Public Inquiries Insert" ON public.contact_inquiries FOR INSERT WITH CHECK (status = 'new');
 DROP POLICY IF EXISTS "Admin Inquiries All" ON public.contact_inquiries;
-CREATE POLICY "Admin Inquiries All" ON public.contact_inquiries FOR ALL USING (true);
+CREATE POLICY "Admin Inquiries All" ON public.contact_inquiries FOR ALL USING (public.is_admin()) WITH CHECK (public.is_admin());
 
-GRANT ALL ON public.products TO anon, authenticated, service_role;
-GRANT ALL ON public.orders TO anon, authenticated, service_role;
-GRANT ALL ON public.support_tickets TO anon, authenticated, service_role;
-GRANT ALL ON public.contact_inquiries TO anon, authenticated, service_role;
+REVOKE ALL ON public.products FROM anon;
+GRANT SELECT ON public.products TO anon;
+GRANT ALL ON public.products TO authenticated, service_role;
+
+REVOKE ALL ON public.orders FROM anon;
+GRANT INSERT ON public.orders TO anon;
+GRANT ALL ON public.orders TO authenticated, service_role;
+
+REVOKE ALL ON public.support_tickets FROM anon;
+GRANT INSERT ON public.support_tickets TO anon;
+GRANT ALL ON public.support_tickets TO authenticated, service_role;
+
+REVOKE ALL ON public.contact_inquiries FROM anon;
+GRANT INSERT ON public.contact_inquiries TO anon;
+GRANT ALL ON public.contact_inquiries TO authenticated, service_role;
 
