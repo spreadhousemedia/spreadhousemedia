@@ -47,6 +47,9 @@ export interface BackupPayload {
     status: string
     batch_id: string | null
     batch_name?: string | null
+    usage_type?: string | null
+    business_name?: string | null
+    business_purpose?: string | null
     password?: string
     scan_count?: number
     created_at: string
@@ -98,7 +101,7 @@ export async function fetchFullDataset(): Promise<{
     supabase.from('batches').select('*').order('created_at', { ascending: false }),
     supabase
       .from('qr_codes')
-      .select('id, qr_number, qr_name, destination_url, status, batch_id, scan_count, created_at, updated_at, batches(batch_name)')
+      .select('id, qr_number, qr_name, destination_url, status, batch_id, usage_type, business_name, business_purpose, scan_count, created_at, updated_at, batches(batch_name)')
       .order('qr_number', { ascending: true }),
   ])
 
@@ -113,6 +116,9 @@ export async function fetchFullDataset(): Promise<{
     status: q.status,
     batch_id: q.batch_id,
     batch_name: q.batches?.batch_name ?? null,
+    usage_type: q.usage_type ?? null,
+    business_name: q.business_name ?? null,
+    business_purpose: q.business_purpose ?? null,
     scan_count: q.scan_count ?? 0,
     created_at: q.created_at,
     updated_at: q.updated_at,
@@ -589,14 +595,14 @@ Total QR Codes: ${qr_codes.length}
 Total Batches: ${batches.length}
 
 PACKAGE CONTENTS:
-1. database_backup.json      - Full system snapshot. Upload this in Spread NFC Admin -> Data Backup to restore.
+1. database_backup.json      - Full system snapshot. Upload this in Spread NFC Console -> Data Backup to restore.
 2. qr_master_spreadsheet.csv - Standard RFC-4180 CSV for Excel, Google Sheets, or BI tools.
 3. batches_registry.csv      - Campaign series register.
 4. standee_keys_passwords.csv - Master printing and client credential keys.
 5. migration_audit_report.pdf - Formal printable ledger for management or audits.
 
 RESTORE INSTRUCTIONS:
-- To restore in Spread NFC: Navigate to /admin/backup, choose "Restore Data from Backup", select database_backup.json, and choose "Merge" or "Overwrite".
+- To restore in Spread NFC: Navigate to Data Backup in the management console, choose "Restore Data from Backup", select database_backup.json, and choose "Merge" or "Overwrite".
 `
   zip.file(`README_MIGRATION.txt`, readme)
 

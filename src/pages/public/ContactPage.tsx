@@ -147,7 +147,7 @@ export function ContactPage() {
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-emerald-500 shrink-0">
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
-                  <span>Includes free CSV batch upload, custom vector logo engraving &amp; admin dashboard setup</span>
+                  <span>Includes free CSV batch upload, custom vector logo engraving &amp; management console setup</span>
                 </div>
               </div>
 

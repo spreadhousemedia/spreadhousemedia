@@ -598,31 +598,32 @@ export const ecommerceDb = {
   async getTicketByNumber(ticketNumber: string, email?: string): Promise<SupportTicket | null> {
     const norm = ticketNumber.trim().toUpperCase()
 
-    // 1. Supabase Query
+    // 1. Scoped Supabase RPC (requires both ticket number and customer email)
     try {
-      let query = supabase.from('support_tickets').select('*').eq('ticket_number', norm)
-      if (email) {
-        query = query.ilike('customer_email', email.trim())
-      }
-      const { data, error } = await query
-      if (!error && data && data.length > 0) {
-        const d = data[0]
-        return {
-          id: d.id,
-          ticketNumber: d.ticket_number,
-          customerName: d.customer_name,
-          customerEmail: d.customer_email,
-          customerPhone: d.customer_phone,
-          category: d.category,
-          associatedQrNumber: d.associated_qr_number,
-          associatedOrderNumber: d.associated_order_number,
-          subject: d.subject,
-          description: d.description,
-          status: d.status,
-          priority: d.priority,
-          resolutionNotes: d.resolution_notes,
-          createdAt: d.created_at,
-          updatedAt: d.updated_at,
+      if (email && email.trim()) {
+        const { data, error } = await supabase.rpc('track_support_ticket', {
+          p_ticket_number: norm,
+          p_email: email.trim(),
+        })
+        if (!error && data?.ok && data.ticket) {
+          const d = data.ticket
+          return {
+            id: d.id,
+            ticketNumber: d.ticket_number,
+            customerName: d.customer_name,
+            customerEmail: d.customer_email,
+            customerPhone: d.customer_phone,
+            category: d.category,
+            associatedQrNumber: d.associated_qr_number,
+            associatedOrderNumber: d.associated_order_number,
+            subject: d.subject,
+            description: d.description,
+            status: d.status,
+            priority: d.priority,
+            resolutionNotes: d.resolution_notes,
+            createdAt: d.created_at,
+            updatedAt: d.updated_at,
+          }
         }
       }
     } catch {

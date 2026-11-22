@@ -1,6 +1,7 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { PORTAL_BASE_PATH } from '../lib/config'
 import { Spinner } from '../components/Spinner'
 
 export function Login() {
@@ -12,8 +13,18 @@ export function Login() {
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
+  useEffect(() => {
+    const meta = document.createElement('meta')
+    meta.name = 'robots'
+    meta.content = 'noindex, nofollow'
+    document.head.appendChild(meta)
+    return () => {
+      document.head.removeChild(meta)
+    }
+  }, [])
+
   if (!authLoading && user) {
-    const from = (location.state as { from?: Location })?.from?.pathname || '/admin'
+    const from = (location.state as { from?: Location })?.from?.pathname || PORTAL_BASE_PATH
     return <Navigate to={from} replace />
   }
 
@@ -27,7 +38,7 @@ export function Login() {
       setError('Invalid email or password.')
       return
     }
-    navigate('/admin', { replace: true })
+    navigate(PORTAL_BASE_PATH, { replace: true })
   }
 
   return (
@@ -41,7 +52,7 @@ export function Login() {
             <img src="/logo.png" alt="Spread NFC" className="h-9 w-auto object-contain" />
           </Link>
           <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-medium tracking-wide text-electric bg-electric/10 border border-electric/20 mb-2">
-            ADMIN PORTAL
+            WORKSPACE ACCESS
           </div>
           <p className="text-xs text-ink-muted">Sign in to manage your dynamic QR ecosystem.</p>
         </div>

@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { PORTAL_AUTH_PATH } from '../lib/config'
 import { Spinner } from './Spinner'
 
 export function ProtectedRoute() {
@@ -15,7 +16,7 @@ export function ProtectedRoute() {
   }
 
   if (!user) {
-    return <Navigate to="/login" state={{ from: location }} replace />
+    return <Navigate to={PORTAL_AUTH_PATH} state={{ from: location }} replace />
   }
 
   return <Outlet />

@@ -11,9 +11,6 @@ interface CacheEntry<T> {
 
 const cacheStore = new Map<string, CacheEntry<unknown>>()
 
-/**
- * Retrieve cached data if it exists and hasn't expired.
- */
 export function getCached<T>(key: string): T | null {
   const entry = cacheStore.get(key)
   if (!entry) return null
@@ -24,9 +21,6 @@ export function getCached<T>(key: string): T | null {
   return entry.data as T
 }
 
-/**
- * Store data with a custom TTL (default 60 seconds).
- */
 export function setCached<T>(key: string, data: T, ttlMs = 60_000): void {
   cacheStore.set(key, {
     data,
@@ -35,9 +29,6 @@ export function setCached<T>(key: string, data: T, ttlMs = 60_000): void {
   })
 }
 
-/**
- * Remove any cached keys matching a given prefix.
- */
 export function clearCachePrefix(prefix: string): void {
   for (const key of cacheStore.keys()) {
     if (key.startsWith(prefix)) {
@@ -46,22 +37,19 @@ export function clearCachePrefix(prefix: string): void {
   }
 }
 
-/**
- * Invalidate all QR records and batch caches when mutations occur.
- */
 export function invalidateAdminQrCache(): void {
   clearCachePrefix('qr_')
   clearCachePrefix('batches_')
 }
 
 /**
- * Invalidate cached redirect URL for a specific QR number or all redirects.
- * Ensures scanners immediately see updated destinations without stale cache.
+ * Invalidate cached redirect & public profile data for a specific QR number or all.
  */
 export function invalidateQrRedirectCache(qrNumber?: string): void {
   if (qrNumber) {
     const norm = qrNumber.toUpperCase().trim()
     cacheStore.delete(`redirect_${norm}`)
+    cacheStore.delete(`profile_${norm.toLowerCase()}`)
     try {
       sessionStorage.removeItem(`qr_dest_${norm}`)
     } catch {
@@ -69,6 +57,15 @@ export function invalidateQrRedirectCache(qrNumber?: string): void {
     }
   } else {
     clearCachePrefix('redirect_')
+    clearCachePrefix('profile_')
   }
   clearCachePrefix('qr_')
+}
+
+export function invalidateProfileCache(identifier?: string): void {
+  if (identifier) {
+    cacheStore.delete(`profile_${identifier.trim().toLowerCase()}`)
+  } else {
+    clearCachePrefix('profile_')
+  }
 }

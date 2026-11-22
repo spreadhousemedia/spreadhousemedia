@@ -1,10 +1,16 @@
 import { useLocation } from 'react-router-dom'
+import { PORTAL_BASE_PATH } from '../lib/config'
 
 export function WhatsAppWidget() {
   const location = useLocation()
 
-  // Do not render on administrative routes
-  if (location.pathname.startsWith('/admin')) {
+  // Do not render on private workspace, scan redirect, personal profile, or onboarding routes
+  if (
+    location.pathname.startsWith(PORTAL_BASE_PATH) ||
+    location.pathname.startsWith('/p/') ||
+    location.pathname.startsWith('/q/') ||
+    location.pathname.startsWith('/update')
+  ) {
     return null
   }
 

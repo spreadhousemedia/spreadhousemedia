@@ -23,10 +23,12 @@ import {
   UploadCloud,
   RefreshCw,
   Sparkles,
-  CheckCircle2,
+  User,
+  Building2,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import { qrPublicUrl } from '../../lib/config'
+import { portalRoute, profilePublicUrl, qrPublicUrl } from '../../lib/config'
+import { getBusinessPurposeLabel } from '../../lib/validation'
 import { downloadBulkQrPdf, downloadBulkQrZip } from '../../lib/qr'
 import { downloadNfcEncodingCsv } from '../../lib/csv'
 import { getCached, setCached, invalidateAdminQrCache } from '../../lib/cache'
@@ -35,12 +37,19 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { Spinner } from '../../components/Spinner'
 import { ViewQrModal } from '../../components/ViewQrModal'
 import { EditQrModal } from '../../components/EditQrModal'
-import type { QrCode, QrStatus, Batch } from '../../types'
+import type { QrCode, QrStatus, Batch, UsageType } from '../../types'
 
 const PAGE_SIZE = 20
 
 interface Row extends QrCode {
   batches: { batch_name: string } | null
+  qr_profiles?: {
+    id: string
+    public_slug: string | null
+    is_published: boolean
+    profile_name: string
+    qr_links?: Array<{ id: string; is_active: boolean }>
+  } | null
 }
 
 export function ManageQR() {
@@ -48,6 +57,7 @@ export function ManageQR() {
   const [search, setSearch] = useState(searchParams.get('q') ?? '')
   const [debouncedSearch, setDebouncedSearch] = useState(search)
   const [statusFilter, setStatusFilter] = useState<'' | QrStatus>((searchParams.get('status') as '' | QrStatus) || '')
+  const [modeFilter, setModeFilter] = useState<'' | UsageType | 'unset'>((searchParams.get('mode') as '' | UsageType | 'unset') || '')
   const [linkFilter, setLinkFilter] = useState<'' | 'set' | 'unset'>((searchParams.get('link') as '' | 'set' | 'unset') || '')
   const [batchFilter, setBatchFilter] = useState(searchParams.get('batch') ?? '')
   const [batches, setBatches] = useState<Batch[]>([])
@@ -100,6 +110,8 @@ export function ManageQR() {
         q = q.or(`qr_number.ilike.%${term}%,qr_name.ilike.%${term}%,destination_url.ilike.%${term}%`)
       }
       if (statusFilter) q = q.eq('status', statusFilter)
+      if (modeFilter === 'unset') q = q.is('usage_type', null)
+      else if (modeFilter) q = q.eq('usage_type', modeFilter)
       if (batchFilter) q = q.eq('batch_id', batchFilter)
       if (linkFilter === 'set') {
         q = q.not('destination_url', 'is', null).neq('destination_url', '')
@@ -108,11 +120,11 @@ export function ManageQR() {
       }
       return q
     },
-    [debouncedSearch, statusFilter, batchFilter, linkFilter],
+    [debouncedSearch, statusFilter, modeFilter, batchFilter, linkFilter],
   )
 
   const load = useCallback(async () => {
-    const cacheKey = `qr_${page}_${debouncedSearch.trim()}_${statusFilter}_${batchFilter}_${linkFilter}`
+    const cacheKey = `qr_${page}_${debouncedSearch.trim()}_${statusFilter}_${modeFilter}_${batchFilter}_${linkFilter}`
     const cached = getCached<{ rows: Row[]; total: number }>(cacheKey)
 
     // SWR Pattern: If cached, show immediately with 0ms delay
@@ -132,9 +144,12 @@ export function ManageQR() {
     try {
       let query = supabase
         .from('qr_codes')
-        .select('id, qr_number, qr_name, destination_url, status, batch_id, created_at, updated_at, batches(batch_name)', {
-          count: 'exact',
-        })
+        .select(
+          'id, qr_number, qr_name, destination_url, status, batch_id, password_changed, claimed_at, owner_email, usage_type, business_name, business_purpose, scan_count, created_at, updated_at, batches(batch_name), qr_profiles(id, public_slug, is_published, profile_name, qr_links(id, is_active))',
+          {
+            count: 'exact',
+          },
+        )
       query = applyFilters(query)
 
       const from = page * PAGE_SIZE
@@ -156,7 +171,7 @@ export function ManageQR() {
         setLoading(false)
       }
     }
-  }, [applyFilters, debouncedSearch, statusFilter, batchFilter, linkFilter, page])
+  }, [applyFilters, debouncedSearch, statusFilter, modeFilter, batchFilter, linkFilter, page])
 
   useEffect(() => {
     const cachedBatches = getCached<Batch[]>('batches_list')
@@ -361,7 +376,7 @@ export function ManageQR() {
             <span className="hidden sm:inline">Refresh</span>
           </button>
           <Link
-            to="/admin/upload"
+            to={portalRoute('upload')}
             className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-brand-700 shadow-md shadow-brand-600/20 transition-all"
           >
             <UploadCloud className="h-3.5 w-3.5" />
@@ -434,6 +449,29 @@ export function ManageQR() {
             <option value="inactive">Disabled Only</option>
           </select>
           <Filter className="theme-text-muted absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none" />
+        </div>
+
+        {/* Mode Filter */}
+        <div className="relative sm:w-40">
+          <select
+            value={modeFilter}
+            onChange={(e) => {
+              const val = e.target.value as '' | UsageType | 'unset'
+              setModeFilter(val)
+              setPage(0)
+              const next = new URLSearchParams(searchParams)
+              if (val) next.set('mode', val)
+              else next.delete('mode')
+              setSearchParams(next, { replace: true })
+            }}
+            className="theme-input w-full appearance-none rounded-xl border px-3.5 py-2.5 text-sm focus:border-brand-500 transition-colors"
+          >
+            <option value="">All Modes</option>
+            <option value="personal">Personal Profile</option>
+            <option value="business">Business Redirect</option>
+            <option value="unset">Unassigned</option>
+          </select>
+          <Sparkles className="theme-text-muted absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none" />
         </div>
 
 
@@ -601,9 +639,19 @@ export function ManageQR() {
                       <span className="theme-text-main font-bold font-mono text-sm tracking-tight">
                         {row.qr_number}
                       </span>
-                      <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-                        Dual NFC+QR
-                      </span>
+                      {row.usage_type === 'personal' ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                          <User className="h-2.5 w-2.5" /> Personal
+                        </span>
+                      ) : row.usage_type === 'business' ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-semibold bg-sky-50 text-sky-700 border border-sky-200">
+                          <Building2 className="h-2.5 w-2.5" /> Business
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center text-[10px] px-1.5 py-0.5 rounded font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                          Unassigned
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-3.5 min-w-[150px]">
@@ -616,49 +664,75 @@ export function ManageQR() {
                     </p>
                   </td>
                   <td className="px-4 py-3.5 whitespace-nowrap">
-                    <div className="flex flex-col gap-1.5">
-                      {/* NFC Status Pill */}
-                      <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold border ${
-                          row.destination_url
-                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                            : 'bg-amber-50 text-amber-800 border-amber-200'
-                        }`}
-                        title={row.destination_url ? 'NFC Chip points to active destination' : 'NFC Chip awaits destination URL'}
-                      >
-                        <Radio className={`h-3 w-3 shrink-0 ${row.destination_url ? 'text-emerald-600' : 'text-amber-500'}`} />
-                        <span>NFC:</span>
-                        <span className="font-bold">{row.destination_url ? 'Connected' : 'Not Linked'}</span>
-                      </span>
+                    {(() => {
+                      const isConnected =
+                        row.usage_type === 'personal'
+                          ? Boolean(row.qr_profiles?.is_published)
+                          : Boolean(row.destination_url)
+                      return (
+                        <div className="flex flex-col gap-1.5">
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold border ${
+                              isConnected
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                : 'bg-amber-50 text-amber-800 border-amber-200'
+                            }`}
+                          >
+                            <Radio className={`h-3 w-3 shrink-0 ${isConnected ? 'text-emerald-600' : 'text-amber-500'}`} />
+                            <span>NFC:</span>
+                            <span className="font-bold">{isConnected ? 'Connected' : 'Not Linked'}</span>
+                          </span>
 
-                      {/* QR Status Pill */}
-                      <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold border ${
-                          row.destination_url
-                            ? 'bg-blue-50 text-blue-800 border-blue-200'
-                            : 'bg-amber-50 text-amber-800 border-amber-200'
-                        }`}
-                        title={row.destination_url ? 'QR Code points to active destination' : 'QR Code awaits destination URL'}
-                      >
-                        <QrCodeIcon className={`h-3 w-3 shrink-0 ${row.destination_url ? 'text-blue-600' : 'text-amber-500'}`} />
-                        <span>QR:</span>
-                        <span className="font-bold">{row.destination_url ? 'Connected' : 'Not Linked'}</span>
-                      </span>
-                    </div>
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold border ${
+                              isConnected
+                                ? 'bg-blue-50 text-blue-800 border-blue-200'
+                                : 'bg-amber-50 text-amber-800 border-amber-200'
+                            }`}
+                          >
+                            <QrCodeIcon className={`h-3 w-3 shrink-0 ${isConnected ? 'text-blue-600' : 'text-amber-500'}`} />
+                            <span>QR:</span>
+                            <span className="font-bold">{isConnected ? 'Connected' : 'Not Linked'}</span>
+                          </span>
+                        </div>
+                      )
+                    })()}
                   </td>
-                  <td className="px-4 py-3.5 max-w-[200px]">
-                    {row.destination_url ? (
-                      <div className="flex items-center gap-1.5">
+                  <td className="px-4 py-3.5 max-w-[220px]">
+                    {row.usage_type === 'personal' ? (
+                      <div className="space-y-0.5">
+                        <a
+                          href={profilePublicUrl(row.qr_profiles?.public_slug || row.qr_number)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-indigo-600 hover:underline max-w-[190px] truncate text-xs font-mono font-medium"
+                        >
+                          <span className="truncate">
+                            /p/{row.qr_profiles?.public_slug || row.qr_number}
+                          </span>
+                          <ExternalLink className="h-3 w-3 shrink-0 opacity-70" />
+                        </a>
+                        <p className="text-[11px] theme-text-muted">
+                          {row.qr_profiles?.qr_links?.filter((l) => l.is_active).length ?? 0} active links
+                        </p>
+                      </div>
+                    ) : row.destination_url ? (
+                      <div className="space-y-0.5">
                         <a
                           href={row.destination_url}
                           target="_blank"
                           rel="noreferrer"
                           title={row.destination_url}
-                          className="inline-flex items-center gap-1 text-brand-600 hover:underline max-w-[170px] truncate text-xs font-mono font-medium"
+                          className="inline-flex items-center gap-1 text-brand-600 hover:underline max-w-[190px] truncate text-xs font-mono font-medium"
                         >
                           <span className="truncate">{row.destination_url}</span>
                           <ExternalLink className="h-3 w-3 shrink-0 opacity-70" />
                         </a>
+                        {row.business_purpose && (
+                          <p className="text-[11px] theme-text-muted">
+                            {getBusinessPurposeLabel(row.business_purpose)}
+                          </p>
+                        )}
                       </div>
                     ) : (
                       <button
@@ -673,7 +747,13 @@ export function ManageQR() {
                     )}
                   </td>
                   <td className="px-4 py-3.5 whitespace-nowrap">
-                    <StatusBadge status={row.status} hasDestination={Boolean(row.destination_url)} />
+                    <StatusBadge
+                      status={row.status}
+                      hasDestination={Boolean(row.destination_url)}
+                      usageType={row.usage_type}
+                      passwordChanged={row.password_changed}
+                      isPublished={row.qr_profiles?.is_published}
+                    />
                   </td>
                   <td className="theme-text-muted px-4 py-3.5 text-xs whitespace-nowrap">
                     {new Date(row.created_at).toLocaleDateString()}
@@ -777,7 +857,22 @@ export function ManageQR() {
                       <span className="theme-text-main font-mono font-bold text-base">
                         {row.qr_number}
                       </span>
-                      <StatusBadge status={row.status} hasDestination={Boolean(row.destination_url)} />
+                      {row.usage_type === 'personal' ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                          Personal
+                        </span>
+                      ) : row.usage_type === 'business' ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-semibold bg-sky-50 text-sky-700 border border-sky-200">
+                          Business
+                        </span>
+                      ) : null}
+                      <StatusBadge
+                        status={row.status}
+                        hasDestination={Boolean(row.destination_url)}
+                        usageType={row.usage_type}
+                        passwordChanged={row.password_changed}
+                        isPublished={row.qr_profiles?.is_published}
+                      />
                     </div>
                     <p className="theme-text-sub text-sm font-medium mt-0.5">
                       {row.qr_name}

@@ -20,6 +20,8 @@ import {
   Sparkles,
   Radio,
   QrCode as QrCodeIcon,
+  User,
+  Building2,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
@@ -28,8 +30,9 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { Spinner } from '../../components/Spinner'
 import { ViewQrModal } from '../../components/ViewQrModal'
 import { EditQrModal } from '../../components/EditQrModal'
-import { qrPublicUrl } from '../../lib/config'
-import type { QrStatus } from '../../types'
+import { portalRoute, profilePublicUrl, qrPublicUrl } from '../../lib/config'
+import { getBusinessPurposeLabel } from '../../lib/validation'
+import type { BusinessPurpose, QrStatus, UsageType } from '../../types'
 
 interface RecentRow {
   id: string
@@ -37,8 +40,21 @@ interface RecentRow {
   qr_name: string
   destination_url: string | null
   status: QrStatus
+  password_changed?: boolean
+  claimed_at?: string | null
+  owner_email?: string | null
+  usage_type?: UsageType | null
+  business_name?: string | null
+  business_purpose?: BusinessPurpose | null
   created_at: string
   batches: { batch_name: string } | null
+  qr_profiles?: {
+    id: string
+    public_slug: string | null
+    is_published: boolean
+    profile_name: string
+    qr_links?: Array<{ id: string; is_active: boolean }>
+  } | null
 }
 
 interface Counts {
@@ -62,7 +78,7 @@ export function Dashboard() {
   const [editTarget, setEditTarget] = useState<RecentRow | null>(null)
 
   const displayName =
-    (user?.user_metadata?.full_name as string | undefined) || user?.email?.split('@')[0] || 'Admin'
+    (user?.user_metadata?.full_name as string | undefined) || user?.email?.split('@')[0] || 'Operator'
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -74,7 +90,9 @@ export function Dashboard() {
       supabase.from('batches').select('*', { count: 'exact', head: true }),
       supabase
         .from('qr_codes')
-        .select('id, qr_number, qr_name, destination_url, status, created_at, batches(batch_name)')
+        .select(
+          'id, qr_number, qr_name, destination_url, status, password_changed, claimed_at, owner_email, usage_type, business_name, business_purpose, created_at, batches(batch_name), qr_profiles(id, public_slug, is_published, profile_name, qr_links(id, is_active))',
+        )
         .order('created_at', { ascending: false })
         .limit(8),
     ])
@@ -150,7 +168,7 @@ export function Dashboard() {
           value={counts?.total}
           type="total"
           loading={loading}
-          to="/admin/manage"
+          to={portalRoute('manage')}
           subtext="All dynamic QRs"
         />
         <SummaryCard
@@ -158,7 +176,7 @@ export function Dashboard() {
           value={counts?.destinationLinks}
           type="links"
           loading={loading}
-          to="/admin/manage?link=set"
+          to={portalRoute('manage?link=set')}
           subtext={counts ? `${counts.unlinked} pending` : undefined}
         />
         <SummaryCard
@@ -166,7 +184,7 @@ export function Dashboard() {
           value={counts?.unlinked}
           type="links"
           loading={loading}
-          to="/admin/manage?link=unset"
+          to={portalRoute('manage?link=unset')}
           subtext="Needs connection"
         />
         <SummaryCard
@@ -174,7 +192,7 @@ export function Dashboard() {
           value={counts?.inactive}
           type="inactive"
           loading={loading}
-          to="/admin/manage?status=inactive"
+          to={portalRoute('manage?status=inactive')}
           subtext="Paused QR codes"
         />
         <SummaryCard
@@ -182,7 +200,7 @@ export function Dashboard() {
           value={counts?.batches}
           type="batches"
           loading={loading}
-          to="/admin/batches"
+          to={portalRoute('batches')}
           subtext="View all batches"
           className="col-span-2 sm:col-span-1"
         />
@@ -195,7 +213,7 @@ export function Dashboard() {
         </h2>
         <div className="mt-3.5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
           <Link
-            to="/admin/create"
+            to={portalRoute('create')}
             className="group flex items-center justify-between rounded-xl bg-brand-600 hover:bg-brand-700 px-4 py-3.5 text-sm font-semibold text-white shadow-md shadow-brand-600/20 transition-all hover:scale-[1.01]"
           >
             <span className="flex items-center gap-2.5">
@@ -208,7 +226,7 @@ export function Dashboard() {
           </Link>
 
           <Link
-            to="/admin/batches"
+            to={portalRoute('batches')}
             className="theme-subtle group flex items-center justify-between rounded-xl border px-4 py-3.5 text-sm font-semibold theme-hover transition-all hover:scale-[1.01]"
           >
             <span className="flex items-center gap-2.5">
@@ -221,7 +239,7 @@ export function Dashboard() {
           </Link>
 
           <Link
-            to="/admin/upload"
+            to={portalRoute('upload')}
             className="theme-subtle group flex items-center justify-between rounded-xl border px-4 py-3.5 text-sm font-semibold theme-hover transition-all hover:scale-[1.01]"
           >
             <span className="flex items-center gap-2.5">
@@ -234,7 +252,7 @@ export function Dashboard() {
           </Link>
 
           <Link
-            to="/admin/backup"
+            to={portalRoute('backup')}
             className="theme-subtle group flex items-center justify-between rounded-xl border px-4 py-3.5 text-sm font-semibold theme-hover transition-all hover:scale-[1.01]"
           >
             <span className="flex items-center gap-2.5">
@@ -260,7 +278,7 @@ export function Dashboard() {
             )}
           </div>
           <Link
-            to="/admin/manage"
+            to={portalRoute('manage')}
             className="inline-flex items-center gap-1 text-xs sm:text-sm font-semibold text-brand-600 dark:text-brand-400 hover:underline"
           >
             <span>View All</span>
@@ -303,7 +321,7 @@ export function Dashboard() {
                         Create your first dynamic QR code to get started.
                       </p>
                       <Link
-                        to="/admin/create"
+                        to={portalRoute('create')}
                         className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-brand-700 shadow-sm"
                       >
                         <Plus className="h-3.5 w-3.5" />
@@ -322,9 +340,19 @@ export function Dashboard() {
                         <span className="theme-text-main font-mono font-bold text-sm tracking-tight">
                           {row.qr_number}
                         </span>
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-zinc-100 text-zinc-700 border border-zinc-200/80 tracking-wide">
-                          Dual NFC+QR
-                        </span>
+                        {row.usage_type === 'personal' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                            <User className="h-2.5 w-2.5" /> Personal
+                          </span>
+                        ) : row.usage_type === 'business' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-sky-50 text-sky-700 border border-sky-200">
+                            <Building2 className="h-2.5 w-2.5" /> Business
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-zinc-100 text-zinc-700 border border-zinc-200/80 tracking-wide">
+                            Unassigned
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="px-5 py-4 min-w-[150px]">
@@ -368,8 +396,23 @@ export function Dashboard() {
                       </div>
                     </td>
                     <td className="px-5 py-4 max-w-[200px]">
-                      {row.destination_url ? (
-                        <div className="flex items-center gap-1.5">
+                      {row.usage_type === 'personal' ? (
+                        <div className="space-y-0.5">
+                          <a
+                            href={profilePublicUrl(row.qr_profiles?.public_slug || row.qr_number)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-indigo-600 hover:underline max-w-[170px] truncate text-xs font-mono font-medium"
+                          >
+                            <span className="truncate">/p/{row.qr_profiles?.public_slug || row.qr_number}</span>
+                            <ExternalLink className="h-3 w-3 shrink-0 opacity-70" />
+                          </a>
+                          <p className="text-[11px] theme-text-muted">
+                            {row.qr_profiles?.qr_links?.filter((l) => l.is_active).length ?? 0} active links
+                          </p>
+                        </div>
+                      ) : row.destination_url ? (
+                        <div className="space-y-0.5">
                           <a
                             href={row.destination_url}
                             target="_blank"
@@ -380,6 +423,11 @@ export function Dashboard() {
                             <span className="truncate">{row.destination_url}</span>
                             <ExternalLink className="h-3 w-3 shrink-0 opacity-70" />
                           </a>
+                          {row.business_purpose && (
+                            <p className="text-[11px] theme-text-muted">
+                              {getBusinessPurposeLabel(row.business_purpose)}
+                            </p>
+                          )}
                         </div>
                       ) : (
                         <button
@@ -394,7 +442,13 @@ export function Dashboard() {
                       )}
                     </td>
                     <td className="px-5 py-4 whitespace-nowrap">
-                      <StatusBadge status={row.status} hasDestination={Boolean(row.destination_url)} />
+                      <StatusBadge
+                        status={row.status}
+                        hasDestination={Boolean(row.destination_url)}
+                        usageType={row.usage_type}
+                        passwordChanged={row.password_changed}
+                        isPublished={row.qr_profiles?.is_published}
+                      />
                     </td>
                     <td className="theme-text-muted px-5 py-4 text-xs whitespace-nowrap">
                       {new Date(row.created_at).toLocaleDateString()}
@@ -465,7 +519,7 @@ export function Dashboard() {
                 Create your first dynamic QR code to get started.
               </p>
               <Link
-                to="/admin/create"
+                to={portalRoute('create')}
                 className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-brand-700"
               >
                 <Plus className="h-4 w-4" />
@@ -481,11 +535,26 @@ export function Dashboard() {
             >
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="theme-text-main font-mono font-bold text-base">
                       {row.qr_number}
                     </span>
-                    <StatusBadge status={row.status} hasDestination={Boolean(row.destination_url)} />
+                    {row.usage_type === 'personal' ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                        Personal
+                      </span>
+                    ) : row.usage_type === 'business' ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-semibold bg-sky-50 text-sky-700 border border-sky-200">
+                        Business
+                      </span>
+                    ) : null}
+                    <StatusBadge
+                      status={row.status}
+                      hasDestination={Boolean(row.destination_url)}
+                      usageType={row.usage_type}
+                      passwordChanged={row.password_changed}
+                      isPublished={row.qr_profiles?.is_published}
+                    />
                   </div>
                   <p className="theme-text-sub mt-0.5 text-sm font-medium">
                     {row.qr_name}
@@ -539,7 +608,17 @@ export function Dashboard() {
                     </button>
                   )}
                 </div>
-                {row.destination_url ? (
+                {row.usage_type === 'personal' ? (
+                  <a
+                    href={profilePublicUrl(row.qr_profiles?.public_slug || row.qr_number)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-indigo-600 hover:underline break-all font-mono"
+                  >
+                    <span>/p/{row.qr_profiles?.public_slug || row.qr_number}</span>
+                    <ExternalLink className="h-3 w-3 shrink-0" />
+                  </a>
+                ) : row.destination_url ? (
                   <a
                     href={row.destination_url}
                     target="_blank"

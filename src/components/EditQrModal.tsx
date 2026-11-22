@@ -1,15 +1,30 @@
 import { useState } from 'react'
-import { Pencil, X, KeyRound, Sparkles, CheckCircle2, ShieldAlert, Copy, Check, RotateCcw } from 'lucide-react'
-import { supabase } from '../lib/supabase'
-import { Spinner } from './Spinner'
 import {
+  AlertTriangle,
+  Building2,
+  Check,
+  CheckCircle2,
+  Copy,
+  ExternalLink,
+  KeyRound,
+  Pencil,
+  RotateCcw,
+  Sparkles,
+  User,
+  X,
+} from 'lucide-react'
+import { supabase } from '../lib/supabase'
+import { profilePublicUrl } from '../lib/config'
+import { invalidateProfileCache, invalidateQrRedirectCache } from '../lib/cache'
+import {
+  BUSINESS_PURPOSES,
   isUrlReachable,
   isValidDestinationUrl,
   isValidPassword,
   normalizeDestinationUrl,
 } from '../lib/validation'
-import { invalidateQrRedirectCache } from '../lib/cache'
-import type { QrStatus } from '../types'
+import { rpcErrorMessage, type BusinessPurpose, type QrStatus, type UsageType } from '../types'
+import { Spinner } from './Spinner'
 
 export interface EditableQrRow {
   id: string
@@ -20,6 +35,16 @@ export interface EditableQrRow {
   password_changed?: boolean
   claimed_at?: string | null
   owner_email?: string | null
+  usage_type?: UsageType | null
+  business_name?: string | null
+  business_purpose?: BusinessPurpose | null
+  qr_profiles?: {
+    id: string
+    public_slug: string | null
+    is_published: boolean
+    profile_name: string
+    qr_links?: Array<{ id: string; is_active: boolean }>
+  } | null
 }
 
 interface EditQrModalProps {
@@ -31,17 +56,29 @@ interface EditQrModalProps {
 export function EditQrModal({ row, onClose, onSaved }: EditQrModalProps) {
   const [qrName, setQrName] = useState(row.qr_name)
   const [destinationUrl, setDestinationUrl] = useState(row.destination_url ?? '')
+  const [businessName, setBusinessName] = useState(row.business_name ?? '')
+  const [businessPurpose, setBusinessPurpose] = useState<BusinessPurpose>(
+    row.business_purpose ?? 'custom',
+  )
   const [status, setStatus] = useState<QrStatus>(row.status)
+  const [usageType, setUsageType] = useState<UsageType | null>(row.usage_type ?? null)
+  const [pendingModeSwitch, setPendingModeSwitch] = useState<UsageType | null | undefined>(undefined)
+  const [switchingMode, setSwitchingMode] = useState(false)
+
   const [newPassword, setNewPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [passwordMessage, setPasswordMessage] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [resettingPassword, setResettingPassword] = useState(false)
 
-  // Reset to unclaimed / issue new setup code
   const [issuedSetupCode, setIssuedSetupCode] = useState<string | null>(null)
   const [codeCopied, setCodeCopied] = useState(false)
   const [isUnclaiming, setIsUnclaiming] = useState(false)
+
+  const activeLinksCount =
+    row.qr_profiles?.qr_links?.filter((l) => l.is_active).length ?? 0
+  const totalLinksCount = row.qr_profiles?.qr_links?.length ?? 0
+  const profileIdentifier = row.qr_profiles?.public_slug || row.qr_number
 
   async function handleSave() {
     setError(null)
@@ -68,14 +105,48 @@ export function EditQrModal({ row, onClose, onSaved }: EditQrModalProps) {
 
     const { error: updateError } = await supabase
       .from('qr_codes')
-      .update({ qr_name: qrName.trim(), destination_url: trimmedUrl || null, status })
+      .update({
+        qr_name: qrName.trim(),
+        destination_url: trimmedUrl || null,
+        business_name: businessName.trim() || null,
+        business_purpose: usageType === 'business' ? businessPurpose : row.business_purpose ?? null,
+        status,
+      })
       .eq('id', row.id)
+
     setSaving(false)
     if (updateError) {
       setError('Could not save changes. Please try again.')
       return
     }
     invalidateQrRedirectCache(row.qr_number)
+    invalidateProfileCache(profileIdentifier)
+    onSaved()
+  }
+
+  async function handleConfirmModeSwitch() {
+    if (pendingModeSwitch === undefined) return
+    setError(null)
+    setSwitchingMode(true)
+    const { data, error: rpcError } = await supabase.rpc('admin_set_qr_usage_type', {
+      p_qr_id: row.id,
+      p_usage_type: pendingModeSwitch,
+    })
+    setSwitchingMode(false)
+
+    if (rpcError || !data?.ok) {
+      setError(rpcErrorMessage(data?.error ?? rpcError?.message))
+      return
+    }
+
+    setUsageType(pendingModeSwitch)
+    setPendingModeSwitch(undefined)
+    invalidateQrRedirectCache(row.qr_number)
+    setPasswordMessage(
+      pendingModeSwitch
+        ? `Mode switched to ${pendingModeSwitch.toUpperCase()}. Existing data was preserved.`
+        : 'Mode reset to Unassigned (customer can pick mode on next setup).',
+    )
     onSaved()
   }
 
@@ -101,7 +172,6 @@ export function EditQrModal({ row, onClose, onSaved }: EditQrModalProps) {
 
   async function handleIssueNewSetupCode() {
     setPasswordMessage(null)
-    // Generate a clean 6-character uppercase setup code
     const randomCode = 'TF-' + Math.random().toString(36).slice(2, 6).toUpperCase()
 
     setIsUnclaiming(true)
@@ -135,7 +205,7 @@ export function EditQrModal({ row, onClose, onSaved }: EditQrModalProps) {
       onClick={onClose}
     >
       <div
-        className="theme-card max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border p-6 shadow-2xl transition-all"
+        className="theme-card max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border p-6 shadow-2xl transition-all"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="theme-border flex items-center justify-between pb-3 border-b">
@@ -164,7 +234,7 @@ export function EditQrModal({ row, onClose, onSaved }: EditQrModalProps) {
             {row.password_changed ? (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 text-[11px]">
                 <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-                Claimed & Active
+                Claimed &amp; Active
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold bg-amber-100 text-amber-800 text-[11px]">
@@ -177,14 +247,120 @@ export function EditQrModal({ row, onClose, onSaved }: EditQrModalProps) {
             <div className="mt-2 pt-2 border-t border-slate-200/60 dark:border-slate-800 space-y-1 text-slate-500">
               {row.claimed_at && (
                 <p>
-                  Claimed On: <span className="text-slate-800 dark:text-slate-200 font-medium">{new Date(row.claimed_at).toLocaleString()}</span>
+                  Claimed On:{' '}
+                  <span className="text-slate-800 dark:text-slate-200 font-medium">
+                    {new Date(row.claimed_at).toLocaleString()}
+                  </span>
                 </p>
               )}
               {row.owner_email && (
                 <p>
-                  Registered Email: <span className="text-slate-800 dark:text-slate-200 font-medium">{row.owner_email}</span>
+                  Registered Email:{' '}
+                  <span className="text-slate-800 dark:text-slate-200 font-medium">{row.owner_email}</span>
                 </p>
               )}
+            </div>
+          )}
+        </div>
+
+        {/* Experience Mode Management (Admin Only) */}
+        <div className="mt-3 p-3.5 rounded-xl border theme-border theme-subtle space-y-2.5 text-xs">
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-semibold theme-text-main">QR Experience Mode:</span>
+            {usageType === 'personal' ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold bg-indigo-100 text-indigo-800 text-[11px]">
+                <User className="h-3 w-3" /> Personal Profile
+              </span>
+            ) : usageType === 'business' ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold bg-sky-100 text-sky-800 text-[11px]">
+                <Building2 className="h-3 w-3" /> Business Direct Redirect
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold bg-zinc-200 text-zinc-700 text-[11px]">
+                Unassigned
+              </span>
+            )}
+          </div>
+
+          {usageType === 'personal' && row.qr_profiles && (
+            <div className="pt-2 border-t theme-border flex items-center justify-between gap-2 text-[11px]">
+              <div className="theme-text-muted">
+                <strong className="theme-text-main">{row.qr_profiles.profile_name || row.qr_number}</strong>{' '}
+                · {activeLinksCount}/{totalLinksCount} active links ·{' '}
+                <span className={row.qr_profiles.is_published ? 'text-emerald-600 font-semibold' : 'text-amber-600 font-semibold'}>
+                  {row.qr_profiles.is_published ? 'Published' : 'Draft'}
+                </span>
+              </div>
+              <a
+                href={profilePublicUrl(profileIdentifier)}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 font-semibold text-brand-600 hover:underline shrink-0"
+              >
+                <span>Open /p/</span>
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
+          )}
+
+          <div className="pt-1 flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] theme-text-muted mr-1">Support Mode Switch:</span>
+            {usageType !== 'personal' && (
+              <button
+                type="button"
+                onClick={() => setPendingModeSwitch('personal')}
+                className="rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700 hover:bg-indigo-100"
+              >
+                Switch to Personal
+              </button>
+            )}
+            {usageType !== 'business' && (
+              <button
+                type="button"
+                onClick={() => setPendingModeSwitch('business')}
+                className="rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-700 hover:bg-sky-100"
+              >
+                Switch to Business
+              </button>
+            )}
+            {usageType !== null && (
+              <button
+                type="button"
+                onClick={() => setPendingModeSwitch(null)}
+                className="rounded-lg border theme-border px-2.5 py-1 text-[11px] font-medium theme-text-muted hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              >
+                Reset Mode
+              </button>
+            )}
+          </div>
+
+          {pendingModeSwitch !== undefined && (
+            <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-amber-950 space-y-2">
+              <p className="flex items-start gap-1.5 text-[11px] font-medium">
+                <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <span>
+                  Confirm changing <strong>{row.qr_number}</strong> to{' '}
+                  <strong>{pendingModeSwitch ? pendingModeSwitch.toUpperCase() : 'UNASSIGNED'}</strong>? Existing profile links and business URLs will be preserved in the database.
+                </span>
+              </p>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPendingModeSwitch(undefined)}
+                  className="rounded-lg border border-amber-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-900"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={switchingMode}
+                  onClick={handleConfirmModeSwitch}
+                  className="inline-flex items-center gap-1 rounded-lg bg-amber-600 px-3 py-1 text-[11px] font-bold text-white hover:bg-amber-700"
+                >
+                  {switchingMode && <Spinner size={11} />}
+                  Confirm Switch
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -201,17 +377,51 @@ export function EditQrModal({ row, onClose, onSaved }: EditQrModalProps) {
             />
           </div>
 
-          <div>
-            <label className="theme-text-main mb-1 block text-xs font-semibold uppercase tracking-wider">
-              Destination Link
-            </label>
-            <input
-              value={destinationUrl}
-              onChange={(e) => setDestinationUrl(e.target.value)}
-              placeholder="Not set — first scan will prompt for it"
-              className="theme-input w-full rounded-xl border px-3.5 py-2.5 text-sm focus:border-brand-500 transition-colors"
-            />
-          </div>
+          {usageType === 'business' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="theme-text-main mb-1 block text-xs font-semibold uppercase tracking-wider">
+                  Business Name
+                </label>
+                <input
+                  value={businessName}
+                  onChange={(e) => setBusinessName(e.target.value)}
+                  placeholder="Optional business label"
+                  className="theme-input w-full rounded-xl border px-3.5 py-2.5 text-sm focus:border-brand-500 transition-colors"
+                />
+              </div>
+              <div>
+                <label className="theme-text-main mb-1 block text-xs font-semibold uppercase tracking-wider">
+                  Business Purpose
+                </label>
+                <select
+                  value={businessPurpose}
+                  onChange={(e) => setBusinessPurpose(e.target.value as BusinessPurpose)}
+                  className="theme-input w-full rounded-xl border px-3.5 py-2.5 text-sm focus:border-brand-500 transition-colors"
+                >
+                  {BUSINESS_PURPOSES.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
+          {usageType !== 'personal' && (
+            <div>
+              <label className="theme-text-main mb-1 block text-xs font-semibold uppercase tracking-wider">
+                Destination Link
+              </label>
+              <input
+                value={destinationUrl}
+                onChange={(e) => setDestinationUrl(e.target.value)}
+                placeholder="Not set — first scan will prompt for it"
+                className="theme-input w-full rounded-xl border px-3.5 py-2.5 text-sm focus:border-brand-500 transition-colors"
+              />
+            </div>
+          )}
 
           <div>
             <label className="theme-text-main mb-1 block text-xs font-semibold uppercase tracking-wider">
@@ -293,11 +503,10 @@ export function EditQrModal({ row, onClose, onSaved }: EditQrModalProps) {
               )}
             </div>
 
-            {/* Direct Admin Password Override */}
             <div className="pt-2 border-t border-dashed theme-border">
               <label className="theme-text-main mb-1 block text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5">
                 <KeyRound className="h-3.5 w-3.5 text-amber-500" />
-                Direct Admin Password Override
+                Direct Password Override
               </label>
               <div className="flex gap-2">
                 <input

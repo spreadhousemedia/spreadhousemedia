@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { Spinner } from '../../components/Spinner'
 import { getCached, setCached } from '../../lib/cache'
+import type { QrRedirectResult } from '../../types'
 
 type ViewState = 'loading' | 'not_found' | 'inactive' | 'redirecting' | 'setup' | 'error'
 
@@ -22,15 +23,23 @@ export function QRRedirect() {
 
       const normQr = qrNumber.toUpperCase().trim()
 
-      // 1. Instant Cache Check (sub-millisecond instant redirect for repeated visits/scans)
-      const cachedUrl = getCached<string>(`redirect_${normQr}`)
-      if (cachedUrl) {
-        setState('redirecting')
-        window.location.replace(cachedUrl)
-        return
+      // 1. Instant Cache Check (sub-millisecond resolution for repeated scans)
+      const cached = getCached<QrRedirectResult>(`redirect_${normQr}`)
+      if (cached && cached.status === 'active') {
+        if (cached.usage_type === 'personal') {
+          setState('redirecting')
+          const identifier = cached.public_slug || normQr
+          navigate(`/p/${encodeURIComponent(identifier)}`, { replace: true })
+          return
+        }
+        if (cached.destination_url && cached.destination_url.trim().length > 0) {
+          setState('redirecting')
+          window.location.replace(cached.destination_url)
+          return
+        }
       }
 
-      // 2. Fetch destination from database
+      // 2. Fetch QR configuration & mode from database
       const { data, error } = await supabase.rpc('get_qr_redirect', { p_qr_number: normQr })
       if (cancelled) return
 
@@ -44,28 +53,37 @@ export function QRRedirect() {
         return
       }
 
-      const row = data[0] as { status: string; destination_url: string | null }
+      const row = data[0] as QrRedirectResult
       if (row.status !== 'active') {
         setState('inactive')
         return
       }
 
-      // First scan of a freshly created / unlinked QR: no destination has been set yet.
-      // Route scanner straight to the First-Time Activation flow!
-      if (!row.destination_url || row.destination_url.trim().length === 0) {
-        setState('setup')
-        setTimeout(() => {
-          if (!cancelled) {
-            navigate(`/update?qr=${encodeURIComponent(normQr)}`, { replace: true })
-          }
-        }, 500)
+      // 3. Route by usage_type
+      // PERSONAL MODE -> Render Digital Profile (/p/:slug or /p/:qrNumber)
+      if (row.usage_type === 'personal') {
+        setCached(`redirect_${normQr}`, row, 30_000)
+        setState('redirecting')
+        const identifier = row.public_slug || normQr
+        navigate(`/p/${encodeURIComponent(identifier)}`, { replace: true })
         return
       }
 
-      // Existing QR code: cache for 30s TTL and redirect immediately WITHOUT login
-      setCached(`redirect_${normQr}`, row.destination_url, 30_000)
-      setState('redirecting')
-      window.location.replace(row.destination_url)
+      // BUSINESS MODE (or legacy QR with configured destination_url) -> Direct Redirect
+      if (row.destination_url && row.destination_url.trim().length > 0) {
+        setCached(`redirect_${normQr}`, row, 30_000)
+        setState('redirecting')
+        window.location.replace(row.destination_url)
+        return
+      }
+
+      // UNCLAIMED / SETUP INCOMPLETE -> Route to activation & mode selection (/update?qr=...)
+      setState('setup')
+      setTimeout(() => {
+        if (!cancelled) {
+          navigate(`/update?qr=${encodeURIComponent(normQr)}`, { replace: true })
+        }
+      }, 450)
     }
 
     run()
@@ -107,7 +125,7 @@ export function QRRedirect() {
               <path d="M4.9 4.9l14.2 14.2" strokeLinecap="round" />
             </IconCircle>
             <h1 className="mt-4 text-lg font-semibold text-gray-900">Card / Standee Inactive</h1>
-            <p className="mt-2 text-sm text-gray-500">Please contact the administrator or support.</p>
+            <p className="mt-2 text-sm text-gray-500">Please contact support for assistance.</p>
           </>
         )}
         {state === 'error' && (
@@ -116,7 +134,7 @@ export function QRRedirect() {
               <circle cx="12" cy="12" r="10" />
               <path d="M12 8v4M12 16h.01" strokeLinecap="round" />
             </IconCircle>
-            <h1 className="text-lg font-semibold text-gray-900">Service Unavailable</h1>
+            <h1 className="mt-4 text-lg font-semibold text-gray-900">Service Unavailable</h1>
             <p className="mt-2 text-sm text-gray-500">
               Could not connect to the QR service. Please try again in a moment.
             </p>

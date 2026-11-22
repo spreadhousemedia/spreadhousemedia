@@ -4,6 +4,7 @@ import { Layers, ChevronLeft, RefreshCw, Calendar, Hash, FileText } from 'lucide
 import { supabase } from '../../lib/supabase'
 import { Spinner } from '../../components/Spinner'
 import type { Batch } from '../../types'
+import { portalRoute } from '../../lib/config'
 import { getCached, setCached } from '../../lib/cache'
 
 export function Batches() {
@@ -41,7 +42,7 @@ export function Batches() {
     <div className="space-y-6 max-w-7xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Link to="/admin" className="theme-subtle flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-semibold theme-hover transition-colors">
+          <Link to={portalRoute()} className="theme-subtle flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-semibold theme-hover transition-colors">
             <ChevronLeft className="h-3.5 w-3.5" />
             <span>Back to Dashboard</span>
           </Link>
@@ -56,7 +57,7 @@ export function Batches() {
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin text-brand-600" : "theme-text-muted"}`} />
             <span className="theme-text-main">Refresh</span>
           </button>
-          <Link to="/admin/bulk" className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-brand-700 shadow-md shadow-brand-600/20 transition-all">
+          <Link to={portalRoute('bulk')} className="inline-flex items-center gap-1.5 rounded-xl bg-brand-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-brand-700 shadow-md shadow-brand-600/20 transition-all">
             <Layers className="h-3.5 w-3.5" />
             Create Bulk Batch
           </Link>
@@ -104,7 +105,7 @@ export function Batches() {
                   <td className="px-5 py-4 whitespace-nowrap theme-text-main font-semibold text-sm"><div className="flex items-center gap-1"><Hash className="h-3 w-3 theme-text-muted" /><span>{batch.total_qr_codes}</span></div></td>
                   <td className="px-5 py-4 whitespace-nowrap theme-text-muted text-xs flex items-center gap-1"><Calendar className="h-3 w-3" /><span>{new Date(batch.created_at).toLocaleString()}</span></td>
                   <td className="px-5 py-4 text-right whitespace-nowrap">
-                    <Link to={`/admin/manage?batch=${batch.id}`} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-brand-50 text-brand-700 hover:bg-brand-100 border border-brand-200 transition-colors shadow-2xs">
+                    <Link to={portalRoute(`manage?batch=${batch.id}`)} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-brand-50 text-brand-700 hover:bg-brand-100 border border-brand-200 transition-colors shadow-2xs">
                       <FileText className="h-3 w-3" /><span>View QRs</span>
                     </Link>
                   </td>

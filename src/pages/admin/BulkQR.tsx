@@ -24,6 +24,7 @@ import { rpcErrorMessage, type PasswordMode } from '../../types'
 import { downloadBulkQrPdf, downloadBulkQrZip } from '../../lib/qr'
 import { downloadPasswordsCsv, downloadNfcEncodingCsv } from '../../lib/csv'
 import { invalidateAdminQrCache } from '../../lib/cache'
+import { portalRoute } from '../../lib/config'
 import { Spinner } from '../../components/Spinner'
 
 type Stage = 'form' | 'preview' | 'result'
@@ -454,7 +455,7 @@ export function BulkQR() {
             </button>
             <span className="theme-text-muted hidden sm:inline opacity-40">•</span>
             <Link
-              to="/admin/manage"
+              to={portalRoute('manage')}
               className="theme-text-muted w-full sm:w-auto font-medium hover:text-white"
             >
               Go to Manage QR

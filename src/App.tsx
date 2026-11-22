@@ -3,20 +3,21 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
-import { AdminLayout } from './components/AdminLayout'
 import { Spinner } from './components/Spinner'
-import { Login } from './pages/Login'
-import { QRRedirect } from './pages/public/QRRedirect'
-import { UpdatePage } from './pages/public/UpdatePage'
-import { NotFound } from './pages/public/NotFound'
-
-import { LandingPage } from './pages/public/LandingPage'
 import { WhatsAppWidget } from './components/WhatsAppWidget'
+import { PORTAL_AUTH_PATH, PORTAL_BASE_PATH } from './lib/config'
 
+const LandingPage = lazy(() => import('./pages/public/LandingPage').then((m) => ({ default: m.LandingPage })))
 const ProductsPage = lazy(() => import('./pages/public/ProductsPage').then((m) => ({ default: m.ProductsPage })))
 const SupportPage = lazy(() => import('./pages/public/SupportPage').then((m) => ({ default: m.SupportPage })))
 const ContactPage = lazy(() => import('./pages/public/ContactPage').then((m) => ({ default: m.ContactPage })))
+const Login = lazy(() => import('./pages/Login').then((m) => ({ default: m.Login })))
+const UpdatePage = lazy(() => import('./pages/public/UpdatePage').then((m) => ({ default: m.UpdatePage })))
+const QRRedirect = lazy(() => import('./pages/public/QRRedirect').then((m) => ({ default: m.QRRedirect })))
+const PublicProfile = lazy(() => import('./pages/public/PublicProfile').then((m) => ({ default: m.PublicProfile })))
+const NotFound = lazy(() => import('./pages/public/NotFound').then((m) => ({ default: m.NotFound })))
 
+const AdminLayout = lazy(() => import('./components/AdminLayout').then((m) => ({ default: m.AdminLayout })))
 const Dashboard = lazy(() => import('./pages/admin/Dashboard').then((m) => ({ default: m.Dashboard })))
 const AdminProducts = lazy(() => import('./pages/admin/AdminProducts').then((m) => ({ default: m.AdminProducts })))
 const AdminOrders = lazy(() => import('./pages/admin/AdminOrders').then((m) => ({ default: m.AdminOrders })))
@@ -31,8 +32,8 @@ const Batches = lazy(() => import('./pages/admin/Batches').then((m) => ({ defaul
 
 function PageFallback() {
   return (
-    <div className="flex h-64 items-center justify-center">
-      <Spinner size={28} className="text-brand-600" />
+    <div className="flex min-h-screen items-center justify-center bg-[#F7F6F3]">
+      <Spinner size={26} className="text-[#5E4AE3]" />
     </div>
   )
 }
@@ -48,11 +49,12 @@ export default function App() {
               <Route path="/products" element={<ProductsPage />} />
               <Route path="/support" element={<SupportPage />} />
               <Route path="/contact" element={<ContactPage />} />
-              <Route path="/login" element={<Login />} />
               <Route path="/update" element={<UpdatePage />} />
               <Route path="/q/:qrNumber" element={<QRRedirect />} />
+              <Route path="/p/:identifier" element={<PublicProfile />} />
 
-              <Route path="/admin" element={<ProtectedRoute />}>
+              <Route path={PORTAL_AUTH_PATH} element={<Login />} />
+              <Route path={PORTAL_BASE_PATH} element={<ProtectedRoute />}>
                 <Route element={<AdminLayout />}>
                   <Route index element={<Dashboard />} />
                   <Route path="products" element={<AdminProducts />} />
@@ -63,7 +65,8 @@ export default function App() {
                   <Route path="bulk" element={<BulkQR />} />
                   <Route path="upload" element={<UploadCSV />} />
                   <Route path="manage" element={<ManageQR />} />
-                  <Route path="backup" element={<DataBackup />} />`n                  <Route path="batches" element={<Batches />} />
+                  <Route path="backup" element={<DataBackup />} />
+                  <Route path="batches" element={<Batches />} />
                 </Route>
               </Route>
 
@@ -76,6 +79,3 @@ export default function App() {
     </ThemeProvider>
   )
 }
-
-
-

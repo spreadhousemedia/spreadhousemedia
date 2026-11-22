@@ -31,13 +31,24 @@ export const isOfflineMode = computeOfflineMode()
 
 const realClient = createClient(envUrl, envAnonKey)
 
-// Helper to attach batch name to a QR record
-function attachBatch(qr: MockQr) {
+function attachBatchAndProfile(qr: MockQr) {
   const batches = mockDb.getBatches()
   const b = batches.find((item) => item.id === qr.batch_id)
+  const profile = mockDb.getProfiles().find((p) => p.qr_code_id === qr.id)
+  const links = profile ? mockDb.getLinks().filter((l) => l.qr_profile_id === profile.id) : []
   return {
     ...qr,
     batches: b ? { batch_name: b.batch_name } : null,
+    qr_profiles: profile
+      ? {
+          id: profile.id,
+          public_slug: profile.public_slug,
+          is_published: profile.is_published,
+          profile_name: profile.profile_name,
+          theme: profile.theme,
+          qr_links: links.map((l) => ({ id: l.id, is_active: l.is_active })),
+        }
+      : null,
   }
 }
 
@@ -188,13 +199,25 @@ class MockQueryBuilder {
         return 0
       })
 
-      const paginated = filtered.slice(this.rangeFrom, this.rangeTo + 1).map(attachBatch)
+      const paginated = filtered.slice(this.rangeFrom, this.rangeTo + 1).map(attachBatchAndProfile)
 
       return resolve({
         data: paginated,
         count: totalCount,
         error: null,
       })
+    }
+
+    if (this.table === 'qr_profiles') {
+      const profiles = mockDb.getProfiles()
+      const filtered = profiles.filter((row) => this.filters.every((f) => f(row)))
+      return resolve({ data: filtered, count: filtered.length, error: null })
+    }
+
+    if (this.table === 'qr_links') {
+      const links = mockDb.getLinks()
+      const filtered = links.filter((row) => this.filters.every((f) => f(row)))
+      return resolve({ data: filtered, count: filtered.length, error: null })
     }
 
     return resolve({ data: [], count: 0, error: null })
@@ -225,8 +248,28 @@ export const supabase = {
           return mockDb.resetPassword(params)
         case 'admin_reset_qr_unclaimed':
           return mockDb.resetQrUnclaimed(params)
+        case 'admin_set_qr_usage_type':
+          return mockDb.adminSetUsageType(params)
+        case 'verify_setup_code':
+          return mockDb.verifySetupCode(params)
         case 'customer_claim_qr':
           return mockDb.claimQr(params)
+        case 'customer_login_qr':
+          return mockDb.loginQr(params)
+        case 'customer_get_dashboard':
+          return mockDb.getCustomerDashboard(params)
+        case 'customer_select_usage_mode':
+          return mockDb.selectUsageMode(params)
+        case 'customer_save_personal_profile':
+          return mockDb.savePersonalProfile(params)
+        case 'check_public_slug_available':
+          return mockDb.checkPublicSlugAvailable(params)
+        case 'customer_save_business_settings':
+          return mockDb.saveBusinessSettings(params)
+        case 'customer_change_password':
+          return mockDb.customerChangePassword(params)
+        case 'get_public_profile':
+          return mockDb.getPublicProfile(params)
         case 'request_qr_update':
           return mockDb.requestQrUpdate(params)
         case 'confirm_qr_update':

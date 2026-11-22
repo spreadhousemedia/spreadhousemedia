@@ -1,4 +1,41 @@
 export type QrStatus = 'active' | 'inactive'
+export type UsageType = 'personal' | 'business'
+export type BusinessPurpose =
+  | 'google_reviews'
+  | 'website'
+  | 'payment'
+  | 'feedback'
+  | 'product'
+  | 'custom'
+export type ProfileTheme = 'light' | 'dark'
+
+export type SocialPlatform =
+  | 'instagram'
+  | 'facebook'
+  | 'tiktok'
+  | 'youtube'
+  | 'linkedin'
+  | 'x'
+  | 'whatsapp'
+  | 'telegram'
+  | 'snapchat'
+  | 'pinterest'
+  | 'threads'
+  | 'website'
+  | 'github'
+  | 'discord'
+  | 'spotify'
+  | 'custom'
+
+export interface QrProfileSummary {
+  id: string
+  public_slug: string | null
+  is_published: boolean
+  profile_name: string
+  theme: ProfileTheme
+  active_link_count?: number
+  total_link_count?: number
+}
 
 /** Never includes password_hash — admin queries always select an explicit column list. */
 export interface QrCode {
@@ -12,8 +49,90 @@ export interface QrCode {
   claimed_at?: string | null
   owner_email?: string | null
   requires_setup_code?: boolean
+  usage_type?: UsageType | null
+  business_name?: string | null
+  business_purpose?: BusinessPurpose | null
+  scan_count?: number
   created_at: string
   updated_at: string
+}
+
+export interface QrProfile {
+  id: string
+  qr_code_id: string
+  profile_name: string
+  profile_image: string | null
+  avatar_id?: string | null
+  tagline?: string | null
+  bio: string | null
+  contact_email: string | null
+  contact_phone: string | null
+  public_slug: string | null
+  theme: ProfileTheme
+  is_published: boolean
+  created_at?: string
+  updated_at?: string
+}
+
+export interface QrLink {
+  id: string
+  qr_profile_id?: string
+  platform: SocialPlatform
+  link_title: string
+  destination_url: string
+  icon: string | null
+  display_order: number
+  is_active: boolean
+  created_at?: string
+  updated_at?: string
+}
+
+export interface CustomerQrInfo {
+  qr_number: string
+  qr_name: string
+  status: QrStatus
+  usage_type: UsageType | null
+  destination_url: string | null
+  business_name: string | null
+  business_purpose: BusinessPurpose | null
+  scan_count: number
+  updated_at: string
+}
+
+export interface CustomerDashboardData {
+  qr: CustomerQrInfo
+  profile: QrProfile | null
+  links: QrLink[]
+}
+
+export interface PublicProfileData {
+  profile_name: string
+  profile_image: string | null
+  avatar_id?: string | null
+  tagline?: string | null
+  bio: string | null
+  contact_email?: string | null
+  contact_phone?: string | null
+  public_slug: string | null
+  theme: ProfileTheme
+}
+
+export interface PublicLinkItem {
+  id: string
+  platform: SocialPlatform
+  link_title: string
+  destination_url: string
+  icon: string | null
+  display_order: number
+}
+
+export interface QrRedirectResult {
+  status: QrStatus
+  destination_url: string | null
+  is_claimed: boolean
+  usage_type: UsageType | null
+  public_slug: string | null
+  is_published: boolean
 }
 
 export interface Batch {
@@ -31,11 +150,11 @@ export type PasswordMode = 'common' | 'unique'
 
 export const RPC_ERROR_MESSAGES: Record<string, string> = {
   not_found: 'QR code not found. Please check the QR number and try again.',
-  inactive: 'This QR code is inactive. Please contact the administrator.',
-  invalid_url: 'Please enter a valid URL.',
+  inactive: 'This QR code is inactive. Please contact support.',
+  invalid_url: 'Please enter a valid http:// or https:// URL.',
   wrong_password: 'Incorrect password. Please enter the correct password.',
   wrong_setup_code: 'Incorrect setup code. Please check the code printed on your packaging slip.',
-  already_claimed: 'This QR card is already activated. Please use your personal password to update the link.',
+  already_claimed: 'This QR card is already activated. Please use your personal password to sign in.',
   password_mismatch: 'Passwords do not match.',
   rate_limited: 'Too many attempts. Please try again later.',
   too_many_attempts: 'Too many incorrect attempts. Temporary cooldown active. Please wait 5 minutes before trying again.',
@@ -53,7 +172,21 @@ export const RPC_ERROR_MESSAGES: Record<string, string> = {
   invalid_password_mode: 'Invalid password mode.',
   invalid_default_url: 'Please enter a valid default destination URL.',
   duplicates: 'Some QR numbers in this range already exist.',
-  unauthorized: 'You are not authorized to perform this action.',
+  unauthorized: 'Your session has expired or you are not authorized. Please sign in again.',
+  mode_locked: 'Account experience mode is locked after setup. Contact support to change it.',
+  mode_mismatch: 'This action is not valid for the selected QR mode.',
+  invalid_usage_type: 'Please select Personal or Business mode.',
+  invalid_profile_name: 'Please enter a display name (1–80 characters).',
+  invalid_profile_image: 'Please choose a valid curated avatar.',
+  invalid_avatar: 'Please choose one of the curated avatars.',
+  invalid_tagline: 'Tagline must be 80 characters or fewer.',
+  invalid_theme: 'Theme must be light or dark.',
+  invalid_slug: 'Username must be 3–40 lowercase letters, numbers, hyphens, or underscores, and cannot use a reserved name.',
+  slug_taken: 'This custom profile username is already taken. Please choose another.',
+  invalid_link_title: 'Every link needs a title (1–80 characters).',
+  duplicate_link: 'You already added this exact platform and URL.',
+  invalid_links_payload: 'Invalid link collection format.',
+  not_personal_profile: 'This QR code is configured for Business direct redirection, not a Personal profile.',
 }
 
 export function rpcErrorMessage(code: string | undefined | null): string {
@@ -63,7 +196,6 @@ export function rpcErrorMessage(code: string | undefined | null): string {
     return RPC_ERROR_MESSAGES[code]
   }
 
-  // Diagnostic logging for developers & users
   console.error('[Supabase Error Diagnostic]:', code)
 
   const lower = code.toLowerCase()
@@ -71,10 +203,10 @@ export function rpcErrorMessage(code: string | undefined | null): string {
     return 'Database connection failed. Please check your internet or Supabase URL in .env.'
   }
   if (lower.includes('function') && lower.includes('does not exist')) {
-    return 'Database function is missing. Please run the supabase_schema.sql script in your Supabase SQL Editor.'
+    return 'Database function is missing. Please run MULTI_LINK_SYSTEM_MIGRATION.sql in your Supabase SQL Editor.'
   }
   if (lower.includes('relation') && lower.includes('does not exist')) {
-    return 'Database tables are missing. Please run the supabase_schema.sql script in your Supabase SQL Editor.'
+    return 'Database tables are missing. Please run MULTI_LINK_SYSTEM_MIGRATION.sql in your Supabase SQL Editor.'
   }
   if (lower.includes('permission denied') || lower.includes('row-level security')) {
     return 'Permission denied. Please verify your Supabase API keys and RLS policies.'

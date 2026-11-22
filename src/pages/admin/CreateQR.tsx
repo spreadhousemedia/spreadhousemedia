@@ -22,7 +22,7 @@ import {
 } from '../../lib/validation'
 import { rpcErrorMessage } from '../../types'
 import { downloadSingleQr, generateQrDataUrl } from '../../lib/qr'
-import { qrPublicUrl } from '../../lib/config'
+import { portalRoute, qrPublicUrl } from '../../lib/config'
 import { invalidateAdminQrCache } from '../../lib/cache'
 import { Spinner } from '../../components/Spinner'
 
@@ -194,7 +194,7 @@ export function CreateQR() {
             </button>
             <span className="theme-text-muted hidden sm:inline opacity-40">•</span>
             <Link
-              to="/admin/manage"
+              to={portalRoute('manage')}
               className="theme-text-muted w-full sm:w-auto font-medium hover:text-white"
             >
               Go to Manage QR

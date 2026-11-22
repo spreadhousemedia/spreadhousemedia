@@ -12,6 +12,7 @@ import { supabase } from '../../lib/supabase'
 import { parseCsvFile, downloadSampleCsv, type CsvRawRow } from '../../lib/csv'
 import { normalizeDestinationUrl } from '../../lib/validation'
 import { invalidateAdminQrCache } from '../../lib/cache'
+import { portalRoute } from '../../lib/config'
 import { Spinner } from '../../components/Spinner'
 
 type Stage = 'upload' | 'preview' | 'result'
@@ -270,7 +271,7 @@ export function UploadCSV() {
             </button>
             <span className="theme-text-muted hidden sm:inline opacity-40">•</span>
             <Link
-              to="/admin/manage"
+              to={portalRoute('manage')}
               className="inline-flex items-center gap-1.5 w-full sm:w-auto font-semibold text-brand-600 dark:text-brand-400 hover:underline"
             >
               <ExternalLink className="h-3.5 w-3.5" />

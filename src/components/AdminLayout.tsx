@@ -23,32 +23,33 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme, applyThemeToDOM } from '../contexts/ThemeContext'
+import { PORTAL_AUTH_PATH, PORTAL_BASE_PATH, portalRoute } from '../lib/config'
 import { ChangePasswordModal } from './ChangePasswordModal'
 
 const NAV_ITEMS = [
-  { to: '/admin', label: 'Dashboard', end: true, icon: LayoutDashboard },
-  { to: '/admin/products', label: 'Products', end: false, icon: Package },
-  { to: '/admin/orders', label: 'Orders', end: false, icon: ShoppingBag },
-  { to: '/admin/support', label: 'Support Desk', end: false, icon: LifeBuoy },
-  { to: '/admin/inquiries', label: 'Corporate Leads', end: false, icon: Users },
-  { to: '/admin/create', label: 'Create QR', end: false, icon: PlusCircle },
-  { to: '/admin/bulk', label: 'Bulk QR', end: false, icon: Layers },
-  { to: '/admin/upload', label: 'Upload CSV', end: false, icon: UploadCloud },
-  { to: '/admin/manage', label: 'Manage QR', end: false, icon: SlidersHorizontal },
-  { to: '/admin/backup', label: 'Data Backup', end: false, icon: Database },
+  { to: portalRoute(), label: 'Dashboard', end: true, icon: LayoutDashboard },
+  { to: portalRoute('products'), label: 'Products', end: false, icon: Package },
+  { to: portalRoute('orders'), label: 'Orders', end: false, icon: ShoppingBag },
+  { to: portalRoute('support'), label: 'Support Desk', end: false, icon: LifeBuoy },
+  { to: portalRoute('inquiries'), label: 'Corporate Leads', end: false, icon: Users },
+  { to: portalRoute('create'), label: 'Create QR', end: false, icon: PlusCircle },
+  { to: portalRoute('bulk'), label: 'Bulk QR', end: false, icon: Layers },
+  { to: portalRoute('upload'), label: 'Upload CSV', end: false, icon: UploadCloud },
+  { to: portalRoute('manage'), label: 'Manage QR', end: false, icon: SlidersHorizontal },
+  { to: portalRoute('backup'), label: 'Data Backup', end: false, icon: Database },
 ]
 
 const ROUTE_PRELOADERS: Record<string, () => void> = {
-  '/admin': () => import('../pages/admin/Dashboard'),
-  '/admin/products': () => import('../pages/admin/AdminProducts'),
-  '/admin/orders': () => import('../pages/admin/AdminOrders'),
-  '/admin/support': () => import('../pages/admin/AdminSupport'),
-  '/admin/inquiries': () => import('../pages/admin/AdminInquiries'),
-  '/admin/create': () => import('../pages/admin/CreateQR'),
-  '/admin/bulk': () => import('../pages/admin/BulkQR'),
-  '/admin/upload': () => import('../pages/admin/UploadCSV'),
-  '/admin/manage': () => import('../pages/admin/ManageQR'),
-  '/admin/backup': () => import('../pages/admin/DataBackup'),
+  [portalRoute()]: () => import('../pages/admin/Dashboard'),
+  [portalRoute('products')]: () => import('../pages/admin/AdminProducts'),
+  [portalRoute('orders')]: () => import('../pages/admin/AdminOrders'),
+  [portalRoute('support')]: () => import('../pages/admin/AdminSupport'),
+  [portalRoute('inquiries')]: () => import('../pages/admin/AdminInquiries'),
+  [portalRoute('create')]: () => import('../pages/admin/CreateQR'),
+  [portalRoute('bulk')]: () => import('../pages/admin/BulkQR'),
+  [portalRoute('upload')]: () => import('../pages/admin/UploadCSV'),
+  [portalRoute('manage')]: () => import('../pages/admin/ManageQR'),
+  [portalRoute('backup')]: () => import('../pages/admin/DataBackup'),
 }
 
 function prefetchRoute(to: string) {
@@ -68,42 +69,46 @@ export function AdminLayout() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [changePasswordOpen, setChangePasswordOpen] = useState(false)
 
-  // Manage admin theme lifecycle: enforce saved admin theme on mount, reset to light when leaving admin panel
   useEffect(() => {
     const saved = localStorage.getItem('spreadnfc_admin_theme') as 'light' | 'dark' | null
     const adminTheme = saved === 'dark' ? 'dark' : 'light'
     applyThemeToDOM(adminTheme)
 
+    const meta = document.createElement('meta')
+    meta.name = 'robots'
+    meta.content = 'noindex, nofollow'
+    document.head.appendChild(meta)
+
     return () => {
-      // Revert public pages to clean light mode when leaving admin panel
+      document.head.removeChild(meta)
       applyThemeToDOM('light')
     }
   }, [])
 
-  // Pre-warm the most heavily accessed admin routes during browser idle time
+  // Pre-warm the most heavily accessed workspace routes during browser idle time
   useEffect(() => {
     const timer = setTimeout(() => {
-      prefetchRoute('/admin/manage')
-      prefetchRoute('/admin/upload')
-      prefetchRoute('/admin/bulk')
+      prefetchRoute(portalRoute('manage'))
+      prefetchRoute(portalRoute('upload'))
+      prefetchRoute(portalRoute('bulk'))
     }, 1200)
     return () => clearTimeout(timer)
   }, [])
 
   const displayName =
-    (user?.user_metadata?.full_name as string | undefined) || user?.email?.split('@')[0] || 'Admin'
+    (user?.user_metadata?.full_name as string | undefined) || user?.email?.split('@')[0] || 'Operator'
   const initial = displayName.charAt(0).toUpperCase()
 
   async function handleLogout() {
     await signOut()
-    navigate('/login', { replace: true })
+    navigate(PORTAL_AUTH_PATH, { replace: true })
   }
 
   // Get current section title for topbar breadcrumb
   const currentNav = NAV_ITEMS.find((item) =>
     item.end ? location.pathname === item.to : location.pathname.startsWith(item.to),
   )
-  const currentTitle = currentNav?.label ?? 'Admin Panel'
+  const currentTitle = currentNav?.label ?? 'Console'
 
   return (
     <div className="theme-page flex h-screen overflow-hidden">
@@ -111,11 +116,11 @@ export function AdminLayout() {
       <aside className="theme-sidebar hidden w-64 shrink-0 flex-col border-r md:flex transition-colors duration-150">
         {/* Brand header */}
         <div className="theme-border flex h-16 shrink-0 items-center justify-between px-5 border-b">
-          <NavLink to="/admin" className="flex items-center gap-2 group">
+          <NavLink to={PORTAL_BASE_PATH} className="flex items-center gap-2 group">
             <img src="/logo.png" alt="Spread NFC" className="h-7 w-auto object-contain transition-transform group-hover:scale-105" />
           </NavLink>
           <span className="flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200/50">
-            <Shield className="w-3 h-3" /> Admin
+            <Shield className="w-3 h-3" /> Console
           </span>
         </div>
 
@@ -189,7 +194,7 @@ export function AdminLayout() {
           <aside className="theme-sidebar relative z-50 flex w-72 max-w-[85vw] flex-col shadow-2xl transition-transform border-r">
             {/* Drawer Header */}
             <div className="theme-border flex h-16 shrink-0 items-center justify-between px-5 border-b">
-              <NavLink to="/admin" onClick={() => setMobileNavOpen(false)} className="flex items-center gap-2">
+              <NavLink to={PORTAL_BASE_PATH} onClick={() => setMobileNavOpen(false)} className="flex items-center gap-2">
                 <img src="/logo.png" alt="Spread NFC" className="h-7 w-auto object-contain" />
               </NavLink>
               <button
@@ -361,7 +366,7 @@ export function AdminLayout() {
                 </span>
                 <span className="hidden sm:flex flex-col text-left">
                   <span className="theme-text-main text-xs font-semibold leading-tight">{displayName}</span>
-                  <span className="theme-text-muted text-[10px]">Admin</span>
+                  <span className="theme-text-muted text-[10px]">Operator</span>
                 </span>
                 <ChevronDown className="theme-text-muted hidden sm:block h-3.5 w-3.5" />
               </button>

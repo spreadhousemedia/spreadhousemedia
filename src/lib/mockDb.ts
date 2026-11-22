@@ -1,3 +1,13 @@
+import type {
+  BusinessPurpose,
+  ProfileTheme,
+  QrLink,
+  QrProfile,
+  SocialPlatform,
+  UsageType,
+} from '../types'
+import { isValidDestinationUrl, isValidPublicSlug } from './validation'
+
 /**
  * Local/Offline High-Performance Mock Database.
  * Powers Spread NFC completely in-memory & localStorage when Supabase credentials are in demo/offline mode.
@@ -14,6 +24,10 @@ export interface MockQr {
   password_changed?: boolean
   claimed_at?: string | null
   owner_email?: string | null
+  requires_setup_code?: boolean
+  usage_type?: UsageType | null
+  business_name?: string | null
+  business_purpose?: BusinessPurpose | null
   scan_count: number
   created_at: string
   updated_at: string
@@ -30,15 +44,33 @@ export interface MockBatch {
   updated_at: string
 }
 
+export interface MockSession {
+  token: string
+  qr_code_id: string
+  expires_at: string
+}
+
 const QR_STORAGE_KEY = 'spreadnfc_offline_qrs'
 const BATCH_STORAGE_KEY = 'spreadnfc_offline_batches'
+const PROFILE_STORAGE_KEY = 'spreadnfc_offline_profiles'
+const LINK_STORAGE_KEY = 'spreadnfc_offline_links'
+const CUSTOMER_SESSION_KEY = 'spreadnfc_offline_customer_sessions'
 
-function initStorage(): { qrs: MockQr[]; batches: MockBatch[] } {
+function initStorage(): {
+  qrs: MockQr[]
+  batches: MockBatch[]
+  profiles: QrProfile[]
+  links: QrLink[]
+} {
   const existingBatches = localStorage.getItem(BATCH_STORAGE_KEY)
   const existingQrs = localStorage.getItem(QR_STORAGE_KEY)
+  const existingProfiles = localStorage.getItem(PROFILE_STORAGE_KEY)
+  const existingLinks = localStorage.getItem(LINK_STORAGE_KEY)
 
   let batches: MockBatch[] = []
   let qrs: MockQr[] = []
+  let profiles: QrProfile[] = []
+  let links: QrLink[] = []
 
   if (!existingBatches) {
     batches = [
@@ -85,6 +117,10 @@ function initStorage(): { qrs: MockQr[]; batches: MockBatch[] } {
         password_changed: true,
         claimed_at: new Date(Date.now() - 86400000 * 2).toISOString(),
         owner_email: 'cafe.owner@example.com',
+        requires_setup_code: true,
+        usage_type: 'business',
+        business_name: 'Rooftop Cafe',
+        business_purpose: 'website',
         scan_count: 142,
         created_at: new Date(Date.now() - 86400000 * 3).toISOString(),
         updated_at: new Date(Date.now() - 86400000 * 3).toISOString(),
@@ -92,14 +128,18 @@ function initStorage(): { qrs: MockQr[]; batches: MockBatch[] } {
       {
         id: 'qr-2',
         qr_number: 'Z101',
-        qr_name: 'Bar Counter Specials',
-        destination_url: 'https://example.com/bar',
+        qr_name: 'Google Review Standee',
+        destination_url: 'https://example.com/reviews',
         status: 'active',
         batch_id: 'batch-1',
         password: 'password',
         password_changed: true,
         claimed_at: new Date(Date.now() - 86400000 * 1).toISOString(),
         owner_email: 'bar.manager@example.com',
+        requires_setup_code: true,
+        usage_type: 'business',
+        business_name: 'Bar Counter Lounge',
+        business_purpose: 'google_reviews',
         scan_count: 89,
         created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
         updated_at: new Date(Date.now() - 86400000 * 2).toISOString(),
@@ -107,14 +147,18 @@ function initStorage(): { qrs: MockQr[]; batches: MockBatch[] } {
       {
         id: 'qr-3',
         qr_number: 'Z102',
-        qr_name: 'Outdoor Patio Ordering',
-        destination_url: 'https://example.com/patio',
+        qr_name: 'Personal Creator Card',
+        destination_url: null,
         status: 'active',
         batch_id: 'batch-1',
         password: 'password',
-        password_changed: false,
-        claimed_at: null,
-        owner_email: null,
+        password_changed: true,
+        claimed_at: new Date(Date.now() - 86400000 * 1).toISOString(),
+        owner_email: 'brijesh@spreadnfc.in',
+        requires_setup_code: true,
+        usage_type: 'personal',
+        business_name: null,
+        business_purpose: null,
         scan_count: 45,
         created_at: new Date(Date.now() - 86400000 * 1).toISOString(),
         updated_at: new Date(Date.now() - 86400000 * 1).toISOString(),
@@ -122,7 +166,7 @@ function initStorage(): { qrs: MockQr[]; batches: MockBatch[] } {
       {
         id: 'qr-4',
         qr_number: 'Z103',
-        qr_name: 'Table 4 Reserved',
+        qr_name: 'Fresh Unclaimed Smart Card',
         destination_url: null,
         status: 'active',
         batch_id: 'batch-1',
@@ -130,6 +174,10 @@ function initStorage(): { qrs: MockQr[]; batches: MockBatch[] } {
         password_changed: false,
         claimed_at: null,
         owner_email: null,
+        requires_setup_code: true,
+        usage_type: null,
+        business_name: null,
+        business_purpose: null,
         scan_count: 0,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -144,7 +192,124 @@ function initStorage(): { qrs: MockQr[]; batches: MockBatch[] } {
     }
   }
 
-  return { qrs, batches }
+  if (!existingProfiles) {
+    profiles = [
+      {
+        id: 'prof-1',
+        qr_code_id: 'qr-3',
+        profile_name: 'Brijesh',
+        profile_image: null,
+        avatar_id: 'avatar-06',
+        tagline: 'Founder · Digital Product Builder',
+        bio: 'Building smart contactless experiences with SpreadNFC.',
+        contact_email: 'hello@spreadnfc.in',
+        contact_phone: null,
+        public_slug: 'brijesh',
+        theme: 'light',
+        is_published: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ]
+    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profiles))
+  } else {
+    try {
+      profiles = JSON.parse(existingProfiles)
+    } catch {
+      profiles = []
+    }
+  }
+
+  if (!existingLinks) {
+    links = [
+      {
+        id: 'link-1',
+        qr_profile_id: 'prof-1',
+        platform: 'instagram',
+        link_title: 'Instagram',
+        destination_url: 'https://instagram.com/spreadnfc',
+        icon: null,
+        display_order: 0,
+        is_active: true,
+      },
+      {
+        id: 'link-2',
+        qr_profile_id: 'prof-1',
+        platform: 'linkedin',
+        link_title: 'LinkedIn',
+        destination_url: 'https://linkedin.com/in/spreadnfc',
+        icon: null,
+        display_order: 1,
+        is_active: true,
+      },
+      {
+        id: 'link-3',
+        qr_profile_id: 'prof-1',
+        platform: 'youtube',
+        link_title: 'YouTube',
+        destination_url: 'https://youtube.com/@spreadnfc',
+        icon: null,
+        display_order: 2,
+        is_active: true,
+      },
+      {
+        id: 'link-4',
+        qr_profile_id: 'prof-1',
+        platform: 'website',
+        link_title: 'My Website',
+        destination_url: 'https://spreadnfc.in',
+        icon: null,
+        display_order: 3,
+        is_active: true,
+      },
+    ]
+    localStorage.setItem(LINK_STORAGE_KEY, JSON.stringify(links))
+  } else {
+    try {
+      links = JSON.parse(existingLinks)
+    } catch {
+      links = []
+    }
+  }
+
+  return { qrs, batches, profiles, links }
+}
+
+function getSessions(): MockSession[] {
+  try {
+    return JSON.parse(localStorage.getItem(CUSTOMER_SESSION_KEY) || '[]')
+  } catch {
+    return []
+  }
+}
+
+function saveSessions(sessions: MockSession[]) {
+  localStorage.setItem(CUSTOMER_SESSION_KEY, JSON.stringify(sessions))
+}
+
+function issueSession(qrCodeId: string): string {
+  const token =
+    'mock_' +
+    Math.random().toString(36).slice(2) +
+    Math.random().toString(36).slice(2) +
+    Date.now().toString(36)
+  const sessions = getSessions().filter((s) => new Date(s.expires_at).getTime() > Date.now())
+  sessions.push({
+    token,
+    qr_code_id: qrCodeId,
+    expires_at: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(),
+  })
+  saveSessions(sessions)
+  return token
+}
+
+function verifySession(token: string | undefined | null): string | null {
+  if (!token) return null
+  const sessions = getSessions()
+  const match = sessions.find(
+    (s) => s.token === token && new Date(s.expires_at).getTime() > Date.now(),
+  )
+  return match?.qr_code_id ?? null
 }
 
 export const mockDb = {
@@ -164,6 +329,22 @@ export const mockDb = {
     localStorage.setItem(BATCH_STORAGE_KEY, JSON.stringify(batches))
   },
 
+  getProfiles(): QrProfile[] {
+    return initStorage().profiles
+  },
+
+  saveProfiles(profiles: QrProfile[]): void {
+    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profiles))
+  },
+
+  getLinks(): QrLink[] {
+    return initStorage().links
+  },
+
+  saveLinks(links: QrLink[]): void {
+    localStorage.setItem(LINK_STORAGE_KEY, JSON.stringify(links))
+  },
+
   createSingleQr(params: {
     p_qr_number: string
     p_qr_name: string
@@ -173,6 +354,7 @@ export const mockDb = {
   }) {
     const qrs = this.getQrs()
     const norm = params.p_qr_number.trim().toUpperCase()
+    const cleanUrl = params.p_destination_url ? params.p_destination_url.trim() : null
 
     if (qrs.some((q) => q.qr_number.toUpperCase() === norm)) {
       return { data: { ok: false, error: 'duplicate_qr_number' }, error: null }
@@ -182,13 +364,17 @@ export const mockDb = {
       id: 'qr-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
       qr_number: norm,
       qr_name: params.p_qr_name.trim(),
-      destination_url: params.p_destination_url ? params.p_destination_url.trim() : null,
+      destination_url: cleanUrl,
       status: params.p_status ?? 'active',
       batch_id: null,
       password: params.p_password ?? '123456',
       password_changed: false,
       claimed_at: null,
       owner_email: null,
+      requires_setup_code: true,
+      usage_type: cleanUrl ? 'business' : null,
+      business_name: null,
+      business_purpose: null,
       scan_count: 0,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -259,6 +445,7 @@ export const mockDb = {
 
     const passwordsList: { qr_number: string; password: string }[] = []
     const newQrs: MockQr[] = []
+    const cleanDefaultUrl = params.p_default_url?.trim() || null
 
     for (let i = 0; i < generatedNums.length; i++) {
       const num = generatedNums[i]
@@ -275,13 +462,17 @@ export const mockDb = {
         id: 'qr-' + Date.now() + '-' + i,
         qr_number: num,
         qr_name: `${params.p_batch_name} #${start + i}`,
-        destination_url: params.p_default_url || null,
+        destination_url: cleanDefaultUrl,
         status: 'active',
         batch_id: batchId,
         password: pwd,
         password_changed: false,
         claimed_at: null,
         owner_email: null,
+        requires_setup_code: true,
+        usage_type: cleanDefaultUrl ? 'business' : null,
+        business_name: null,
+        business_purpose: null,
         scan_count: 0,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -351,6 +542,10 @@ export const mockDb = {
           password_changed: false,
           claimed_at: null,
           owner_email: null,
+          requires_setup_code: true,
+          usage_type: url ? 'business' : null,
+          business_name: null,
+          business_purpose: null,
           scan_count: 0,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -398,29 +593,84 @@ export const mockDb = {
     return { data: { ok: true }, error: null }
   },
 
+  adminSetUsageType(params: { p_qr_id: string; p_usage_type: UsageType | null }) {
+    const qrs = this.getQrs()
+    const target = qrs.find((q) => q.id === params.p_qr_id)
+    if (!target) return { data: { ok: false, error: 'not_found' }, error: null }
+    target.usage_type = params.p_usage_type
+    target.updated_at = new Date().toISOString()
+    this.saveQrs(qrs)
+
+    if (params.p_usage_type === 'personal') {
+      const profiles = this.getProfiles()
+      if (!profiles.some((p) => p.qr_code_id === target.id)) {
+        profiles.push({
+          id: 'prof-' + Date.now(),
+          qr_code_id: target.id,
+          profile_name: target.qr_name || target.qr_number,
+          profile_image: null,
+          bio: null,
+          contact_email: null,
+          contact_phone: null,
+          public_slug: null,
+          theme: 'light',
+          is_published: false,
+        })
+        this.saveProfiles(profiles)
+      }
+    }
+
+    return { data: { ok: true, qr_number: target.qr_number, usage_type: params.p_usage_type }, error: null }
+  },
+
   requestQrUpdate(params: { p_qr_number: string }) {
     const qrs = this.getQrs()
     const target = qrs.find((q) => q.qr_number.toUpperCase() === params.p_qr_number.trim().toUpperCase())
     if (!target) return { data: { ok: false, error: 'not_found' }, error: null }
     if (target.status !== 'active') return { data: { ok: false, error: 'inactive' }, error: null }
+
+    const profile = this.getProfiles().find((p) => p.qr_code_id === target.id)
     return {
       data: {
         ok: true,
         is_claimed: !!target.password_changed,
         destination_url: target.destination_url,
         qr_number: target.qr_number,
-        owner_email: target.owner_email,
+        requires_setup_code: target.requires_setup_code !== false,
+        usage_type: target.usage_type ?? null,
+        business_name: target.business_name ?? null,
+        business_purpose: target.business_purpose ?? null,
+        public_slug: profile?.public_slug ?? null,
       },
       error: null,
     }
   },
 
+  verifySetupCode(params: { p_qr_number: string; p_setup_code: string }) {
+    const qrs = this.getQrs()
+    const target = qrs.find((q) => q.qr_number.toUpperCase() === params.p_qr_number.trim().toUpperCase())
+    if (!target) return { data: { ok: false, error: 'not_found' }, error: null }
+    if (target.status !== 'active') return { data: { ok: false, error: 'inactive' }, error: null }
+    if (target.password_changed) return { data: { ok: false, error: 'already_claimed' }, error: null }
+    if (target.requires_setup_code === false) {
+      return { data: { ok: true, requires_setup_code: false }, error: null }
+    }
+    if (
+      target.password.trim() !== params.p_setup_code.trim() &&
+      target.password.trim() !== params.p_setup_code.trim().toUpperCase()
+    ) {
+      return { data: { ok: false, error: 'wrong_setup_code' }, error: null }
+    }
+    return { data: { ok: true, requires_setup_code: true }, error: null }
+  },
+
   claimQr(params: {
     p_qr_number: string
-    p_setup_code: string
+    p_setup_code?: string | null
     p_new_password: string
     p_destination_url?: string | null
     p_owner_email?: string | null
+    p_usage_type?: UsageType | null
   }) {
     const qrs = this.getQrs()
     const target = qrs.find((q) => q.qr_number.toUpperCase() === params.p_qr_number.trim().toUpperCase())
@@ -428,26 +678,318 @@ export const mockDb = {
     if (target.status !== 'active') return { data: { ok: false, error: 'inactive' }, error: null }
     if (target.password_changed) return { data: { ok: false, error: 'already_claimed' }, error: null }
 
-    if (target.password.trim() !== params.p_setup_code.trim()) {
-      return { data: { ok: false, error: 'wrong_setup_code' }, error: null }
+    if (target.requires_setup_code !== false) {
+      const code = params.p_setup_code?.trim() || ''
+      if (!code) return { data: { ok: false, error: 'missing_setup_code' }, error: null }
+      if (target.password.trim() !== code && target.password.trim() !== code.toUpperCase()) {
+        return { data: { ok: false, error: 'wrong_setup_code' }, error: null }
+      }
     }
 
     if (!params.p_new_password || params.p_new_password.length < 4) {
       return { data: { ok: false, error: 'password_too_short' }, error: null }
     }
 
+    const cleanUrl = params.p_destination_url?.trim() || null
+    if (cleanUrl && !isValidDestinationUrl(cleanUrl)) {
+      return { data: { ok: false, error: 'invalid_url' }, error: null }
+    }
+
     target.password = params.p_new_password
     target.password_changed = true
     target.claimed_at = new Date().toISOString()
-    if (params.p_destination_url) {
-      target.destination_url = params.p_destination_url.trim()
-    }
-    if (params.p_owner_email) {
-      target.owner_email = params.p_owner_email.trim()
-    }
+    if (cleanUrl) target.destination_url = cleanUrl
+    if (params.p_owner_email) target.owner_email = params.p_owner_email.trim()
+    target.usage_type = params.p_usage_type ?? target.usage_type ?? (cleanUrl ? 'business' : null)
     target.updated_at = new Date().toISOString()
     this.saveQrs(qrs)
-    return { data: { ok: true, qr_number: target.qr_number }, error: null }
+
+    const sessionToken = issueSession(target.id)
+    return {
+      data: {
+        ok: true,
+        qr_number: target.qr_number,
+        usage_type: target.usage_type,
+        session_token: sessionToken,
+      },
+      error: null,
+    }
+  },
+
+  loginQr(params: { p_qr_number: string; p_password: string }) {
+    const qrs = this.getQrs()
+    const target = qrs.find((q) => q.qr_number.toUpperCase() === params.p_qr_number.trim().toUpperCase())
+    if (!target) return { data: { ok: false, error: 'not_found' }, error: null }
+    if (target.status !== 'active') return { data: { ok: false, error: 'inactive' }, error: null }
+    if (target.password !== params.p_password) {
+      return { data: { ok: false, error: 'wrong_password' }, error: null }
+    }
+
+    if (!target.usage_type && target.destination_url) {
+      target.usage_type = 'business'
+      this.saveQrs(qrs)
+    }
+
+    const sessionToken = issueSession(target.id)
+    return {
+      data: {
+        ok: true,
+        session_token: sessionToken,
+        qr_number: target.qr_number,
+        usage_type: target.usage_type ?? null,
+      },
+      error: null,
+    }
+  },
+
+  getCustomerDashboard(params: { p_session_token: string }) {
+    const qrId = verifySession(params.p_session_token)
+    if (!qrId) return { data: { ok: false, error: 'unauthorized' }, error: null }
+
+    const qr = this.getQrs().find((q) => q.id === qrId)
+    if (!qr) return { data: { ok: false, error: 'not_found' }, error: null }
+
+    const profile = this.getProfiles().find((p) => p.qr_code_id === qrId) ?? null
+    const links = profile
+      ? this.getLinks()
+          .filter((l) => l.qr_profile_id === profile.id)
+          .sort((a, b) => a.display_order - b.display_order)
+      : []
+
+    return {
+      data: {
+        ok: true,
+        qr: {
+          qr_number: qr.qr_number,
+          qr_name: qr.qr_name,
+          status: qr.status,
+          usage_type: qr.usage_type ?? null,
+          destination_url: qr.destination_url,
+          business_name: qr.business_name ?? null,
+          business_purpose: qr.business_purpose ?? null,
+          scan_count: qr.scan_count ?? 0,
+          updated_at: qr.updated_at,
+        },
+        profile,
+        links,
+      },
+      error: null,
+    }
+  },
+
+  selectUsageMode(params: { p_session_token: string; p_usage_type: UsageType }) {
+    const qrId = verifySession(params.p_session_token)
+    if (!qrId) return { data: { ok: false, error: 'unauthorized' }, error: null }
+
+    const qrs = this.getQrs()
+    const target = qrs.find((q) => q.id === qrId)
+    if (!target) return { data: { ok: false, error: 'not_found' }, error: null }
+
+    if (target.usage_type && target.usage_type !== params.p_usage_type) {
+      return { data: { ok: false, error: 'mode_locked' }, error: null }
+    }
+
+    target.usage_type = params.p_usage_type
+    target.updated_at = new Date().toISOString()
+    this.saveQrs(qrs)
+
+    if (params.p_usage_type === 'personal') {
+      const profiles = this.getProfiles()
+      if (!profiles.some((p) => p.qr_code_id === qrId)) {
+        profiles.push({
+          id: 'prof-' + Date.now(),
+          qr_code_id: qrId,
+          profile_name: '',
+          profile_image: null,
+          bio: null,
+          contact_email: null,
+          contact_phone: null,
+          public_slug: null,
+          theme: 'light',
+          is_published: false,
+        })
+        this.saveProfiles(profiles)
+      }
+    }
+
+    return { data: { ok: true, usage_type: params.p_usage_type, qr_number: target.qr_number }, error: null }
+  },
+
+  savePersonalProfile(params: {
+    p_session_token: string
+    p_profile_name: string
+    p_profile_image?: string | null
+    p_bio?: string | null
+    p_contact_email?: string | null
+    p_contact_phone?: string | null
+    p_public_slug?: string | null
+    p_theme?: ProfileTheme
+    p_is_published?: boolean
+    p_links?: Array<{
+      platform: SocialPlatform
+      link_title: string
+      destination_url: string
+      icon?: string | null
+      is_active?: boolean
+    }>
+    p_tagline?: string | null
+    p_avatar_id?: string | null
+  }) {
+    const qrId = verifySession(params.p_session_token)
+    if (!qrId) return { data: { ok: false, error: 'unauthorized' }, error: null }
+
+    const qrs = this.getQrs()
+    const qr = qrs.find((q) => q.id === qrId)
+    if (!qr) return { data: { ok: false, error: 'not_found' }, error: null }
+    if (qr.usage_type !== 'personal') return { data: { ok: false, error: 'mode_mismatch' }, error: null }
+
+    const cleanName = (params.p_profile_name || '').trim()
+    if (!cleanName || cleanName.length > 80) {
+      return { data: { ok: false, error: 'invalid_profile_name' }, error: null }
+    }
+
+    const cleanSlug = params.p_public_slug?.trim().toLowerCase() || null
+    if (cleanSlug && !isValidPublicSlug(cleanSlug)) {
+      return { data: { ok: false, error: 'invalid_slug' }, error: null }
+    }
+
+    const profiles = this.getProfiles()
+    if (cleanSlug) {
+      const conflictProfile = profiles.find(
+        (p) => p.public_slug?.toLowerCase() === cleanSlug && p.qr_code_id !== qrId,
+      )
+      const conflictQr = qrs.find((q) => q.qr_number.toLowerCase() === cleanSlug && q.id !== qrId)
+      if (conflictProfile || conflictQr) {
+        return { data: { ok: false, error: 'slug_taken' }, error: null }
+      }
+    }
+
+    const rawLinks = params.p_links ?? []
+    const seen = new Set<string>()
+    for (const l of rawLinks) {
+      if (!l.link_title?.trim()) return { data: { ok: false, error: 'invalid_link_title' }, error: null }
+      if (!isValidDestinationUrl(l.destination_url)) {
+        return { data: { ok: false, error: 'invalid_url' }, error: null }
+      }
+      const key = `${l.platform}|${l.destination_url.toLowerCase()}`
+      if (seen.has(key)) return { data: { ok: false, error: 'duplicate_link' }, error: null }
+      seen.add(key)
+    }
+
+    const cleanTagline = params.p_tagline?.trim().slice(0, 80) || null
+    const cleanAvatarId = params.p_avatar_id?.trim().toLowerCase() || null
+
+    let profile = profiles.find((p) => p.qr_code_id === qrId)
+    if (!profile) {
+      profile = {
+        id: 'prof-' + Date.now(),
+        qr_code_id: qrId,
+        profile_name: cleanName,
+        profile_image: params.p_profile_image || null,
+        avatar_id: cleanAvatarId,
+        tagline: cleanTagline,
+        bio: params.p_bio?.trim() || null,
+        contact_email: params.p_contact_email?.trim() || null,
+        contact_phone: params.p_contact_phone?.trim() || null,
+        public_slug: cleanSlug,
+        theme: params.p_theme === 'dark' ? 'dark' : 'light',
+        is_published: Boolean(params.p_is_published),
+      }
+      profiles.push(profile)
+    } else {
+      profile.profile_name = cleanName
+      profile.profile_image = params.p_profile_image || null
+      profile.avatar_id = cleanAvatarId ?? profile.avatar_id ?? null
+      profile.tagline = cleanTagline
+      profile.bio = params.p_bio?.trim() || null
+      profile.contact_email = params.p_contact_email?.trim() || null
+      profile.contact_phone = params.p_contact_phone?.trim() || null
+      profile.public_slug = cleanSlug
+      profile.theme = params.p_theme === 'dark' ? 'dark' : 'light'
+      profile.is_published = Boolean(params.p_is_published)
+      profile.updated_at = new Date().toISOString()
+    }
+    this.saveProfiles(profiles)
+
+    const otherLinks = this.getLinks().filter((l) => l.qr_profile_id !== profile!.id)
+    const nextLinks: QrLink[] = rawLinks.map((l, idx) => ({
+      id: `link-${Date.now()}-${idx}`,
+      qr_profile_id: profile!.id,
+      platform: l.platform || 'custom',
+      link_title: l.link_title.trim(),
+      destination_url: l.destination_url.trim(),
+      icon: l.icon || null,
+      display_order: idx,
+      is_active: l.is_active !== false,
+    }))
+    this.saveLinks([...otherLinks, ...nextLinks])
+
+    return {
+      data: {
+        ok: true,
+        profile_id: profile.id,
+        public_slug: profile.public_slug,
+        qr_number: qr.qr_number,
+        is_published: profile.is_published,
+      },
+      error: null,
+    }
+  },
+
+  saveBusinessSettings(params: {
+    p_session_token: string
+    p_business_name?: string | null
+    p_business_purpose?: BusinessPurpose
+    p_destination_url: string
+  }) {
+    const qrId = verifySession(params.p_session_token)
+    if (!qrId) return { data: { ok: false, error: 'unauthorized' }, error: null }
+
+    const qrs = this.getQrs()
+    const qr = qrs.find((q) => q.id === qrId)
+    if (!qr) return { data: { ok: false, error: 'not_found' }, error: null }
+    if (qr.usage_type !== 'business') return { data: { ok: false, error: 'mode_mismatch' }, error: null }
+
+    const cleanUrl = params.p_destination_url.trim()
+    if (!isValidDestinationUrl(cleanUrl)) return { data: { ok: false, error: 'invalid_url' }, error: null }
+
+    qr.business_name = params.p_business_name?.trim() || null
+    qr.business_purpose = params.p_business_purpose || 'custom'
+    qr.destination_url = cleanUrl
+    qr.updated_at = new Date().toISOString()
+    this.saveQrs(qrs)
+
+    return {
+      data: {
+        ok: true,
+        qr_number: qr.qr_number,
+        destination_url: cleanUrl,
+        business_purpose: qr.business_purpose,
+      },
+      error: null,
+    }
+  },
+
+  customerChangePassword(params: {
+    p_session_token: string
+    p_current_password: string
+    p_new_password: string
+  }) {
+    const qrId = verifySession(params.p_session_token)
+    if (!qrId) return { data: { ok: false, error: 'unauthorized' }, error: null }
+    if (!params.p_new_password || params.p_new_password.length < 4) {
+      return { data: { ok: false, error: 'password_too_short' }, error: null }
+    }
+    const qrs = this.getQrs()
+    const qr = qrs.find((q) => q.id === qrId)
+    if (!qr) return { data: { ok: false, error: 'not_found' }, error: null }
+    if (qr.password !== params.p_current_password) {
+      return { data: { ok: false, error: 'wrong_password' }, error: null }
+    }
+    qr.password = params.p_new_password
+    qr.updated_at = new Date().toISOString()
+    this.saveQrs(qrs)
+    return { data: { ok: true }, error: null }
   },
 
   confirmQrUpdate(params: { p_qr_number: string; p_new_url: string; p_password: string }) {
@@ -455,14 +997,88 @@ export const mockDb = {
     const target = qrs.find((q) => q.qr_number.toUpperCase() === params.p_qr_number.trim().toUpperCase())
     if (!target) return { data: { ok: false, error: 'not_found' }, error: null }
     if (target.status !== 'active') return { data: { ok: false, error: 'inactive' }, error: null }
-    // Strict password comparison — no bypass. Compare only against this QR's own password.
+    if (target.usage_type === 'personal') return { data: { ok: false, error: 'mode_mismatch' }, error: null }
+    if (!isValidDestinationUrl(params.p_new_url)) return { data: { ok: false, error: 'invalid_url' }, error: null }
     if (target.password !== params.p_password) {
       return { data: { ok: false, error: 'wrong_password' }, error: null }
     }
     target.destination_url = params.p_new_url.trim()
+    target.usage_type = target.usage_type ?? 'business'
     target.updated_at = new Date().toISOString()
     this.saveQrs(qrs)
     return { data: { ok: true }, error: null }
+  },
+
+  checkPublicSlugAvailable(params: { p_session_token: string; p_slug: string }) {
+    const qrId = verifySession(params.p_session_token)
+    if (!qrId) return { data: { ok: false, error: 'unauthorized' }, error: null }
+
+    const clean = (params.p_slug || '').trim().toLowerCase()
+    if (!clean) return { data: { ok: true, available: true }, error: null }
+    if (!isValidPublicSlug(clean)) {
+      return { data: { ok: true, available: false, reason: 'invalid_slug' }, error: null }
+    }
+
+    const qrs = this.getQrs()
+    const profiles = this.getProfiles()
+    const takenByProfile = profiles.some(
+      (p) => p.public_slug?.toLowerCase() === clean && p.qr_code_id !== qrId,
+    )
+    const takenByQr = qrs.some((q) => q.qr_number.toLowerCase() === clean && q.id !== qrId)
+    if (takenByProfile || takenByQr) {
+      return { data: { ok: true, available: false, reason: 'slug_taken' }, error: null }
+    }
+    return { data: { ok: true, available: true }, error: null }
+  },
+
+  getPublicProfile(params: { p_identifier: string }) {
+    const clean = (params.p_identifier || '').trim()
+    if (!clean) return { data: { ok: false, error: 'not_found' }, error: null }
+
+    const qrs = this.getQrs()
+    const profiles = this.getProfiles()
+
+    let profile = profiles.find((p) => p.public_slug?.toLowerCase() === clean.toLowerCase())
+    let qr = profile ? qrs.find((q) => q.id === profile!.qr_code_id) : undefined
+
+    if (!qr) {
+      qr = qrs.find((q) => q.qr_number.toUpperCase() === clean.toUpperCase())
+      if (qr) {
+        profile = profiles.find((p) => p.qr_code_id === qr!.id)
+      }
+    }
+
+    if (!qr) return { data: { ok: false, error: 'not_found' }, error: null }
+    if (qr.status !== 'active') return { data: { ok: false, error: 'inactive' }, error: null }
+    if (qr.usage_type !== 'personal') {
+      return { data: { ok: false, error: 'not_personal_profile', qr_number: qr.qr_number }, error: null }
+    }
+    if (!profile || !profile.is_published) {
+      return { data: { ok: true, is_published: false, qr_number: qr.qr_number }, error: null }
+    }
+
+    const links = this.getLinks()
+      .filter((l) => l.qr_profile_id === profile!.id && l.is_active)
+      .sort((a, b) => a.display_order - b.display_order)
+
+    return {
+      data: {
+        ok: true,
+        is_published: true,
+        qr_number: qr.qr_number,
+        profile: {
+          profile_name: profile.profile_name,
+          profile_image: profile.profile_image,
+          avatar_id: profile.avatar_id ?? null,
+          tagline: profile.tagline ?? null,
+          bio: profile.bio,
+          public_slug: profile.public_slug,
+          theme: profile.theme,
+        },
+        links,
+      },
+      error: null,
+    }
   },
 
   getQrRedirect(params: { p_qr_number: string }) {
@@ -471,12 +1087,22 @@ export const mockDb = {
     if (!target) return { data: [], error: null }
     target.scan_count = (target.scan_count || 0) + 1
     this.saveQrs(qrs)
+    const profile = this.getProfiles().find((p) => p.qr_code_id === target.id)
     return {
-      data: [{
-        status: target.status,
-        destination_url: target.destination_url,
-        is_claimed: !!target.password_changed,
-      }],
+      data: [
+        {
+          status: target.status,
+          destination_url: target.destination_url,
+          is_claimed: Boolean(
+            target.password_changed ||
+              (target.destination_url && target.destination_url.trim().length > 0) ||
+              target.usage_type,
+          ),
+          usage_type: target.usage_type ?? null,
+          public_slug: profile?.public_slug ?? null,
+          is_published: Boolean(profile?.is_published),
+        },
+      ],
       error: null,
     }
   },

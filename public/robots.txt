@@ -4,8 +4,5 @@ Allow: /products
 Allow: /support
 Allow: /contact
 Allow: /update
-Disallow: /admin
-Disallow: /admin/
-Disallow: /login
 
 Sitemap: https://spreadnfc.in/sitemap.xml
