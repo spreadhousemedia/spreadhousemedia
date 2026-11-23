@@ -8,6 +8,7 @@ interface PlatformSelectorProps {
   onToggle: (platform: SocialPlatform) => void
   onContinue: () => void
   onSkip: () => void
+  mode?: 'personal' | 'business'
 }
 
 export function PlatformSelector({
@@ -15,23 +16,32 @@ export function PlatformSelector({
   onToggle,
   onContinue,
   onSkip,
+  mode = 'personal',
 }: PlatformSelectorProps) {
   const hasSelection = selected.length > 0
+  const isBusiness = mode === 'business'
+  const platformChoices = isBusiness
+    ? SOCIAL_PLATFORMS.filter(
+        (p) => p.id !== 'whatsapp' && p.id !== 'google_reviews' && p.id !== 'google_maps',
+      )
+    : SOCIAL_PLATFORMS
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-[26px] sm:text-[32px] font-bold tracking-[-0.025em] leading-[1.15] text-[#141413]">
-          Which platforms are you on?
+          {isBusiness ? 'Select Your Business Social Channels' : 'Which platforms are you on?'}
         </h1>
         <p className="mt-2 text-[15px] text-[#5C5B57] leading-relaxed">
-          Select the platforms you want to share. You can add or remove links anytime.
+          {isBusiness
+            ? 'Choose your business social media and website links. Direct WhatsApp chat, phone, email, timings, Google Reviews, and Maps are set up cleanly in the next steps without duplicate buttons.'
+            : 'Select the platforms you want to share. You can add or remove links anytime.'}
         </p>
       </div>
 
       {/* Platform Grid: 2 cols on very narrow screens, 3 cols on standard mobile, 4 cols on tablet+ */}
       <div className="grid grid-cols-2 min-[380px]:grid-cols-3 sm:grid-cols-4 gap-2.5 sm:gap-3">
-        {SOCIAL_PLATFORMS.map((platform) => {
+        {platformChoices.map((platform) => {
           const isSelected = selected.includes(platform.id)
           const label = platform.id === 'custom' ? 'Custom Link' : platform.label
 

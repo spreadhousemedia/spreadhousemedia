@@ -26,7 +26,6 @@ import {
   Trash2,
   User,
 } from 'lucide-react'
-import { CURATED_AVATARS, DEFAULT_AVATAR_ID } from '../../lib/avatars'
 import { profilePublicUrl, qrPublicUrl } from '../../lib/config'
 import { checkPublicSlugAvailable, saveBusinessProfile } from '../../lib/profileApi'
 import { downloadSingleQr, generateQrDataUrl } from '../../lib/qr'
@@ -175,11 +174,7 @@ export function BusinessProfileOnboarding({
   const [profileImage, setProfileImage] = useState<string | null>(
     savedDraft?.profileImage !== undefined ? savedDraft.profileImage : dbProfile?.profile_image ?? null,
   )
-  const [avatarId, setAvatarId] = useState<string | null>(
-    savedDraft?.avatarId !== undefined
-      ? savedDraft.avatarId
-      : dbProfile?.avatar_id ?? (dbProfile?.profile_image ? null : DEFAULT_AVATAR_ID),
-  )
+  const [avatarId, setAvatarId] = useState<string | null>(null)
   const [publicSlug, setPublicSlug] = useState<string>(savedDraft?.publicSlug ?? dbProfile?.public_slug ?? '')
 
   // About
@@ -218,7 +213,9 @@ export function BusinessProfileOnboarding({
     savedDraft?.visibility ?? dbProfile?.contact_visibility ?? DEFAULT_VISIBILITY,
   )
 
-  const [theme, setTheme] = useState<ProfileTheme>(savedDraft?.theme ?? (dbProfile?.theme === 'dark' ? 'dark' : 'light'))
+  const [theme, setTheme] = useState<ProfileTheme>(
+    savedDraft?.theme ?? (dbProfile?.theme ? (dbProfile.theme === 'dark' ? 'dark' : 'light') : 'dark'),
+  )
 
   const [slugStatus, setSlugStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle')
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
@@ -730,50 +727,49 @@ export function BusinessProfileOnboarding({
               />
             </div>
 
-            <div className="space-y-2.5">
+            <div className="space-y-3">
               <label className="block text-xs font-semibold text-[#141413]">
-                Business Logo or Category Avatar (Optional)
+                Business Brand Logo (Optional)
               </label>
-              <div className="flex flex-wrap items-center gap-3">
-                <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[#E6E4DF] bg-[#FAF9F7] px-3.5 py-2.5 text-xs font-semibold text-[#141413] hover:border-[#141413]">
-                  <ImagePlus className="h-4 w-4 text-[#5E4AE3]" />
-                  <span>{profileImage ? 'Change Uploaded Logo' : 'Upload Business Logo'}</span>
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    className="hidden"
-                    onChange={(e) => handleLogoUpload(e.target.files?.[0] ?? null)}
-                  />
-                </label>
-                {profileImage && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setProfileImage(null)
-                      setAvatarId(DEFAULT_AVATAR_ID)
-                    }}
-                    className="text-xs font-medium text-rose-600 hover:underline"
-                  >
-                    Use curated avatar instead
-                  </button>
-                )}
-              </div>
-              {!profileImage && (
-                <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                  {CURATED_AVATARS.slice(0, 10).map((av) => (
-                    <button
-                      key={av.id}
-                      type="button"
-                      onClick={() => setAvatarId(av.id)}
-                      className={`h-11 w-11 shrink-0 overflow-hidden rounded-xl border-2 transition-all ${
-                        avatarId === av.id ? 'border-[#141413] scale-105' : 'border-transparent opacity-70 hover:opacity-100'
-                      }`}
-                    >
-                      <img src={av.src} alt={av.label} className="h-full w-full object-cover" />
-                    </button>
-                  ))}
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-600 via-violet-600 to-cyan-500 text-white shadow-[0_6px_22px_-6px_rgba(79,70,229,0.5)]">
+                  {profileImage ? (
+                    <img src={profileImage} alt="Business logo preview" className="h-full w-full object-cover bg-white" />
+                  ) : (
+                    <span className="text-lg font-extrabold tracking-tight">
+                      {(businessName.trim().slice(0, 2) || 'BN').toUpperCase()}
+                    </span>
+                  )}
                 </div>
-              )}
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[#E6E4DF] bg-[#FAF9F7] px-3.5 py-2.5 text-xs font-semibold text-[#141413] hover:border-[#141413]">
+                    <ImagePlus className="h-4 w-4 text-[#5E4AE3]" />
+                    <span>{profileImage ? 'Change Business Logo' : 'Upload Business Logo'}</span>
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      className="hidden"
+                      onChange={(e) => handleLogoUpload(e.target.files?.[0] ?? null)}
+                    />
+                  </label>
+                  {profileImage ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileImage(null)
+                        setAvatarId(null)
+                      }}
+                      className="text-xs font-medium text-rose-600 hover:underline"
+                    >
+                      Use Brand Monogram Instead
+                    </button>
+                  ) : (
+                    <p className="text-xs text-[#6F6E69]">
+                      No logo? We generate a glowing commercial brand emblem automatically.
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -931,6 +927,7 @@ export function BusinessProfileOnboarding({
       {/* STEP 4: SELECT SOCIAL MEDIA PLATFORMS */}
       {step === 4 && (
         <PlatformSelector
+          mode="business"
           selected={selectedPlatforms}
           onToggle={togglePlatform}
           onContinue={() => goToStep(selectedPlatforms.length > 0 ? 5 : 6)}
@@ -1193,19 +1190,51 @@ export function BusinessProfileOnboarding({
         </div>
       )}
 
-      {/* STEP 7: BUSINESS CONTACT DETAILS & PUBLIC VISIBILITY */}
+      {/* STEP 7: BUSINESS CONTACT DETAILS, TIMINGS & PUBLIC VISIBILITY */}
       {step === 7 && (
         <div className="space-y-6">
           <div>
             <h1 className="text-[26px] sm:text-[32px] font-bold tracking-[-0.025em] leading-[1.15] text-[#141413]">
-              How Can Customers Contact You?
+              Contact Details &amp; Business Timings
             </h1>
             <p className="mt-2 text-[15px] text-[#5C5B57]">
-              Every field is optional, and you can toggle whether each detail appears publicly on your profile.
+              Set your working hours, phone, WhatsApp, email, and address—all optional, with public visibility toggles.
             </p>
           </div>
 
           <div className="rounded-2xl border border-[#E6E4DF] bg-white p-5 sm:p-6 space-y-4">
+            <div className="space-y-2 rounded-xl border border-indigo-100 bg-indigo-50/40 p-3.5">
+              <ContactFieldRow
+                icon={Clock}
+                label="Business Timings (Working Hours)"
+                value={workingHours}
+                onChange={setWorkingHours}
+                placeholder="Mon–Sat: 10:00 AM – 7:00 PM"
+                visible={visibility.hours}
+                onToggle={() => setVisibility((v) => ({ ...v, hours: !v.hours }))}
+              />
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {[
+                  'Mon–Sat: 10:00 AM – 7:00 PM',
+                  'Mon–Fri: 9:30 AM – 6:30 PM',
+                  'All Days: 10:00 AM – 9:00 PM',
+                  'Open 24 Hours',
+                ].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setWorkingHours(preset)}
+                    className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                      workingHours === preset
+                        ? 'border-[#141413] bg-[#141413] text-white'
+                        : 'border-[#E6E4DF] bg-white text-[#5C5B57] hover:border-[#141413]/40'
+                    }`}
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
+            </div>
             <ContactFieldRow
               icon={Phone}
               label="Phone Number"
@@ -1250,15 +1279,6 @@ export function BusinessProfileOnboarding({
               placeholder="https://maps.app.goo.gl/..."
               visible={visibility.maps}
               onToggle={() => setVisibility((v) => ({ ...v, maps: !v.maps }))}
-            />
-            <ContactFieldRow
-              icon={Clock}
-              label="Working Hours"
-              value={workingHours}
-              onChange={setWorkingHours}
-              placeholder="Mon–Sat: 10:00 AM – 7:00 PM"
-              visible={visibility.hours}
-              onToggle={() => setVisibility((v) => ({ ...v, hours: !v.hours }))}
             />
           </div>
 

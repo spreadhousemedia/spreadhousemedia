@@ -18,7 +18,6 @@ import { supabase } from '../../lib/supabase'
 import { invalidateQrRedirectCache } from '../../lib/cache'
 import {
   clearAllMultiQrVaultSessions,
-  getStoredSingleSession,
   listMultiQrVault,
   registerQrSessionInVault,
   removeQrFromVault,
@@ -153,50 +152,39 @@ export function UpdatePage() {
     [syncMultiQrCount],
   )
 
-  const checkQrStatus = useCallback(
-    async (serial: string) => {
-      const norm = normalizeQrNumber(serial)
-      if (!norm) return
-      setError(null)
-      setChecking(true)
+  const checkQrStatus = useCallback(async (serial: string) => {
+    const norm = normalizeQrNumber(serial)
+    if (!norm) return
+    setError(null)
+    setSessionToken(null)
+    setDashboard(null)
+    setCurrentPassword('')
+    setChecking(true)
 
-      // Resume active customer session if still valid
-      const existingToken = getStoredSingleSession(norm)
-      if (existingToken) {
-        const resumed = await loadCustomerDashboard(existingToken, norm, false)
-        if (resumed) {
-          setSessionToken(existingToken)
-          setChecking(false)
-          return
-        }
-      }
+    const { data, error: rpcError } = await supabase.rpc('request_qr_update', {
+      p_qr_number: norm,
+    })
+    setChecking(false)
 
-      const { data, error: rpcError } = await supabase.rpc('request_qr_update', {
-        p_qr_number: norm,
-      })
-      setChecking(false)
+    if (rpcError || !data?.ok) {
+      setError(rpcErrorMessage(data?.error ?? rpcError?.message))
+      setMode('lookup')
+      return
+    }
 
-      if (rpcError || !data?.ok) {
-        setError(rpcErrorMessage(data?.error ?? rpcError?.message))
-        setMode('lookup')
-        return
-      }
+    const isClaimed = Boolean(data.is_claimed)
+    const reqSetup = data.requires_setup_code !== false
+    setRequiresSetupCode(reqSetup)
+    setDetectedUsageType((data.usage_type as UsageType | null) ?? null)
 
-      const isClaimed = Boolean(data.is_claimed)
-      const reqSetup = data.requires_setup_code !== false
-      setRequiresSetupCode(reqSetup)
-      setDetectedUsageType((data.usage_type as UsageType | null) ?? null)
-
-      if (isClaimed) {
-        setMode('login')
-      } else if (reqSetup) {
-        setMode('verify_setup')
-      } else {
-        setMode('activate')
-      }
-    },
-    [loadCustomerDashboard],
-  )
+    if (isClaimed) {
+      setMode('login')
+    } else if (reqSetup) {
+      setMode('verify_setup')
+    } else {
+      setMode('activate')
+    }
+  }, [])
 
   useEffect(() => {
     if (scannedQrNumber) {
@@ -383,31 +371,6 @@ export function UpdatePage() {
     (forceWizard || (!dashboard.profile?.is_published && !dashboard.profile?.profile_name?.trim()))
 
   if (isFirstTimePersonalSetup && dashboard && sessionToken) {
-    if (isFirstTimeBusinessProfileSetup && dashboard && sessionToken) {
-      return (
-        <Suspense
-          fallback={
-            <div className="flex min-h-screen items-center justify-center bg-[#F7F6F3]">
-              <Spinner size={26} className="text-[#141413]" />
-            </div>
-          }
-        >
-          <BusinessProfileOnboarding
-            dashboard={dashboard}
-            sessionToken={sessionToken}
-            onRefresh={async () => {
-              await loadCustomerDashboard(sessionToken, dashboard.qr.qr_number)
-            }}
-            onCompleteToEditor={() => {
-              setForceWizard(false)
-              setWizardDoneToEditor(true)
-            }}
-            onLogout={() => handleCustomerLogout(false)}
-          />
-        </Suspense>
-      )
-    }
-
     return (
       <Suspense
         fallback={

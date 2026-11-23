@@ -23,7 +23,6 @@ import {
   Trash2,
   X,
 } from 'lucide-react'
-import { CURATED_AVATARS, DEFAULT_AVATAR_ID } from '../../lib/avatars'
 import { profilePublicUrl } from '../../lib/config'
 import { saveBusinessProfile } from '../../lib/profileApi'
 import {
@@ -145,7 +144,7 @@ export function BusinessProfileDashboard({
   )
   const [publicSlug, setPublicSlug] = useState(dashboard.profile?.public_slug || '')
   const [theme, setTheme] = useState<ProfileTheme>(
-    dashboard.profile?.theme === 'dark' ? 'dark' : 'light',
+    dashboard.profile?.theme ? (dashboard.profile.theme === 'dark' ? 'dark' : 'light') : 'dark',
   )
   const [isPublished, setIsPublished] = useState<boolean>(
     dashboard.profile?.is_published ?? false,
@@ -153,9 +152,7 @@ export function BusinessProfileDashboard({
   const [profileImage, setProfileImage] = useState<string | null>(
     dashboard.profile?.profile_image || null,
   )
-  const [avatarId, setAvatarId] = useState<string | null>(
-    dashboard.profile?.avatar_id || (dashboard.profile?.profile_image ? null : DEFAULT_AVATAR_ID),
-  )
+  const [avatarId, setAvatarId] = useState<string | null>(null)
 
   const [links, setLinks] = useState<DraftLink[]>(
     (dashboard.links ?? []).map((l: QrLink) => ({
@@ -653,51 +650,46 @@ export function BusinessProfileDashboard({
             {section === 'identity' && (
               <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 space-y-4 shadow-xs">
                 <h2 className="text-base font-bold text-ink">Business Identity</h2>
-                <div className="flex flex-wrap items-center gap-3">
-                  <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-surface-border bg-zinc-50 px-3 py-2 text-xs font-semibold text-ink hover:bg-zinc-100">
-                    <ImagePlus className="h-3.5 w-3.5 text-electric" />
-                    <span>{profileImage ? 'Replace Logo' : 'Upload Logo'}</span>
-                    <input
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp"
-                      className="hidden"
-                      onChange={(e) => handleLogoUpload(e.target.files?.[0] ?? null)}
-                    />
-                  </label>
-                  {profileImage && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setProfileImage(null)
-                        setAvatarId(DEFAULT_AVATAR_ID)
-                        markDirty()
-                      }}
-                      className="text-xs font-medium text-rose-600 hover:underline"
-                    >
-                      Remove Logo
-                    </button>
-                  )}
-                </div>
-
-                {!profileImage && (
-                  <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                    {CURATED_AVATARS.slice(0, 10).map((av) => (
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-600 via-violet-600 to-cyan-500 text-white shadow-[0_6px_22px_-6px_rgba(79,70,229,0.5)]">
+                    {profileImage ? (
+                      <img src={profileImage} alt="Business logo" className="h-full w-full object-cover bg-white" />
+                    ) : (
+                      <span className="text-base font-extrabold tracking-tight">
+                        {(businessName.trim().slice(0, 2) || 'BN').toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-surface-border bg-zinc-50 px-3 py-2 text-xs font-semibold text-ink hover:bg-zinc-100">
+                      <ImagePlus className="h-3.5 w-3.5 text-electric" />
+                      <span>{profileImage ? 'Replace Business Logo' : 'Upload Business Logo'}</span>
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        className="hidden"
+                        onChange={(e) => handleLogoUpload(e.target.files?.[0] ?? null)}
+                      />
+                    </label>
+                    {profileImage ? (
                       <button
-                        key={av.id}
                         type="button"
                         onClick={() => {
-                          setAvatarId(av.id)
+                          setProfileImage(null)
+                          setAvatarId(null)
                           markDirty()
                         }}
-                        className={`h-10 w-10 shrink-0 overflow-hidden rounded-xl border-2 ${
-                          avatarId === av.id ? 'border-electric scale-105' : 'border-transparent opacity-70 hover:opacity-100'
-                        }`}
+                        className="text-xs font-medium text-rose-600 hover:underline"
                       >
-                        <img src={av.src} alt={av.label} className="h-full w-full object-cover" />
+                        Remove Logo (Use Monogram)
                       </button>
-                    ))}
+                    ) : (
+                      <span className="text-xs text-ink-muted">
+                        Using glowing Brand Monogram emblem.
+                      </span>
+                    )}
                   </div>
-                )}
+                </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div className="sm:col-span-2">
@@ -950,12 +942,33 @@ export function BusinessProfileDashboard({
                     onToggle={() => { setVisibility((v) => ({ ...v, maps: !v.maps })); markDirty() }}
                   />
                   <ToggleField
-                    label="Working Hours"
+                    label="Business Timings (Working Hours)"
                     value={workingHours}
                     onChange={(v) => { setWorkingHours(v); markDirty() }}
                     visible={visibility.hours}
                     onToggle={() => { setVisibility((v) => ({ ...v, hours: !v.hours })); markDirty() }}
                   />
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      'Mon–Sat: 10:00 AM – 7:00 PM',
+                      'Mon–Fri: 9:30 AM – 6:30 PM',
+                      'All Days: 10:00 AM – 9:00 PM',
+                      'Open 24 Hours',
+                    ].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => { setWorkingHours(preset); markDirty() }}
+                        className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                          workingHours === preset
+                            ? 'border-ink bg-ink text-white'
+                            : 'border-surface-border bg-zinc-50 text-ink-muted hover:text-ink'
+                        }`}
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
