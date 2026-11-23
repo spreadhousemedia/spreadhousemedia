@@ -552,6 +552,16 @@ const server = http.createServer(async (req, res) => {
       return
     }
 
+    // 1.5 Health check (exposes no credentials)
+    if (pathname === '/api/health' && method === 'GET') {
+      sendJson(res, 200, {
+        ok: true,
+        runtime: 'node',
+        supabaseConfigured: ensureSupabaseConfigured(),
+      })
+      return
+    }
+
     // 2. Auth API (HttpOnly Admin Session Cookie)
     if (pathname === '/api/auth/login' && method === 'POST') {
       const body = await readJsonBody(req)
@@ -911,8 +921,12 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(405, { 'Content-Type': 'text/plain; charset=utf-8', ...securityHeaders() })
     res.end('Method Not Allowed')
   } catch (err) {
-    const code = err?.message === 'payload_too_large' ? 413 : 500
-    sendJson(res, code, { ok: false, error: err?.message || 'Internal server error' })
+    const isMissingConfig = err?.message === 'supabase_not_configured'
+    const code = err?.message === 'payload_too_large' ? 413 : isMissingConfig ? 503 : 500
+    const message = isMissingConfig
+      ? 'Server database environment variables (SUPABASE_URL / SUPABASE_ANON_KEY) are not configured.'
+      : err?.message || 'Internal server error'
+    sendJson(res, code, { ok: false, data: null, error: { message } })
   }
 })
 

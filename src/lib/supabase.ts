@@ -302,7 +302,15 @@ class ServerApiQueryBuilder {
           payload: this.bodyPayload,
         }),
       })
-      const json = await res.json()
+      const json = await parseApiJson(res)
+      if (!json) {
+        resolve({
+          data: null,
+          count: null,
+          error: { message: 'Server API unreachable (returned non-JSON). Ensure Node server.mjs is active on Hostinger.' },
+        })
+        return
+      }
       resolve({
         data: json?.data ?? null,
         count: json?.count ?? null,
@@ -311,6 +319,18 @@ class ServerApiQueryBuilder {
     } catch {
       resolve({ data: null, count: null, error: { message: 'Network request failed' } })
     }
+  }
+}
+
+async function parseApiJson(res: Response): Promise<any | null> {
+  const contentType = (res.headers.get('content-type') || '').toLowerCase()
+  if (!contentType.includes('application/json')) {
+    return null
+  }
+  try {
+    return await res.json()
+  } catch {
+    return null
   }
 }
 
@@ -478,7 +498,13 @@ export const supabase = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params ?? {}),
       })
-      const json = await res.json()
+      const json = await parseApiJson(res)
+      if (!json) {
+        return {
+          data: null,
+          error: { message: 'Server API unreachable (returned non-JSON). Ensure Node server.mjs is active on Hostinger.' },
+        }
+      }
       return {
         data: json?.data ?? null,
         error: json?.error ?? (!res.ok ? { message: 'Database RPC failed.' } : null),
