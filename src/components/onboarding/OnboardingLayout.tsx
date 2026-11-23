@@ -7,6 +7,7 @@ export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 interface OnboardingLayoutProps {
   qrNumber: string
+  modeLabel?: string
   currentStep: number
   totalSteps: number
   stepLabel: string
@@ -20,6 +21,7 @@ interface OnboardingLayoutProps {
 
 export function OnboardingLayout({
   qrNumber,
+  modeLabel,
   currentStep,
   totalSteps,
   stepLabel,
@@ -45,6 +47,12 @@ export function OnboardingLayout({
             <span className="rounded-md bg-lavender-subtle border border-lavender-soft px-2 py-0.5 font-mono text-[11px] font-semibold text-cetacean">
               {qrNumber}
             </span>
+            {modeLabel && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#E5E7EB] bg-[#F7F7F5] px-2.5 py-0.5 text-[11px] font-semibold text-[#171717]">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+                <span>{modeLabel}</span>
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-3">

@@ -379,6 +379,7 @@ export function PersonalOnboarding({
   return (
     <OnboardingLayout
       qrNumber={qrNumber}
+      modeLabel="Personal Profile"
       currentStep={step}
       totalSteps={6}
       stepLabel={STEP_LABELS[step] ?? 'Setup'}

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import {
   ArrowDown,
+  ArrowRightLeft,
   ArrowUp,
   Check,
   CheckCircle2,
@@ -42,6 +43,7 @@ import {
   type ProfileTheme,
   type QrLink,
   type SocialPlatform,
+  type UsageType,
 } from '../../types'
 import { Spinner } from '../Spinner'
 import { CUSTOM_LINK_ICONS, PlatformIcon } from '../profile/PlatformIcons'
@@ -55,6 +57,8 @@ interface PersonalDashboardProps {
   multiQrCount?: number
   onOpenMultiQr?: () => void
   onRefresh: () => Promise<void>
+  onSwitchMode?: () => void
+  onModeSwitched?: (nextMode?: UsageType | 'reset') => Promise<void>
   onStartOnboarding?: () => void
   onLogout: () => void
 }
@@ -74,6 +78,8 @@ export function PersonalDashboard({
   multiQrCount = 1,
   onOpenMultiQr,
   onRefresh,
+  onSwitchMode,
+  onModeSwitched,
   onStartOnboarding,
   onLogout,
 }: PersonalDashboardProps) {
@@ -189,13 +195,13 @@ export function PersonalDashboard({
         prev.map((l) =>
           l.id === editingLinkId
             ? {
-                ...l,
-                platform: draftPlatform,
-                link_title: cleanTitle,
-                destination_url: urlCheck.normalizedUrl,
-                icon: draftPlatform === 'custom' ? draftIcon : null,
-                is_active: draftActive,
-              }
+              ...l,
+              platform: draftPlatform,
+              link_title: cleanTitle,
+              destination_url: urlCheck.normalizedUrl,
+              icon: draftPlatform === 'custom' ? draftIcon : null,
+              is_active: draftActive,
+            }
             : l,
         ),
       )
@@ -353,15 +359,15 @@ export function PersonalDashboard({
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-mono font-bold text-base text-[#141413]">{qrNumber}</span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-[#F7F6F3] text-[#42413D] border border-[#E6E4DF] px-2.5 py-0.5 text-[11px] font-semibold">
-                <Lock className="h-3 w-3" /> Personal Profile
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-semibold">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+                <span>Personal Profile</span>
               </span>
               <span
-                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold border ${
-                  isPublished
+                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold border ${isPublished
                     ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                     : 'bg-amber-50 text-amber-700 border-amber-200'
-                }`}
+                  }`}
               >
                 {isPublished ? 'Published' : 'Draft'}
               </span>
@@ -374,6 +380,16 @@ export function PersonalDashboard({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {onSwitchMode && (
+            <button
+              type="button"
+              onClick={onSwitchMode}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-[#E6E4DF] bg-[#FAF9F7] px-3 py-2 text-xs font-semibold text-[#141413] hover:border-[#141413] transition-colors"
+            >
+              <ArrowRightLeft className="h-3.5 w-3.5" />
+              <span>Switch Mode</span>
+            </button>
+          )}
           {onOpenMultiQr && (
             <button
               type="button"
@@ -436,18 +452,16 @@ export function PersonalDashboard({
           <button
             type="button"
             onClick={() => setActiveTab('editor')}
-            className={`rounded-lg px-3.5 py-2 text-xs font-semibold transition-colors ${
-              activeTab === 'editor' ? 'bg-[#141413] text-white' : 'text-[#5C5B57] hover:text-[#141413]'
-            }`}
+            className={`rounded-lg px-3.5 py-2 text-xs font-semibold transition-colors ${activeTab === 'editor' ? 'bg-[#141413] text-white' : 'text-[#5C5B57] hover:text-[#141413]'
+              }`}
           >
             Profile &amp; Links
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('account')}
-            className={`rounded-lg px-3.5 py-2 text-xs font-semibold transition-colors ${
-              activeTab === 'account' ? 'bg-[#141413] text-white' : 'text-[#5C5B57] hover:text-[#141413]'
-            }`}
+            className={`rounded-lg px-3.5 py-2 text-xs font-semibold transition-colors ${activeTab === 'account' ? 'bg-[#141413] text-white' : 'text-[#5C5B57] hover:text-[#141413]'
+              }`}
           >
             QR Code &amp; Security
           </button>
@@ -471,7 +485,8 @@ export function PersonalDashboard({
           qrNumber={qrNumber}
           sessionToken={sessionToken}
           currentUsageType={dashboard.qr.usage_type}
-          onModeSwitched={onRefresh}
+          onModeSwitched={onModeSwitched ?? onRefresh}
+          onReauth={onLogout}
         />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -531,11 +546,10 @@ export function PersonalDashboard({
                           }}
                           aria-label={av.label}
                           aria-pressed={selected}
-                          className={`relative aspect-square overflow-hidden rounded-[16px] bg-[#ECEAE4] transition-all ${
-                            selected
+                          className={`relative aspect-square overflow-hidden rounded-[16px] bg-[#ECEAE4] transition-all ${selected
                               ? 'ring-2 ring-[#141413] ring-offset-2'
                               : 'ring-1 ring-inset ring-black/[0.08] hover:ring-black/25'
-                          }`}
+                            }`}
                         >
                           <img src={av.src} alt={av.label} className="h-full w-full object-cover" />
                           {selected && (
@@ -683,13 +697,12 @@ export function PersonalDashboard({
                       onDragStart={() => setDragIndex(idx)}
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={() => handleDrop(idx)}
-                      className={`flex items-center justify-between gap-2 rounded-xl border p-3 transition-colors ${
-                        dragIndex === idx
+                      className={`flex items-center justify-between gap-2 rounded-xl border p-3 transition-colors ${dragIndex === idx
                           ? 'border-[#141413] bg-[#FAF9F7] opacity-70'
                           : link.is_active
                             ? 'border-[#E6E4DF] bg-white'
                             : 'border-[#E6E4DF] bg-[#FAF9F7] opacity-60'
-                      }`}
+                        }`}
                     >
                       <div className="flex min-w-0 items-center gap-2.5">
                         <span
@@ -735,11 +748,10 @@ export function PersonalDashboard({
                           onClick={() => toggleLinkActive(link.id)}
                           title={link.is_active ? 'Hide link' : 'Show link'}
                           aria-label={link.is_active ? `Hide ${link.link_title}` : `Show ${link.link_title}`}
-                          className={`rounded-lg p-1.5 transition-colors ${
-                            link.is_active
+                          className={`rounded-lg p-1.5 transition-colors ${link.is_active
                               ? 'text-emerald-600 hover:bg-emerald-50'
                               : 'text-[#9E9C96] hover:bg-[#F3F2EE]'
-                          }`}
+                            }`}
                         >
                           {link.is_active ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
                         </button>
@@ -965,11 +977,10 @@ export function PersonalDashboard({
                         key={opt.id}
                         type="button"
                         onClick={() => setDraftIcon(opt.id)}
-                        className={`flex flex-col items-center gap-1 rounded-xl border p-2 text-[10px] font-medium transition-colors ${
-                          draftIcon === opt.id
+                        className={`flex flex-col items-center gap-1 rounded-xl border p-2 text-[10px] font-medium transition-colors ${draftIcon === opt.id
                             ? 'border-[#141413] bg-[#F7F6F3] text-[#141413]'
                             : 'border-[#E6E4DF] text-[#6F6E69] hover:bg-[#FAF9F7]'
-                        }`}
+                          }`}
                       >
                         <PlatformIcon platform="custom" customIcon={opt.id} size={15} />
                         <span className="truncate w-full text-center">{opt.label}</span>

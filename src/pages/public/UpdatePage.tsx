@@ -1,8 +1,10 @@
 import { lazy, Suspense, useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
+  AlertTriangle,
   ArrowRight,
   Check,
+  CheckCircle2,
   Eye,
   EyeOff,
   HelpCircle,
@@ -13,6 +15,7 @@ import {
   Shield,
   ShieldCheck,
   Sparkles,
+  X,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { invalidateQrRedirectCache } from '../../lib/cache'
@@ -101,8 +104,24 @@ export function UpdatePage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showQrHelp, setShowQrHelp] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [modeNotice, setModeNotice] = useState<{
+    type: 'success' | 'reauth'
+    text: string
+  } | null>(null)
   const [checking, setChecking] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (!modeNotice || modeNotice.type !== 'success') return
+    const timer = window.setTimeout(() => setModeNotice(null), 5000)
+    return () => window.clearTimeout(timer)
+  }, [modeNotice])
+
+  function modeDisplayName(u: UsageType): string {
+    if (u === 'personal') return 'Personal Profile'
+    if (u === 'business_profile') return 'Business Profile'
+    return 'Direct Link Profile'
+  }
 
   const syncMultiQrCount = useCallback(() => {
     setMultiQrCount(listMultiQrVault().length)
@@ -306,19 +325,45 @@ export function UpdatePage() {
   }
 
   async function handleModeSelect(chosen: UsageType) {
-    if (!sessionToken) return
+    if (!sessionToken) {
+      setModeNotice({
+        type: 'reauth',
+        text: 'Your session expired. Please sign in again to switch profile mode.',
+      })
+      return
+    }
     setError(null)
+    setModeNotice(null)
     setSubmitting(true)
 
     const norm = normalizeQrNumber(qrNumber)
-    if (dashboard?.qr.usage_type) {
+    const isSwitching = Boolean(dashboard?.qr.usage_type)
+    if (isSwitching) {
       const res = await switchCustomerUsageMode(sessionToken, norm, chosen)
       setSubmitting(false)
       if (!res.ok) {
-        setError(res.error || 'Could not switch profile mode. Please try again.')
+        const msg = res.error || 'Could not switch profile mode.'
+        setError(msg)
+        if (/session|sign in|expired|unauthorized/i.test(msg)) {
+          setModeNotice({
+            type: 'reauth',
+            text: 'Your session expired. Please sign in again to switch profile mode.',
+          })
+        }
         return
       }
-      await loadCustomerDashboard(sessionToken, norm, false)
+      const loaded = await loadCustomerDashboard(sessionToken, norm, false)
+      if (loaded) {
+        setModeNotice({
+          type: 'success',
+          text: `Switched to ${modeDisplayName(chosen)} successfully!`,
+        })
+      } else {
+        setModeNotice({
+          type: 'reauth',
+          text: 'Session expired. Please sign in again to continue.',
+        })
+      }
       return
     }
 
@@ -329,12 +374,25 @@ export function UpdatePage() {
     setSubmitting(false)
 
     if (rpcError || !data?.ok) {
-      setError(rpcErrorMessage(data?.error ?? rpcError?.message))
+      const msg = rpcErrorMessage(data?.error ?? rpcError?.message)
+      setError(msg)
+      if (/session|sign in|expired|unauthorized/i.test(msg)) {
+        setModeNotice({
+          type: 'reauth',
+          text: 'Your session expired. Please sign in again.',
+        })
+      }
       return
     }
 
     invalidateQrRedirectCache(norm)
-    await loadCustomerDashboard(sessionToken, norm, false)
+    const loaded = await loadCustomerDashboard(sessionToken, norm, false)
+    if (loaded) {
+      setModeNotice({
+        type: 'success',
+        text: `${modeDisplayName(chosen)} is now active!`,
+      })
+    }
   }
 
   function handleCustomerLogout(clearAll = false) {
@@ -376,7 +434,7 @@ export function UpdatePage() {
     mode === 'dashboard' &&
     dashboard?.qr.usage_type === 'business' &&
     !wizardDoneToEditor &&
-    (forceWizard || !dashboard.qr.destination_url?.trim())
+    forceWizard
 
   const isFirstTimeBusinessProfileSetup =
     mode === 'dashboard' &&
@@ -384,101 +442,171 @@ export function UpdatePage() {
     !wizardDoneToEditor &&
     (forceWizard || (!dashboard.profile?.is_published && !dashboard.profile?.profile_name?.trim()))
 
+  const handleOpenSwitchMode = () => {
+    setError(null)
+    setModeNotice(null)
+    setForceWizard(false)
+    setWizardDoneToEditor(false)
+    setMode('select_mode')
+  }
+
+  const handleDashboardModeSwitched = async (nextMode?: UsageType | 'reset') => {
+    if (!sessionToken || !dashboard) return
+    const loaded = await loadCustomerDashboard(sessionToken, dashboard.qr.qr_number)
+    if (!loaded) {
+      setModeNotice({
+        type: 'reauth',
+        text: 'Your session expired. Please sign in again to continue.',
+      })
+      return
+    }
+    if (nextMode === 'reset') {
+      setModeNotice({
+        type: 'success',
+        text: 'QR reset successfully! Choose a fresh profile mode below.',
+      })
+    } else if (nextMode) {
+      setModeNotice({
+        type: 'success',
+        text: `Switched to ${modeDisplayName(nextMode)} successfully!`,
+      })
+    }
+  }
+
+  const modeNoticeBanner = modeNotice ? (
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-lg">
+      <div
+        role={modeNotice.type === 'reauth' ? 'alert' : 'status'}
+        className={`rounded-2xl border px-4 py-3 shadow-lg flex items-center justify-between gap-3 text-xs sm:text-sm font-semibold ${
+          modeNotice.type === 'success'
+            ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+            : 'border-amber-300 bg-amber-50 text-amber-950'
+        }`}
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          {modeNotice.type === 'success' ? (
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+          ) : (
+            <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+          )}
+          <span className="leading-snug">{modeNotice.text}</span>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {modeNotice.type === 'reauth' && (
+            <button
+              type="button"
+              onClick={() => {
+                setModeNotice(null)
+                handleCustomerLogout(false)
+              }}
+              className="rounded-lg bg-[#171717] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#262626]"
+            >
+              Sign In Again
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setModeNotice(null)}
+            className="rounded-lg p-1 opacity-70 hover:opacity-100"
+            aria-label="Dismiss notification"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null
+
   if (isFirstTimePersonalSetup && dashboard && sessionToken) {
     return (
-      <Suspense
-        fallback={
-          <div className="flex min-h-screen items-center justify-center bg-[#F5F7FC]">
-            <Spinner size={26} className="text-cetacean" />
-          </div>
-        }
-      >
-        <PersonalOnboarding
-          dashboard={dashboard}
-          sessionToken={sessionToken}
-          onRefresh={async () => {
-            await loadCustomerDashboard(sessionToken, dashboard.qr.qr_number)
-          }}
-          onCompleteToEditor={() => {
-            setForceWizard(false)
-            setWizardDoneToEditor(true)
-          }}
-          onSwitchMode={() => {
-            setError(null)
-            setForceWizard(false)
-            setWizardDoneToEditor(false)
-            setMode('select_mode')
-          }}
-          onLogout={() => handleCustomerLogout(false)}
-        />
-      </Suspense>
+      <>
+        {modeNoticeBanner}
+        <Suspense
+          fallback={
+            <div className="flex min-h-screen items-center justify-center bg-[#F5F7FC]">
+              <Spinner size={26} className="text-cetacean" />
+            </div>
+          }
+        >
+          <PersonalOnboarding
+            dashboard={dashboard}
+            sessionToken={sessionToken}
+            onRefresh={async () => {
+              await loadCustomerDashboard(sessionToken, dashboard.qr.qr_number)
+            }}
+            onCompleteToEditor={() => {
+              setForceWizard(false)
+              setWizardDoneToEditor(true)
+            }}
+            onSwitchMode={handleOpenSwitchMode}
+            onLogout={() => handleCustomerLogout(false)}
+          />
+        </Suspense>
+      </>
     )
   }
 
   if (isFirstTimeCommercialSetup && dashboard && sessionToken) {
     return (
-      <Suspense
-        fallback={
-          <div className="flex min-h-screen items-center justify-center bg-[#F5F7FC]">
-            <Spinner size={26} className="text-cetacean" />
-          </div>
-        }
-      >
-        <CommercialOnboarding
-          dashboard={dashboard}
-          sessionToken={sessionToken}
-          onRefresh={async () => {
-            await loadCustomerDashboard(sessionToken, dashboard.qr.qr_number)
-          }}
-          onCompleteToEditor={() => {
-            setForceWizard(false)
-            setWizardDoneToEditor(true)
-          }}
-          onSwitchMode={() => {
-            setError(null)
-            setForceWizard(false)
-            setWizardDoneToEditor(false)
-            setMode('select_mode')
-          }}
-          onLogout={() => handleCustomerLogout(false)}
-        />
-      </Suspense>
+      <>
+        {modeNoticeBanner}
+        <Suspense
+          fallback={
+            <div className="flex min-h-screen items-center justify-center bg-[#F5F7FC]">
+              <Spinner size={26} className="text-cetacean" />
+            </div>
+          }
+        >
+          <CommercialOnboarding
+            dashboard={dashboard}
+            sessionToken={sessionToken}
+            onRefresh={async () => {
+              await loadCustomerDashboard(sessionToken, dashboard.qr.qr_number)
+            }}
+            onCompleteToEditor={() => {
+              setForceWizard(false)
+              setWizardDoneToEditor(true)
+            }}
+            onSwitchMode={handleOpenSwitchMode}
+            onLogout={() => handleCustomerLogout(false)}
+          />
+        </Suspense>
+      </>
     )
   }
 
   if (isFirstTimeBusinessProfileSetup && dashboard && sessionToken) {
     return (
-      <Suspense
-        fallback={
-          <div className="flex min-h-screen items-center justify-center bg-[#F5F7FC]">
-            <Spinner size={26} className="text-cetacean" />
-          </div>
-        }
-      >
-        <BusinessProfileOnboarding
-          dashboard={dashboard}
-          sessionToken={sessionToken}
-          onRefresh={async () => {
-            await loadCustomerDashboard(sessionToken, dashboard.qr.qr_number)
-          }}
-          onCompleteToEditor={() => {
-            setForceWizard(false)
-            setWizardDoneToEditor(true)
-          }}
-          onSwitchMode={() => {
-            setError(null)
-            setForceWizard(false)
-            setWizardDoneToEditor(false)
-            setMode('select_mode')
-          }}
-          onLogout={() => handleCustomerLogout(false)}
-        />
-      </Suspense>
+      <>
+        {modeNoticeBanner}
+        <Suspense
+          fallback={
+            <div className="flex min-h-screen items-center justify-center bg-[#F5F7FC]">
+              <Spinner size={26} className="text-cetacean" />
+            </div>
+          }
+        >
+          <BusinessProfileOnboarding
+            dashboard={dashboard}
+            sessionToken={sessionToken}
+            onRefresh={async () => {
+              await loadCustomerDashboard(sessionToken, dashboard.qr.qr_number)
+            }}
+            onCompleteToEditor={() => {
+              setForceWizard(false)
+              setWizardDoneToEditor(true)
+            }}
+            onSwitchMode={handleOpenSwitchMode}
+            onLogout={() => handleCustomerLogout(false)}
+          />
+        </Suspense>
+      </>
     )
   }
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-atmospheric-light text-ink px-4 py-10 relative overflow-hidden">
+      {modeNoticeBanner}
       {/* Ambient gradient glows */}
       <div className="absolute -top-40 -right-40 w-96 h-96 bg-electric/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-lavender/10 rounded-full blur-3xl pointer-events-none" />
@@ -529,6 +657,8 @@ export function UpdatePage() {
               onRefresh={async () => {
                 await loadCustomerDashboard(sessionToken, dashboard.qr.qr_number)
               }}
+              onSwitchMode={handleOpenSwitchMode}
+              onModeSwitched={handleDashboardModeSwitched}
               onStartOnboarding={() => {
                 setWizardDoneToEditor(false)
                 setForceWizard(true)
@@ -544,6 +674,8 @@ export function UpdatePage() {
               onRefresh={async () => {
                 await loadCustomerDashboard(sessionToken, dashboard.qr.qr_number)
               }}
+              onSwitchMode={handleOpenSwitchMode}
+              onModeSwitched={handleDashboardModeSwitched}
               onLogout={() => handleCustomerLogout(false)}
             />
           ) : (
@@ -555,6 +687,8 @@ export function UpdatePage() {
               onRefresh={async () => {
                 await loadCustomerDashboard(sessionToken, dashboard.qr.qr_number)
               }}
+              onSwitchMode={handleOpenSwitchMode}
+              onModeSwitched={handleDashboardModeSwitched}
               onStartOnboarding={() => {
                 setWizardDoneToEditor(false)
                 setForceWizard(true)

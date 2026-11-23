@@ -655,6 +655,7 @@ export function BusinessProfileOnboarding({
   return (
     <OnboardingLayout
       qrNumber={qrNumber}
+      modeLabel="Business Profile"
       currentStep={Math.min(step, 4)}
       totalSteps={4}
       stepLabel={STEP_LABELS[step] ?? 'Business Setup'}

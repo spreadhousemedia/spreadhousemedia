@@ -163,6 +163,7 @@ export function CommercialOnboarding({
   return (
     <OnboardingLayout
       qrNumber={qrNumber}
+      modeLabel="Direct Link Profile"
       currentStep={step}
       totalSteps={3}
       stepLabel={STEP_LABELS[step] ?? 'Commercial Setup'}

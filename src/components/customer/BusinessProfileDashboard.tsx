@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowDown,
+  ArrowRightLeft,
   ArrowUp,
   Check,
   CheckCircle2,
@@ -48,6 +49,7 @@ import type {
   PublicProfileData,
   QrLink,
   SocialPlatform,
+  UsageType,
 } from '../../types'
 import { Spinner } from '../Spinner'
 import { CUSTOM_LINK_ICONS, PlatformIcon } from '../profile/PlatformIcons'
@@ -61,6 +63,8 @@ interface BusinessProfileDashboardProps {
   multiQrCount?: number
   onOpenMultiQr?: () => void
   onRefresh: () => Promise<void>
+  onSwitchMode?: () => void
+  onModeSwitched?: (nextMode?: UsageType | 'reset') => Promise<void>
   onLogout: () => void
 }
 
@@ -117,6 +121,8 @@ export function BusinessProfileDashboard({
   multiQrCount = 1,
   onOpenMultiQr,
   onRefresh,
+  onSwitchMode,
+  onModeSwitched,
   onLogout,
 }: BusinessProfileDashboardProps) {
   const qrNumber = dashboard.qr.qr_number
@@ -505,6 +511,10 @@ export function BusinessProfileDashboard({
               <span className="rounded-md bg-[#F3F4F6] border border-[#E5E7EB] px-2 py-0.5 font-mono text-[11px] font-semibold text-[#171717]">
                 {qrNumber}
               </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-semibold">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden="true" />
+                <span>Business Profile</span>
+              </span>
               <span
                 className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold border ${
                   isPublished
@@ -530,6 +540,16 @@ export function BusinessProfileDashboard({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {onSwitchMode && (
+            <button
+              type="button"
+              onClick={onSwitchMode}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-[#E5E7EB] bg-[#F7F7F5] px-3 py-2 text-xs font-semibold text-ink hover:border-[#171717]/50 transition-colors"
+            >
+              <ArrowRightLeft className="h-3.5 w-3.5" />
+              <span>Switch Mode</span>
+            </button>
+          )}
           <a
             href={publicShareUrl}
             target="_blank"
@@ -1108,7 +1128,8 @@ export function BusinessProfileDashboard({
                 qrNumber={qrNumber}
                 sessionToken={sessionToken}
                 currentUsageType={dashboard.qr.usage_type}
-                onModeSwitched={onRefresh}
+                onModeSwitched={onModeSwitched ?? onRefresh}
+                onReauth={onLogout}
               />
             </div>
           )}

@@ -27,7 +27,8 @@ interface CustomerAccountSettingsProps {
   qrNumber: string
   sessionToken: string
   currentUsageType?: UsageType | null
-  onModeSwitched?: () => Promise<void>
+  onModeSwitched?: (nextMode?: UsageType | 'reset') => Promise<void>
+  onReauth?: () => void
 }
 
 const MODE_OPTIONS: Array<{
@@ -61,6 +62,7 @@ export function CustomerAccountSettings({
   sessionToken,
   currentUsageType,
   onModeSwitched,
+  onReauth,
 }: CustomerAccountSettingsProps) {
   const [showQrModal, setShowQrModal] = useState(false)
   const [copiedQr, setCopiedQr] = useState(false)
@@ -85,19 +87,22 @@ export function CustomerAccountSettings({
       setPendingMode(null)
       return
     }
+    const targetMode = pendingMode
     setModeError(null)
     setSwitchingMode(true)
-    const res = await switchCustomerUsageMode(sessionToken, qrNumber, pendingMode)
+    const res = await switchCustomerUsageMode(sessionToken, qrNumber, targetMode)
     setSwitchingMode(false)
 
     if (!res.ok) {
-      setModeError(res.error || 'Could not switch profile mode. Please try again.')
+      setModeError(
+        res.error || 'Could not switch profile mode. Please sign in again and retry.',
+      )
       return
     }
 
     setPendingMode(null)
     if (onModeSwitched) {
-      await onModeSwitched()
+      await onModeSwitched(targetMode)
     }
   }
 
@@ -108,14 +113,16 @@ export function CustomerAccountSettings({
     setResettingQr(false)
 
     if (!res.ok) {
-      setModeError(res.error || 'Could not reset QR profile. Please try again.')
+      setModeError(
+        res.error || 'Could not reset QR profile. Please sign in again and retry.',
+      )
       return
     }
 
     setConfirmingReset(false)
     setPendingMode(null)
     if (onModeSwitched) {
-      await onModeSwitched()
+      await onModeSwitched('reset')
     }
   }
 
@@ -293,9 +300,21 @@ export function CustomerAccountSettings({
           )}
 
           {modeError && (
-            <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
-              {modeError}
-            </p>
+            <div
+              role="alert"
+              className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-medium text-rose-700 flex flex-wrap items-center justify-between gap-2"
+            >
+              <span>{modeError}</span>
+              {onReauth && (
+                <button
+                  type="button"
+                  onClick={onReauth}
+                  className="rounded-lg bg-rose-700 px-3 py-1 text-[11px] font-bold text-white hover:bg-rose-800 shrink-0"
+                >
+                  Sign In Again
+                </button>
+              )}
+            </div>
           )}
 
           {/* Reset QR & Start Fresh */}
