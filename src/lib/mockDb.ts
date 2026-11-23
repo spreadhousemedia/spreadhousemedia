@@ -6,6 +6,7 @@ import type {
   SocialPlatform,
   UsageType,
 } from '../types'
+import { isValidProfileTheme } from './profileThemes'
 import {
   isValidContactEmail,
   isValidContactPhone,
@@ -914,7 +915,7 @@ export const mockDb = {
         contact_email: params.p_contact_email?.trim() || null,
         contact_phone: params.p_contact_phone?.trim() || null,
         public_slug: cleanSlug,
-        theme: params.p_theme === 'dark' ? 'dark' : 'light',
+        theme: isValidProfileTheme(params.p_theme) ? params.p_theme : 'light',
         is_published: Boolean(params.p_is_published),
       }
       profiles.push(profile)
@@ -927,7 +928,7 @@ export const mockDb = {
       profile.contact_email = params.p_contact_email?.trim() || null
       profile.contact_phone = params.p_contact_phone?.trim() || null
       profile.public_slug = cleanSlug
-      profile.theme = params.p_theme === 'dark' ? 'dark' : 'light'
+      profile.theme = isValidProfileTheme(params.p_theme) ? params.p_theme : 'light'
       profile.is_published = Boolean(params.p_is_published)
       profile.updated_at = new Date().toISOString()
     }
@@ -1104,7 +1105,7 @@ export const mockDb = {
         google_maps_url: cleanMapsUrl,
         contact_visibility: cleanVisibility,
         public_slug: cleanSlug,
-        theme: params.p_theme === 'dark' ? 'dark' : 'light',
+        theme: isValidProfileTheme(params.p_theme) ? params.p_theme : 'light',
         is_published: Boolean(params.p_is_published),
       }
       profiles.push(profile)
@@ -1127,7 +1128,7 @@ export const mockDb = {
       profile.google_maps_url = cleanMapsUrl
       profile.contact_visibility = cleanVisibility
       profile.public_slug = cleanSlug
-      profile.theme = params.p_theme === 'dark' ? 'dark' : 'light'
+      profile.theme = isValidProfileTheme(params.p_theme) ? params.p_theme : 'light'
       profile.is_published = Boolean(params.p_is_published)
       profile.updated_at = new Date().toISOString()
     }

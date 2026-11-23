@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import { invalidateProfileCache, invalidateQrRedirectCache } from './cache'
 import { avatarFallbackImageUrl } from './avatars'
+import { getLegacyBaseTheme } from './profileThemes'
 import {
   rpcErrorMessage,
   type ContactVisibility,
@@ -80,6 +81,19 @@ export async function savePersonalProfile(
     const retry = await supabase.rpc('customer_save_personal_profile', legacyPayload)
     data = retry.data
     error = retry.error
+  }
+
+  // Graceful fallback if remote database has not yet run PROFILE_THEMES_AND_TEMPLATES_MIGRATION.sql
+  if (!error && data?.error === 'invalid_theme') {
+    const fallbackTheme = getLegacyBaseTheme(input.theme)
+    if (fallbackTheme !== input.theme) {
+      const retry = await supabase.rpc('customer_save_personal_profile', {
+        ...payload,
+        p_theme: fallbackTheme,
+      })
+      data = retry.data
+      error = retry.error
+    }
   }
 
   if (error || !data?.ok) {
@@ -162,7 +176,20 @@ export async function saveBusinessProfile(
     p_contact_visibility: input.contactVisibility ?? null,
   }
 
-  const { data, error } = await supabase.rpc('customer_save_business_profile', payload)
+  let { data, error } = await supabase.rpc('customer_save_business_profile', payload)
+
+  // Graceful fallback if remote database has not yet run PROFILE_THEMES_AND_TEMPLATES_MIGRATION.sql
+  if (!error && data?.error === 'invalid_theme') {
+    const fallbackTheme = getLegacyBaseTheme(input.theme)
+    if (fallbackTheme !== input.theme) {
+      const retry = await supabase.rpc('customer_save_business_profile', {
+        ...payload,
+        p_theme: fallbackTheme,
+      })
+      data = retry.data
+      error = retry.error
+    }
+  }
 
   if (error || !data?.ok) {
     return {

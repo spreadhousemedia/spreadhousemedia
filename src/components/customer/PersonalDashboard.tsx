@@ -12,13 +12,11 @@ import {
   Layers,
   Link2,
   Lock,
-  Moon,
   Pencil,
   Plus,
   Save,
   Smartphone,
   Sparkles,
-  Sun,
   Trash2,
   User,
   X,
@@ -30,6 +28,7 @@ import {
   isValidAvatarId,
 } from '../../lib/avatars'
 import { profilePublicUrl } from '../../lib/config'
+import { isValidProfileTheme } from '../../lib/profileThemes'
 import { savePersonalProfile } from '../../lib/profileApi'
 import {
   getPlatformMeta,
@@ -47,6 +46,7 @@ import {
 import { Spinner } from '../Spinner'
 import { CUSTOM_LINK_ICONS, PlatformIcon } from '../profile/PlatformIcons'
 import { PublicProfileView } from '../profile/PublicProfileView'
+import { ThemeTemplatePicker } from '../profile/ThemeTemplatePicker'
 import { CustomerAccountSettings } from './CustomerAccountSettings'
 
 interface PersonalDashboardProps {
@@ -91,7 +91,7 @@ export function PersonalDashboard({
   const [bio, setBio] = useState((dashboard.profile?.bio || '').slice(0, 160))
   const [publicSlug, setPublicSlug] = useState(dashboard.profile?.public_slug || '')
   const [theme, setTheme] = useState<ProfileTheme>(
-    dashboard.profile?.theme === 'dark' ? 'dark' : 'light',
+    isValidProfileTheme(dashboard.profile?.theme) ? dashboard.profile.theme : 'per_paper',
   )
   const [isPublished, setIsPublished] = useState<boolean>(
     dashboard.profile?.is_published ?? false,
@@ -474,32 +474,13 @@ export function PersonalDashboard({
           <div className={`lg:col-span-7 space-y-5 ${mobilePreviewOpen ? 'hidden lg:block' : 'block'}`}>
             {/* 1. Profile Identity & Avatar */}
             <section className="rounded-2xl border border-[#E6E4DF] bg-white p-5 sm:p-6 space-y-5">
-              <div className="flex items-center justify-between">
+              <div className="space-y-4">
                 <h2 className="text-base font-bold text-[#141413]">1. Digital Identity</h2>
-
-                {/* Theme Selector */}
-                <div className="inline-flex rounded-xl border border-[#E6E4DF] bg-[#FAF9F7] p-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setTheme('light')}
-                    className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
-                      theme === 'light' ? 'bg-white text-[#141413] shadow-2xs' : 'text-[#6F6E69]'
-                    }`}
-                  >
-                    <Sun className="h-3.5 w-3.5" />
-                    <span>Light</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTheme('dark')}
-                    className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
-                      theme === 'dark' ? 'bg-[#141413] text-white shadow-2xs' : 'text-[#6F6E69]'
-                    }`}
-                  >
-                    <Moon className="h-3.5 w-3.5" />
-                    <span>Dark</span>
-                  </button>
-                </div>
+                <ThemeTemplatePicker
+                  mode="personal"
+                  value={theme}
+                  onChange={setTheme}
+                />
               </div>
 
               {/* Curated Avatar Selection */}

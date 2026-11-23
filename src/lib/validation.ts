@@ -470,6 +470,91 @@ export async function compressProfileImage(file: File): Promise<string> {
   })
 }
 
+/**
+ * Compresses a business brand logo preserving full aspect ratio (no square crop)
+ * and alpha transparency for PNG/WebP files, strictly under Postgres's 350k char limit.
+ */
+export async function compressBusinessLogo(file: File): Promise<string> {
+  const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp']
+  if (!allowedTypes.includes(file.type)) {
+    throw new Error('Please upload a PNG, JPG, or WebP logo.')
+  }
+  if (file.size > 8 * 1024 * 1024) {
+    throw new Error('Logo file must be under 8 MB.')
+  }
+
+  const MAX_W = 420
+  const MAX_H = 240
+  const MAX_LEN = 320_000
+  const isTransparentInput = file.type === 'image/png' || file.type === 'image/webp'
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(new Error('Could not read the selected logo.'))
+    reader.onload = () => {
+      const img = new Image()
+      img.onerror = () => reject(new Error('Invalid logo image file.'))
+      img.onload = () => {
+        const natW = img.naturalWidth || img.width || MAX_W
+        const natH = img.naturalHeight || img.height || MAX_H
+        const scale = Math.min(1, MAX_W / natW, MAX_H / natH)
+        const targetW = Math.max(1, Math.round(natW * scale))
+        const targetH = Math.max(1, Math.round(natH * scale))
+
+        const canvas = document.createElement('canvas')
+        canvas.width = targetW
+        canvas.height = targetH
+        const ctx = canvas.getContext('2d')
+        if (!ctx) {
+          reject(new Error('Canvas context unavailable.'))
+          return
+        }
+
+        ctx.imageSmoothingEnabled = true
+        ctx.imageSmoothingQuality = 'high'
+
+        if (isTransparentInput) {
+          ctx.clearRect(0, 0, targetW, targetH)
+          ctx.drawImage(img, 0, 0, targetW, targetH)
+
+          const webpHi = canvas.toDataURL('image/webp', 0.9)
+          if (webpHi.startsWith('data:image/webp;base64,') && webpHi.length <= MAX_LEN) {
+            resolve(webpHi)
+            return
+          }
+
+          const pngUrl = canvas.toDataURL('image/png')
+          if (pngUrl.startsWith('data:image/png;base64,') && pngUrl.length <= MAX_LEN) {
+            resolve(pngUrl)
+            return
+          }
+
+          const webpLo = canvas.toDataURL('image/webp', 0.75)
+          if (webpLo.startsWith('data:image/webp;base64,') && webpLo.length <= MAX_LEN) {
+            resolve(webpLo)
+            return
+          }
+        }
+
+        // Non-transparent input or final fallback for oversized images: paint crisp white background before JPEG
+        ctx.clearRect(0, 0, targetW, targetH)
+        ctx.fillStyle = '#FFFFFF'
+        ctx.fillRect(0, 0, targetW, targetH)
+        ctx.drawImage(img, 0, 0, targetW, targetH)
+
+        const jpegHi = canvas.toDataURL('image/jpeg', 0.86)
+        if (jpegHi.length <= MAX_LEN) {
+          resolve(jpegHi)
+          return
+        }
+        resolve(canvas.toDataURL('image/jpeg', 0.72))
+      }
+      img.src = String(reader.result)
+    }
+    reader.readAsDataURL(file)
+  })
+}
+
 export interface BusinessCategoryOption {
   id: string
   label: string

@@ -91,6 +91,12 @@ try {
   const notFoundRes = await fetch(`${BASE}/definitely-not-a-real-page-12345`)
   assert.equal(notFoundRes.status, 404)
 
+  // Non-homepage SPA routes must strip homepage SEO fallback to eliminate flash
+  const profileRouteRes = await fetch(`${BASE}/p/TEST-QR`)
+  assert.equal(profileRouteRes.status, 200)
+  const profileRouteHtml = await profileRouteRes.text()
+  assert.equal(profileRouteHtml.includes('Print Your QR Once'), false)
+
   // Security: Admin RPC & DB blocked without HttpOnly admin cookie
   const unauthAdminRpc = await fetch(`${BASE}/api/rpc/admin_create_single_qr`, {
     method: 'POST',

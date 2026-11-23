@@ -14,23 +14,22 @@ import {
   Layers,
   Link2,
   Lock,
-  Moon,
   Pencil,
   Plus,
   QrCode,
   Save,
   Smartphone,
-  Sun,
   Trash2,
   X,
 } from 'lucide-react'
 import { profilePublicUrl } from '../../lib/config'
 import { saveBusinessProfile } from '../../lib/profileApi'
+import { isValidProfileTheme } from '../../lib/profileThemes'
 import { downloadSingleQr, generateQrDataUrl } from '../../lib/qr'
 import {
   BUSINESS_CATEGORIES,
   BUSINESS_LINK_TEMPLATES,
-  compressProfileImage,
+  compressBusinessLogo,
   getPlatformMeta,
   isValidContactEmail,
   isValidContactPhone,
@@ -53,6 +52,7 @@ import type {
 import { Spinner } from '../Spinner'
 import { CUSTOM_LINK_ICONS, PlatformIcon } from '../profile/PlatformIcons'
 import { PublicProfileView } from '../profile/PublicProfileView'
+import { ThemeTemplatePicker } from '../profile/ThemeTemplatePicker'
 import { CustomerAccountSettings } from './CustomerAccountSettings'
 
 interface BusinessProfileDashboardProps {
@@ -151,8 +151,9 @@ export function BusinessProfileDashboard({
   )
   const [publicSlug, setPublicSlug] = useState(dashboard.profile?.public_slug || '')
   const [theme, setTheme] = useState<ProfileTheme>(
-    dashboard.profile?.theme ? (dashboard.profile.theme === 'dark' ? 'dark' : 'light') : 'dark',
+    isValidProfileTheme(dashboard.profile?.theme) ? dashboard.profile.theme : 'biz_ivory',
   )
+  const [uploadingLogo, setUploadingLogo] = useState(false)
   const [isPublished, setIsPublished] = useState<boolean>(
     dashboard.profile?.is_published ?? false,
   )
@@ -329,12 +330,15 @@ export function BusinessProfileDashboard({
   async function handleLogoUpload(file: File | null) {
     if (!file) return
     setSaveError(null)
+    setUploadingLogo(true)
     try {
-      const compressed = await compressProfileImage(file)
+      const compressed = await compressBusinessLogo(file)
       setProfileImage(compressed)
       markDirty()
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Could not process image.')
+    } finally {
+      setUploadingLogo(false)
     }
   }
 
@@ -480,11 +484,17 @@ export function BusinessProfileDashboard({
   return (
     <div className="w-full max-w-6xl mx-auto space-y-5 relative z-10 pb-20">
       {/* Slim Studio Header Bar */}
-      <div className="rounded-2xl border border-surface-border bg-white p-4 sm:p-5 shadow-editorial flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+      <div className="rounded-2xl border border-[#E5E7EB] bg-white p-4 sm:p-5 shadow-editorial flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div className="flex items-start sm:items-center gap-3.5">
-          <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-lavender-soft bg-gradient-to-br from-[#271466] via-[#1E1050] to-[#150A35] text-white">
+          <div
+            className={`relative flex h-11 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border ${
+              profileImage
+                ? 'border-[#E5E7EB] bg-white p-1'
+                : 'border-[#171717] bg-[#171717] text-white'
+            }`}
+          >
             {profileImage ? (
-              <img src={profileImage} alt="Business logo" className="h-full w-full object-cover bg-white" />
+              <img src={profileImage} alt="Business logo" className="h-full w-full object-contain" />
             ) : (
               <span className="text-sm font-extrabold tracking-tight">{brandInitials}</span>
             )}
@@ -492,7 +502,7 @@ export function BusinessProfileDashboard({
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-bold text-base text-ink">{businessName || qrNumber}</span>
-              <span className="rounded-md bg-lavender-subtle border border-lavender-soft px-2 py-0.5 font-mono text-[11px] font-semibold text-cetacean">
+              <span className="rounded-md bg-[#F3F4F6] border border-[#E5E7EB] px-2 py-0.5 font-mono text-[11px] font-semibold text-[#171717]">
                 {qrNumber}
               </span>
               <span
@@ -511,7 +521,7 @@ export function BusinessProfileDashboard({
                 href={publicShareUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-mono font-medium text-lavender-deep hover:underline"
+                className="font-mono font-medium text-[#171717] hover:underline"
               >
                 {publicShareUrl}
               </a>
@@ -524,7 +534,7 @@ export function BusinessProfileDashboard({
             href={publicShareUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-surface-border bg-ghost px-3 py-2 text-xs font-semibold text-ink hover:border-lavender-deep/50 transition-colors"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-[#E5E7EB] bg-[#F7F7F5] px-3 py-2 text-xs font-semibold text-ink hover:border-[#171717]/50 transition-colors"
           >
             <span>View Live</span>
             <ExternalLink className="h-3.5 w-3.5" />
@@ -534,9 +544,9 @@ export function BusinessProfileDashboard({
             <button
               type="button"
               onClick={onOpenMultiQr}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-lavender-soft bg-lavender-subtle px-3 py-2 text-xs font-bold text-cetacean hover:bg-lavender-soft/60 transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-[#E5E7EB] bg-[#F7F7F5] px-3 py-2 text-xs font-bold text-[#171717] hover:border-[#171717]/40 transition-colors"
             >
-              <Layers className="h-3.5 w-3.5 text-lavender-deep" />
+              <Layers className="h-3.5 w-3.5 text-[#171717]" />
               <span>Multi-QR{multiQrCount > 1 ? ` (${multiQrCount})` : ''}</span>
             </button>
           )}
@@ -545,7 +555,7 @@ export function BusinessProfileDashboard({
             type="button"
             disabled={saving}
             onClick={() => handleSaveAll(true)}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-cetacean px-4 py-2 text-xs font-bold text-white hover:bg-cetacean-mid shadow-xs disabled:opacity-60 transition-colors"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-[#171717] px-4 py-2 text-xs font-bold text-white hover:bg-[#262626] shadow-xs disabled:opacity-60 transition-colors"
           >
             {saving ? <Spinner size={13} /> : <Save className="h-3.5 w-3.5" />}
             <span>{saving ? 'Saving…' : 'Save Changes'}</span>
@@ -554,7 +564,7 @@ export function BusinessProfileDashboard({
           <button
             type="button"
             onClick={onLogout}
-            className="rounded-xl border border-surface-border px-3 py-2 text-xs font-semibold text-ink-secondary hover:text-ink transition-colors"
+            className="rounded-xl border border-[#E5E7EB] px-3 py-2 text-xs font-semibold text-ink-secondary hover:text-ink transition-colors"
           >
             Sign Out
           </button>
@@ -563,12 +573,12 @@ export function BusinessProfileDashboard({
 
       {/* Mobile Edit / Preview Tabs */}
       <div className="flex lg:hidden items-center justify-between gap-2">
-        <div className="inline-flex rounded-xl border border-surface-border bg-white p-1 w-full">
+        <div className="inline-flex rounded-xl border border-[#E5E7EB] bg-white p-1 w-full">
           <button
             type="button"
             onClick={() => setMobileView('edit')}
             className={`flex-1 rounded-lg py-2 text-xs font-bold ${
-              mobileView === 'edit' ? 'bg-cetacean text-white' : 'text-ink-muted'
+              mobileView === 'edit' ? 'bg-[#171717] text-white' : 'text-ink-muted'
             }`}
           >
             Edit Sections
@@ -577,7 +587,7 @@ export function BusinessProfileDashboard({
             type="button"
             onClick={() => setMobileView('preview')}
             className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold ${
-              mobileView === 'preview' ? 'bg-cetacean text-white' : 'text-ink-muted'
+              mobileView === 'preview' ? 'bg-[#171717] text-white' : 'text-ink-muted'
             }`}
           >
             <Smartphone className="h-3.5 w-3.5" /> Live Preview
@@ -597,8 +607,8 @@ export function BusinessProfileDashboard({
             }}
             className={`shrink-0 rounded-xl px-4 py-2 text-xs font-semibold border transition-all ${
               section === sec.id
-                ? 'border-cetacean bg-cetacean text-white shadow-xs'
-                : 'border-surface-border bg-white text-ink-secondary hover:border-lavender-deep/45 hover:text-ink'
+                ? 'border-[#171717] bg-[#171717] text-white shadow-xs'
+                : 'border-[#E5E7EB] bg-white text-ink-secondary hover:border-[#171717]/40 hover:text-ink'
             }`}
           >
             {sec.label}
@@ -624,26 +634,52 @@ export function BusinessProfileDashboard({
           {/* TAB 1: BRAND & PROFILE */}
           {section === 'profile' && (
             <div className="space-y-5">
-              <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 shadow-editorial space-y-5">
+              <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5 sm:p-6 shadow-editorial space-y-5">
                 <h2 className="text-base font-bold text-ink">Brand Identity &amp; Theme</h2>
 
                 <div className="flex flex-wrap items-center gap-4">
-                  <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-lavender-soft bg-gradient-to-br from-[#271466] via-[#1E1050] to-[#150A35] text-white shadow-editorial">
+                  <div
+                    className={`relative flex h-16 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl border ${
+                      profileImage
+                        ? 'border-[#E5E7EB] bg-white p-1.5'
+                        : 'border-[#171717] bg-[#171717] text-white shadow-editorial'
+                    }`}
+                  >
                     {profileImage ? (
-                      <img src={profileImage} alt="Business logo" className="h-full w-full object-cover bg-white" />
+                      <img src={profileImage} alt="Business logo" className="h-full w-full object-contain" />
                     ) : (
                       <span className="text-lg font-extrabold tracking-tight">{brandInitials}</span>
                     )}
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
-                    <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-surface-border bg-ghost px-3.5 py-2 text-xs font-semibold text-ink hover:border-lavender-deep/50">
-                      <ImagePlus className="h-3.5 w-3.5 text-lavender-deep" />
-                      <span>{profileImage ? 'Replace Brand Logo' : 'Upload Brand Logo'}</span>
+                    <label
+                      className={`inline-flex items-center gap-1.5 rounded-xl border border-[#E5E7EB] bg-[#F7F7F5] px-3.5 py-2 text-xs font-semibold text-ink ${
+                        uploadingLogo
+                          ? 'opacity-60 cursor-wait'
+                          : 'cursor-pointer hover:border-[#171717]/50'
+                      }`}
+                    >
+                      {uploadingLogo ? (
+                        <Spinner size={14} />
+                      ) : (
+                        <ImagePlus className="h-3.5 w-3.5 text-[#171717]" />
+                      )}
+                      <span>
+                        {uploadingLogo
+                          ? 'Processing Logo…'
+                          : profileImage
+                            ? 'Replace Brand Logo'
+                            : 'Upload Brand Logo'}
+                      </span>
                       <input
                         type="file"
                         accept="image/png,image/jpeg,image/webp"
+                        disabled={uploadingLogo}
                         className="hidden"
-                        onChange={(e) => handleLogoUpload(e.target.files?.[0] ?? null)}
+                        onChange={(e) => {
+                          void handleLogoUpload(e.target.files?.[0] ?? null)
+                          e.target.value = ''
+                        }}
                       />
                     </label>
                     {profileImage ? (
@@ -675,7 +711,7 @@ export function BusinessProfileDashboard({
                         markDirty()
                       }}
                       maxLength={80}
-                      className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm font-semibold text-ink focus:border-lavender-deep focus:outline-none"
+                      className="w-full rounded-xl border border-[#E5E7EB] px-3.5 py-2.5 text-sm font-semibold text-ink focus:border-[#171717] focus:outline-none"
                     />
                   </div>
                   <div>
@@ -686,7 +722,7 @@ export function BusinessProfileDashboard({
                         setBusinessCategory(e.target.value)
                         markDirty()
                       }}
-                      className="w-full rounded-xl border border-surface-border bg-white px-3.5 py-2.5 text-sm text-ink focus:border-lavender-deep focus:outline-none"
+                      className="w-full rounded-xl border border-[#E5E7EB] bg-white px-3.5 py-2.5 text-sm text-ink focus:border-[#171717] focus:outline-none"
                     >
                       {BUSINESS_CATEGORIES.map((c) => (
                         <option key={c} value={c}>
@@ -705,7 +741,7 @@ export function BusinessProfileDashboard({
                       }}
                       maxLength={80}
                       placeholder="e.g. Lucknow"
-                      className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink focus:border-lavender-deep focus:outline-none"
+                      className="w-full rounded-xl border border-[#E5E7EB] px-3.5 py-2.5 text-sm text-ink focus:border-[#171717] focus:outline-none"
                     />
                   </div>
                   <div className="sm:col-span-2">
@@ -717,7 +753,7 @@ export function BusinessProfileDashboard({
                         markDirty()
                       }}
                       maxLength={80}
-                      className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink focus:border-lavender-deep focus:outline-none"
+                      className="w-full rounded-xl border border-[#E5E7EB] px-3.5 py-2.5 text-sm text-ink focus:border-[#171717] focus:outline-none"
                     />
                   </div>
                   <div>
@@ -730,7 +766,7 @@ export function BusinessProfileDashboard({
                       }}
                       maxLength={60}
                       placeholder="e.g. 10+ Years"
-                      className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink focus:border-lavender-deep focus:outline-none"
+                      className="w-full rounded-xl border border-[#E5E7EB] px-3.5 py-2.5 text-sm text-ink focus:border-[#171717] focus:outline-none"
                     />
                   </div>
                   <div>
@@ -742,7 +778,7 @@ export function BusinessProfileDashboard({
                         markDirty()
                       }}
                       maxLength={80}
-                      className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink focus:border-lavender-deep focus:outline-none"
+                      className="w-full rounded-xl border border-[#E5E7EB] px-3.5 py-2.5 text-sm text-ink focus:border-[#171717] focus:outline-none"
                     />
                   </div>
                   <div className="sm:col-span-2">
@@ -758,7 +794,7 @@ export function BusinessProfileDashboard({
                         setBio(e.target.value)
                         markDirty()
                       }}
-                      className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink focus:border-lavender-deep focus:outline-none"
+                      className="w-full rounded-xl border border-[#E5E7EB] px-3.5 py-2.5 text-sm text-ink focus:border-[#171717] focus:outline-none"
                     />
                   </div>
                   <div className="sm:col-span-2">
@@ -769,44 +805,21 @@ export function BusinessProfileDashboard({
                         setPublicSlug(normalizePublicSlug(e.target.value))
                         markDirty()
                       }}
-                      className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-xs font-mono text-ink focus:border-lavender-deep focus:outline-none"
+                      className="w-full rounded-xl border border-[#E5E7EB] px-3.5 py-2.5 text-xs font-mono text-ink focus:border-[#171717] focus:outline-none"
                     />
                   </div>
                 </div>
 
-                {/* Storefront Theme Switcher */}
-                <div className="pt-4 border-t border-surface-border space-y-2">
-                  <label className="block text-xs font-semibold text-ink">Storefront Theme</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setTheme('dark')
-                        markDirty()
-                      }}
-                      className={`flex items-center justify-center gap-2 rounded-xl border-2 p-3 text-xs font-bold transition-all ${
-                        theme === 'dark'
-                          ? 'border-cetacean bg-cetacean text-white'
-                          : 'border-surface-border bg-white text-ink-secondary hover:border-lavender-deep/45'
-                      }`}
-                    >
-                      <Moon className="h-4 w-4" /> Executive Dark
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setTheme('light')
-                        markDirty()
-                      }}
-                      className={`flex items-center justify-center gap-2 rounded-xl border-2 p-3 text-xs font-bold transition-all ${
-                        theme === 'light'
-                          ? 'border-cetacean bg-lavender-subtle text-cetacean'
-                          : 'border-surface-border bg-white text-ink-secondary hover:border-lavender-deep/45'
-                      }`}
-                    >
-                      <Sun className="h-4 w-4" /> Editorial Light
-                    </button>
-                  </div>
+                {/* Storefront Template Switcher */}
+                <div className="pt-4 border-t border-[#E5E7EB]">
+                  <ThemeTemplatePicker
+                    mode="business"
+                    value={theme}
+                    onChange={(next) => {
+                      setTheme(next)
+                      markDirty()
+                    }}
+                  />
                 </div>
               </div>
             </div>
@@ -814,10 +827,10 @@ export function BusinessProfileDashboard({
 
           {/* TAB 2: CONTACT & HOURS */}
           {section === 'contact' && (
-            <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 shadow-editorial space-y-4">
+            <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5 sm:p-6 shadow-editorial space-y-4">
               <h2 className="text-base font-bold text-ink">Contact Details &amp; Business Timings</h2>
               <div className="space-y-4">
-                <div className="space-y-2 rounded-xl border border-lavender-soft bg-lavender-subtle/40 p-3.5">
+                <div className="space-y-2 rounded-xl border border-[#E5E7EB] bg-[#F7F7F5] p-3.5">
                   <ToggleField
                     label="Business Timings (Working Hours)"
                     value={workingHours}
@@ -842,8 +855,8 @@ export function BusinessProfileDashboard({
                         }}
                         className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors ${
                           workingHours === preset
-                            ? 'border-cetacean bg-cetacean text-white'
-                            : 'border-surface-border bg-white text-ink-secondary hover:border-lavender-deep/45'
+                            ? 'border-[#171717] bg-[#171717] text-white'
+                            : 'border-[#E5E7EB] bg-white text-ink-secondary hover:border-[#171717]/40'
                         }`}
                       >
                         {preset}
@@ -924,7 +937,7 @@ export function BusinessProfileDashboard({
           {/* TAB 3: LINKS & SOCIAL (DEDUPED) */}
           {section === 'links' && (
             <div className="space-y-5">
-              <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 shadow-editorial space-y-4">
+              <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5 sm:p-6 shadow-editorial space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h2 className="text-base font-bold text-ink">
                     Social Channels ({socialLinks.length})
@@ -939,7 +952,7 @@ export function BusinessProfileDashboard({
                       key={p.id}
                       type="button"
                       onClick={() => openNewLinkModal(p.id)}
-                      className="flex items-center gap-2 rounded-xl border border-surface-border bg-ghost px-2.5 py-2 text-xs font-semibold text-ink hover:border-lavender-deep/50 hover:bg-lavender-subtle/40 transition-colors"
+                      className="flex items-center gap-2 rounded-xl border border-[#E5E7EB] bg-[#F7F7F5] px-2.5 py-2 text-xs font-semibold text-ink hover:border-[#171717]/40 transition-colors"
                     >
                       <PlatformIcon platform={p.id} size={15} />
                       <span className="truncate">{p.label}</span>
@@ -964,16 +977,16 @@ export function BusinessProfileDashboard({
                 />
               </div>
 
-              <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 shadow-editorial space-y-4">
+              <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5 sm:p-6 shadow-editorial space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h2 className="text-base font-bold text-ink flex items-center gap-2">
-                    <Link2 className="h-4 w-4 text-lavender-deep" />
+                    <Link2 className="h-4 w-4 text-[#525252]" />
                     <span>Business &amp; Custom Links ({businessAndCustomLinks.length})</span>
                   </h2>
                   <button
                     type="button"
                     onClick={() => openNewLinkModal('custom', 'Custom Link', 'link')}
-                    className="inline-flex items-center gap-1 rounded-xl bg-cetacean px-3 py-1.5 text-xs font-bold text-white hover:bg-cetacean-mid"
+                    className="inline-flex items-center gap-1 rounded-xl bg-[#171717] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#262626]"
                   >
                     <Plus className="h-3.5 w-3.5" /> Add Custom Link
                   </button>
@@ -985,7 +998,7 @@ export function BusinessProfileDashboard({
                       key={tpl.id}
                       type="button"
                       onClick={() => openNewLinkModal(tpl.platform, tpl.defaultTitle, tpl.icon)}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-surface-border bg-ghost px-3 py-1.5 text-xs font-semibold text-ink hover:border-lavender-deep/50"
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-[#E5E7EB] bg-[#F7F7F5] px-3 py-1.5 text-xs font-semibold text-ink hover:border-[#171717]/40"
                     >
                       <PlatformIcon platform={tpl.platform} customIcon={tpl.icon} size={14} />
                       <span>+ {tpl.label}</span>
@@ -1016,10 +1029,10 @@ export function BusinessProfileDashboard({
           {/* TAB 4: SHARE, QR & SECURITY */}
           {section === 'account' && (
             <div className="space-y-5">
-              <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 shadow-editorial space-y-5">
+              <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5 sm:p-6 shadow-editorial space-y-5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h2 className="text-base font-bold text-ink flex items-center gap-2">
-                    <QrCode className="h-4 w-4 text-lavender-deep" />
+                    <QrCode className="h-4 w-4 text-[#525252]" />
                     <span>Share, QR Code &amp; Publishing</span>
                   </h2>
                   <span className="inline-flex items-center gap-1 text-xs font-mono text-ink-muted">
@@ -1027,8 +1040,8 @@ export function BusinessProfileDashboard({
                   </span>
                 </div>
 
-                <div className="flex flex-col sm:flex-row items-center gap-5 rounded-2xl border border-surface-border bg-ghost p-4">
-                  <div className="h-28 w-28 shrink-0 rounded-2xl border border-surface-border bg-white p-2 flex items-center justify-center">
+                <div className="flex flex-col sm:flex-row items-center gap-5 rounded-2xl border border-[#E5E7EB] bg-[#F7F7F5] p-4">
+                  <div className="h-28 w-28 shrink-0 rounded-2xl border border-[#E5E7EB] bg-white p-2 flex items-center justify-center">
                     {qrDataUrl ? (
                       <img src={qrDataUrl} alt={`QR ${qrNumber}`} className="h-full w-full object-contain" />
                     ) : (
@@ -1045,7 +1058,7 @@ export function BusinessProfileDashboard({
                           setCopiedPublicUrl(true)
                           setTimeout(() => setCopiedPublicUrl(false), 1500)
                         }}
-                        className="inline-flex items-center gap-1.5 rounded-xl border border-surface-border bg-white px-3 py-1.5 text-xs font-semibold text-ink hover:border-lavender-deep/50"
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-semibold text-ink hover:border-[#171717]/40"
                       >
                         {copiedPublicUrl ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
                         <span>{copiedPublicUrl ? 'Copied' : 'Copy Link'}</span>
@@ -1053,14 +1066,14 @@ export function BusinessProfileDashboard({
                       <button
                         type="button"
                         onClick={() => downloadSingleQr(qrNumber, 'png')}
-                        className="inline-flex items-center gap-1 rounded-xl border border-surface-border bg-white px-3 py-1.5 text-xs font-semibold text-ink hover:border-lavender-deep/50"
+                        className="inline-flex items-center gap-1 rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-semibold text-ink hover:border-[#171717]/40"
                       >
                         <Download className="h-3.5 w-3.5" /> PNG
                       </button>
                       <button
                         type="button"
                         onClick={() => downloadSingleQr(qrNumber, 'svg')}
-                        className="inline-flex items-center gap-1 rounded-xl border border-surface-border bg-white px-3 py-1.5 text-xs font-semibold text-ink hover:border-lavender-deep/50"
+                        className="inline-flex items-center gap-1 rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-semibold text-ink hover:border-[#171717]/40"
                       >
                         <Download className="h-3.5 w-3.5" /> SVG
                       </button>
@@ -1073,7 +1086,7 @@ export function BusinessProfileDashboard({
                     type="button"
                     onClick={() => handleSaveAll(!isPublished)}
                     disabled={saving}
-                    className="rounded-xl border border-surface-border bg-white px-4 py-2 text-xs font-semibold text-ink hover:border-lavender-deep/50"
+                    className="rounded-xl border border-[#E5E7EB] bg-white px-4 py-2 text-xs font-semibold text-ink hover:border-[#171717]/40"
                   >
                     {isPublished ? 'Switch to Draft Mode' : 'Publish Live Now'}
                   </button>
@@ -1082,9 +1095,9 @@ export function BusinessProfileDashboard({
                     <button
                       type="button"
                       onClick={onOpenMultiQr}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-lavender-soft bg-lavender-subtle px-4 py-2 text-xs font-bold text-cetacean hover:bg-lavender-soft/60"
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-[#E5E7EB] bg-[#F7F7F5] px-4 py-2 text-xs font-bold text-[#171717] hover:border-[#171717]/40"
                     >
-                      <Layers className="h-3.5 w-3.5 text-lavender-deep" />
+                      <Layers className="h-3.5 w-3.5 text-[#171717]" />
                       <span>Open Multi-QR Workspace</span>
                     </button>
                   )}
@@ -1098,20 +1111,20 @@ export function BusinessProfileDashboard({
 
         {/* Right: Sticky Live Storefront Preview */}
         <div className={`lg:col-span-5 ${mobileView === 'preview' ? 'block' : 'hidden lg:block'} lg:sticky lg:top-6`}>
-          <div className="rounded-2xl border border-surface-border bg-white p-4 shadow-editorial space-y-3">
+          <div className="rounded-2xl border border-[#E5E7EB] bg-white p-4 shadow-editorial space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-ink">Live Storefront Preview</span>
               <a
                 href={publicShareUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs font-semibold text-lavender-deep hover:underline"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-[#171717] hover:underline"
               >
                 <span>Open Live</span>
                 <ExternalLink className="h-3 w-3" />
               </a>
             </div>
-            <div className="mx-auto max-w-[360px] rounded-[30px] border-[5px] border-cetacean bg-cetacean p-1 shadow-xl overflow-hidden">
+            <div className="mx-auto max-w-[360px] rounded-[30px] border-[5px] border-[#171717] bg-[#171717] p-1 shadow-xl overflow-hidden">
               <div className="h-[560px] overflow-y-auto rounded-[24px]">
                 <PublicProfileView
                   profile={previewProfile}
@@ -1131,15 +1144,15 @@ export function BusinessProfileDashboard({
 
       {/* Floating Unsaved Changes Save Bar */}
       {hasUnsavedChanges && (
-        <div className="fixed bottom-4 inset-x-4 z-40 mx-auto max-w-2xl rounded-2xl border border-[#A577FF]/30 bg-cetacean text-white px-4 py-3 shadow-card-dark flex items-center justify-between gap-3">
-          <span className="text-xs sm:text-sm font-medium text-[#E8DEFF]">
+        <div className="fixed bottom-4 inset-x-4 z-40 mx-auto max-w-2xl rounded-2xl border border-white/10 bg-[#171717] text-white px-4 py-3 shadow-xl flex items-center justify-between gap-3">
+          <span className="text-xs sm:text-sm font-medium text-neutral-200">
             You have unsaved storefront changes
           </span>
           <button
             type="button"
             disabled={saving}
             onClick={() => handleSaveAll(true)}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-lavender-deep px-4 py-2 text-xs font-bold text-white hover:bg-lavender-hover shrink-0 disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2 text-xs font-bold text-[#171717] hover:bg-neutral-100 shrink-0 disabled:opacity-60"
           >
             {saving ? <Spinner size={13} /> : <Save className="h-3.5 w-3.5" />}
             <span>{saving ? 'Saving…' : 'Save Changes'}</span>
@@ -1150,11 +1163,11 @@ export function BusinessProfileDashboard({
       {/* Add / Edit Link Modal */}
       {linkModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-cetacean-deep/65 backdrop-blur-xs p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
           onClick={() => setLinkModalOpen(false)}
         >
           <div
-            className="w-full max-w-md rounded-2xl border border-surface-border bg-white p-5 shadow-2xl space-y-4"
+            className="w-full max-w-md rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-2xl space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
@@ -1176,7 +1189,7 @@ export function BusinessProfileDashboard({
                     setDraftPlatform(next)
                     if (!editingLinkId) setDraftTitle(getPlatformMeta(next).defaultTitle)
                   }}
-                  className="w-full rounded-xl border border-surface-border bg-white px-3 py-2.5 text-xs font-semibold text-ink focus:border-lavender-deep focus:outline-none"
+                  className="w-full rounded-xl border border-[#E5E7EB] bg-white px-3 py-2.5 text-xs font-semibold text-ink focus:border-[#171717] focus:outline-none"
                 >
                   {selectableModalPlatforms.map((p) => (
                     <option key={p.id} value={p.id}>{p.label}</option>
@@ -1189,7 +1202,7 @@ export function BusinessProfileDashboard({
                   value={draftTitle}
                   onChange={(e) => setDraftTitle(e.target.value)}
                   maxLength={80}
-                  className="w-full rounded-xl border border-surface-border px-3 py-2.5 text-xs text-ink focus:border-lavender-deep focus:outline-none"
+                  className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2.5 text-xs text-ink focus:border-[#171717] focus:outline-none"
                 />
               </div>
               <div>
@@ -1201,7 +1214,7 @@ export function BusinessProfileDashboard({
                     setLinkError(null)
                   }}
                   placeholder={getPlatformMeta(draftPlatform).placeholder}
-                  className="w-full rounded-xl border border-surface-border px-3 py-2.5 text-xs font-mono text-ink focus:border-lavender-deep focus:outline-none"
+                  className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2.5 text-xs font-mono text-ink focus:border-[#171717] focus:outline-none"
                 />
               </div>
               {draftPlatform === 'custom' && (
@@ -1213,8 +1226,8 @@ export function BusinessProfileDashboard({
                       onClick={() => setDraftIcon(opt.id)}
                       className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] ${
                         draftIcon === opt.id
-                          ? 'border-cetacean bg-lavender-subtle text-cetacean font-semibold'
-                          : 'border-surface-border text-ink-muted'
+                          ? 'border-[#171717] bg-[#F7F7F5] text-[#171717] font-semibold'
+                          : 'border-[#E5E7EB] text-ink-muted'
                       }`}
                     >
                       <PlatformIcon platform="custom" customIcon={opt.id} size={13} />
@@ -1234,14 +1247,14 @@ export function BusinessProfileDashboard({
               <button
                 type="button"
                 onClick={() => setLinkModalOpen(false)}
-                className="rounded-xl border border-surface-border px-3.5 py-2 text-xs font-semibold text-ink hover:bg-ghost"
+                className="rounded-xl border border-[#E5E7EB] px-3.5 py-2 text-xs font-semibold text-ink hover:bg-[#F7F7F5]"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleSaveLinkModal}
-                className="rounded-xl bg-lavender-deep px-4 py-2 text-xs font-bold text-white hover:bg-lavender-hover"
+                className="rounded-xl bg-[#171717] px-4 py-2 text-xs font-bold text-white hover:bg-[#262626]"
               >
                 {editingLinkId ? 'Update Link' : 'Add Link'}
               </button>
@@ -1275,8 +1288,8 @@ function ToggleField({
           onClick={onToggle}
           className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold border ${
             visible
-              ? 'border-lavender-soft bg-lavender-subtle text-cetacean'
-              : 'border-surface-border bg-ghost text-ink-muted'
+              ? 'border-[#171717]/20 bg-[#F3F4F6] text-[#171717]'
+              : 'border-[#E5E7EB] bg-[#F7F7F5] text-ink-muted'
           }`}
         >
           {visible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
@@ -1286,7 +1299,7 @@ function ToggleField({
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl border border-surface-border bg-white px-3.5 py-2.5 text-sm text-ink focus:border-lavender-deep focus:outline-none"
+        className="w-full rounded-xl border border-[#E5E7EB] bg-white px-3.5 py-2.5 text-sm text-ink focus:border-[#171717] focus:outline-none"
       />
     </div>
   )

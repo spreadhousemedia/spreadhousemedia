@@ -3,7 +3,6 @@ import {
   Award,
   Building2,
   Clock,
-  Globe,
   Mail,
   MapPin,
   MessageCircle,
@@ -13,16 +12,17 @@ import {
   Star,
   User,
 } from 'lucide-react'
-import type { ProfileTheme, PublicLinkItem, PublicProfileData } from '../../types'
+import { formatChannelSubtitle, resolveBusinessTheme } from '../../lib/profileThemes'
 import {
   getPlatformMeta,
   isValidContactEmail,
   isValidContactPhone,
   isValidDestinationUrl,
 } from '../../lib/validation'
+import type { ProfileTheme, PublicLinkItem, PublicProfileData } from '../../types'
 import { PlatformIcon } from './PlatformIcons'
-import { ThemeToggle } from './ThemeToggle'
 import { ProfileFooter } from './ProfileFooter'
+import { ThemeToggle } from './ThemeToggle'
 
 interface BusinessStorefrontViewProps {
   profile: PublicProfileData
@@ -36,7 +36,6 @@ interface BusinessStorefrontViewProps {
 function getSafeUploadedLogo(profileImage?: string | null): string | null {
   if (!profileImage) return null
   const trimmed = profileImage.trim()
-  // Reject legacy cartoon portrait paths on Business Storefronts; allow real uploaded logos only
   if (/\/avatars\/avatar-\d+/i.test(trimmed)) return null
   if (trimmed.startsWith('https://') || trimmed.startsWith('data:image/')) {
     return trimmed
@@ -49,7 +48,7 @@ function getBusinessInitials(name: string): string {
     .trim()
     .split(/\s+/)
     .filter(Boolean)
-  if (parts.length === 0) return 'SN'
+  if (parts.length === 0) return 'BN'
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase()
 }
@@ -62,7 +61,10 @@ export function BusinessStorefrontView({
   previewMode = false,
   onToggleTheme,
 }: BusinessStorefrontViewProps) {
-  const isDark = activeTheme === 'dark'
+  const theme = resolveBusinessTheme(activeTheme)
+  const isDark = theme.isDark
+  const isExecutive = theme.layout === 'executive' && Boolean(theme.headerBand)
+
   const displayName = profile.profile_name?.trim() || qrNumber
   const brandLogo = getSafeUploadedLogo(profile.profile_image)
   const initials = getBusinessInitials(displayName)
@@ -121,343 +123,337 @@ export function BusinessStorefrontView({
   )
   const featuredCustomLinks = dedupedLinks.filter((l) => l.platform === 'custom')
 
-  const quickActionCount =
-    (safePhone ? 1 : 0) +
-    (primaryWhatsappUrl ? 1 : 0) +
-    (safeEmail ? 1 : 0) +
-    (primaryMapsUrl ? 1 : 0)
-
-  const actionTileClass = isDark
-    ? 'border-[#A577FF]/20 bg-[#1E1050] text-[#F5F7FC] hover:border-[#A577FF]/50 hover:bg-[#271466]'
-    : 'border-[#E2E6F0] bg-[#F5F7FC] text-[#150A35] hover:border-[#7040F0]/50 hover:bg-[#F5F0FF]'
-
-  const sectionCardClass = isDark
-    ? 'border-[#A577FF]/20 bg-[#150A35]/95 text-[#F5F7FC] shadow-card-dark'
-    : 'border-[#E2E6F0] bg-white text-[#150A35] shadow-editorial'
+  const quickActions = [
+    safePhone
+      ? {
+          id: 'call',
+          label: 'Call',
+          href: `tel:${safePhone.replace(/[^\d+]/g, '')}`,
+          external: false,
+          icon: <Phone className="h-4 w-4 text-emerald-600" aria-hidden="true" />,
+        }
+      : null,
+    primaryWhatsappUrl
+      ? {
+          id: 'whatsapp',
+          label: 'WhatsApp',
+          href: primaryWhatsappUrl,
+          external: true,
+          icon: <MessageCircle className="h-4 w-4 text-[#25D366]" aria-hidden="true" />,
+        }
+      : null,
+    safeEmail
+      ? {
+          id: 'email',
+          label: 'Email',
+          href: `mailto:${safeEmail}`,
+          external: false,
+          icon: <Mail className="h-4 w-4" style={{ color: theme.accent }} aria-hidden="true" />,
+        }
+      : null,
+    primaryMapsUrl
+      ? {
+          id: 'maps',
+          label: 'Directions',
+          href: primaryMapsUrl,
+          external: true,
+          icon: <Navigation className="h-4 w-4 text-sky-600" aria-hidden="true" />,
+        }
+      : null,
+  ].filter((a): a is NonNullable<typeof a> => Boolean(a))
 
   return (
     <div
-      className={`relative overflow-hidden transition-colors duration-300 ${
+      className={`transition-colors duration-200 ${
         previewMode ? 'min-h-full rounded-[28px]' : 'min-h-screen'
-      } flex flex-col justify-between ${
-        isDark ? 'bg-[#0D0620] text-[#F5F7FC]' : 'bg-[#F5F7FC] text-[#150A35]'
-      }`}
+      } flex flex-col justify-between`}
+      style={{ backgroundColor: theme.canvas, color: theme.ink }}
     >
-      {/* Single Restrained Top Ambient Wash (Cetacean + Lavender Brand Identity) */}
       <div
-        className={`pointer-events-none absolute inset-x-0 top-0 h-80 ${
-          isDark
-            ? 'bg-[radial-gradient(ellipse_80%_45%_at_50%_-8%,rgba(165,119,255,0.22),transparent_70%)]'
-            : 'bg-[radial-gradient(ellipse_75%_45%_at_50%_-10%,rgba(165,119,255,0.11),transparent_70%)]'
-        }`}
-        aria-hidden="true"
-      />
-
-      <div
-        className={`relative z-10 mx-auto w-full max-w-[460px] ${
-          previewMode ? 'px-4 pt-4 pb-6' : 'px-4 sm:px-5 pt-5 sm:pt-8 pb-8'
+        className={`mx-auto w-full max-w-[440px] ${
+          previewMode ? 'px-4 pt-5 pb-8' : 'px-5 pt-6 sm:pt-8 pb-10'
         }`}
       >
-        {/* Top Storefront Bar */}
-        <div className="flex items-center justify-between mb-4">
+        {/* Minimalist Top Bar */}
+        <div className="flex items-center justify-between mb-5">
           <span
-            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-mono tracking-tight border ${
-              isDark
-                ? 'border-[#A577FF]/25 bg-[#150A35]/90 text-[#C4A3FF]'
-                : 'border-[#E2E6F0] bg-white text-[#4E4668] shadow-2xs'
-            }`}
+            className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-mono tracking-tight"
+            style={{
+              backgroundColor: theme.card,
+              borderColor: theme.border,
+              color: theme.muted,
+            }}
           >
-            <ShieldCheck
-              className={`h-3.5 w-3.5 ${isDark ? 'text-[#A577FF]' : 'text-[#7040F0]'}`}
-              aria-hidden="true"
-            />
+            <ShieldCheck className="h-3.5 w-3.5" style={{ color: theme.accent }} aria-hidden="true" />
             <span>BUSINESS · {qrNumber}</span>
           </span>
 
-          <ThemeToggle theme={activeTheme} onToggle={onToggleTheme} />
+          <ThemeToggle theme={isDark ? 'dark' : 'light'} onToggle={onToggleTheme} />
         </div>
 
-        <main className="space-y-4">
-          {/* Executive Business Hero Card */}
+        <main className="space-y-6">
+          {/* Primary Identity Card */}
           <section
-            className={`relative overflow-hidden rounded-3xl border p-5 sm:p-6 transition-all ${sectionCardClass}`}
+            className="overflow-hidden rounded-3xl border shadow-xs"
+            style={{ backgroundColor: theme.card, borderColor: theme.border }}
           >
-            <div
-              className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#A577FF]/70 to-transparent"
-              aria-hidden="true"
-            />
-
-            <div className="flex flex-col items-center text-center">
-              {/* Brand Logo or Cetacean-Lavender Monogram */}
+            {isExecutive && (
               <div
-                className={`relative flex h-20 w-20 sm:h-22 sm:w-22 items-center justify-center overflow-hidden rounded-2xl border ${
-                  isDark
-                    ? 'border-[#A577FF]/35 bg-[#1E1050] shadow-glow-lavender'
-                    : 'border-[#E2E6F0] bg-white shadow-editorial'
-                }`}
-              >
+                className="h-16 w-full"
+                style={{ backgroundColor: theme.headerBand }}
+                aria-hidden="true"
+              />
+            )}
+
+            <div className={`px-6 pb-6 ${isExecutive ? '-mt-9' : 'pt-7'}`}>
+              <div className={`flex flex-col ${isExecutive ? 'items-start text-left' : 'items-center text-center'}`}>
+                {/* Brand Logo Container (supports both square & wide transparent PNG logos cleanly) */}
                 {brandLogo ? (
-                  <img
-                    src={brandLogo}
-                    alt={`${displayName} logo`}
-                    width={88}
-                    height={88}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="relative flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-[#271466] via-[#1E1050] to-[#150A35] text-[#F5F7FC]">
-                    <span className="text-2xl font-extrabold tracking-tight leading-none">
-                      {initials}
-                    </span>
-                    <Building2
-                      className="mt-1 h-3.5 w-3.5 text-[#C4A3FF]/80"
-                      aria-hidden="true"
+                  <div
+                    className="flex h-20 min-w-[84px] max-w-[200px] items-center justify-center overflow-hidden rounded-2xl border bg-white p-2 shadow-2xs"
+                    style={{ borderColor: theme.border }}
+                  >
+                    <img
+                      src={brandLogo}
+                      alt={`${displayName} logo`}
+                      className="max-h-full max-w-full object-contain"
                     />
+                  </div>
+                ) : (
+                  <div
+                    className="flex h-20 w-20 items-center justify-center rounded-2xl border shadow-2xs"
+                    style={{
+                      backgroundColor: theme.subtleSurface,
+                      borderColor: theme.border,
+                      color: theme.ink,
+                    }}
+                  >
+                    <div className="flex flex-col items-center justify-center">
+                      <span className="text-xl font-bold tracking-tight leading-none">
+                        {initials}
+                      </span>
+                      <Building2
+                        className="mt-1 h-3.5 w-3.5 opacity-60"
+                        style={{ color: theme.muted }}
+                        aria-hidden="true"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Category, City, Experience Metadata */}
+                {(safeCategory || safeLocation || safeExperience) && (
+                  <div
+                    className={`mt-4 flex flex-wrap items-center gap-1.5 ${
+                      isExecutive ? 'justify-start' : 'justify-center'
+                    }`}
+                  >
+                    {(safeCategory || safeLocation) && (
+                      <span
+                        className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-medium"
+                        style={{
+                          backgroundColor: theme.subtleSurface,
+                          borderColor: theme.border,
+                          color: theme.muted,
+                        }}
+                      >
+                        {safeCategory && <span>{safeCategory}</span>}
+                        {safeCategory && safeLocation && <span aria-hidden="true">·</span>}
+                        {safeLocation && <span>{safeLocation}</span>}
+                      </span>
+                    )}
+
+                    {safeExperience && (
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium"
+                        style={{
+                          backgroundColor: theme.subtleSurface,
+                          borderColor: theme.border,
+                          color: theme.ink,
+                        }}
+                      >
+                        <Award className="h-3 w-3 opacity-75" style={{ color: theme.accent }} aria-hidden="true" />
+                        <span>{safeExperience}</span>
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                <h1
+                  className="mt-3.5 max-w-full break-words text-[26px] sm:text-[30px] font-bold tracking-[-0.025em] leading-[1.15]"
+                  style={{ color: theme.ink }}
+                >
+                  {displayName}
+                </h1>
+
+                {safeTagline && (
+                  <p
+                    className="mt-2 max-w-[36ch] break-words text-[14px] font-normal leading-relaxed"
+                    style={{ color: theme.muted }}
+                  >
+                    {safeTagline}
+                  </p>
+                )}
+
+                {safeHours && (
+                  <div
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-medium"
+                    style={{
+                      backgroundColor: theme.subtleSurface,
+                      borderColor: theme.border,
+                      color: theme.muted,
+                    }}
+                  >
+                    <Clock className="h-3 w-3 shrink-0" style={{ color: theme.accent }} aria-hidden="true" />
+                    <span>{safeHours}</span>
                   </div>
                 )}
               </div>
 
-              {/* Category, City & Experience Chips */}
-              {(safeCategory || safeLocation || safeExperience) && (
-                <div className="mt-4 flex flex-wrap items-center justify-center gap-1.5">
-                  {(safeCategory || safeLocation) && (
-                    <span
-                      className={`inline-flex flex-wrap items-center justify-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-semibold ${
-                        isDark
-                          ? 'border-[#A577FF]/25 bg-[#1E1050] text-[#E8DEFF]'
-                          : 'border-[#E8DEFF] bg-[#F5F0FF] text-[#150A35]'
-                      }`}
-                    >
-                      {safeCategory && (
-                        <span className="inline-flex items-center gap-1">
-                          <Building2
-                            className={`h-3 w-3 ${isDark ? 'text-[#A577FF]' : 'text-[#7040F0]'}`}
-                            aria-hidden="true"
-                          />
-                          <span>{safeCategory}</span>
-                        </span>
-                      )}
-                      {safeCategory && safeLocation && <span aria-hidden="true">·</span>}
-                      {safeLocation && (
-                        <span className="inline-flex items-center gap-1">
-                          <MapPin className="h-3 w-3 text-emerald-500" aria-hidden="true" />
-                          <span>{safeLocation}</span>
-                        </span>
-                      )}
-                    </span>
-                  )}
-
-                  {safeExperience && (
-                    <span
-                      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
-                        isDark
-                          ? 'border-amber-400/25 bg-amber-500/10 text-amber-200'
-                          : 'border-amber-200 bg-amber-50 text-amber-900'
-                      }`}
-                    >
-                      <Award className="h-3 w-3 text-amber-500" aria-hidden="true" />
-                      <span>{safeExperience}</span>
-                    </span>
-                  )}
-                </div>
-              )}
-
-              <h1
-                className={`mt-3 max-w-full break-words text-[26px] sm:text-[31px] font-extrabold tracking-[-0.025em] leading-[1.12] ${
-                  isDark ? 'text-[#F5F7FC]' : 'text-[#150A35]'
-                }`}
-              >
-                {displayName}
-              </h1>
-
-              {safeTagline && (
-                <p
-                  className={`mt-1.5 max-w-[36ch] break-words text-[14px] font-medium leading-snug ${
-                    isDark ? 'text-[#C4A3FF]/85' : 'text-[#4E4668]'
-                  }`}
-                >
-                  {safeTagline}
-                </p>
-              )}
-
-              {safeHours && (
+              {/* Deduplicated Primary Contact Actions */}
+              {quickActions.length > 0 && (
                 <div
-                  className={`mt-3 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-medium ${
-                    isDark
-                      ? 'border-[#A577FF]/20 bg-[#1E1050]/80 text-[#E8DEFF]'
-                      : 'border-[#E2E6F0] bg-[#F5F7FC] text-[#4E4668]'
+                  className={`mt-6 pt-5 border-t grid gap-2.5 ${
+                    quickActions.length === 1 ? 'grid-cols-1' : 'grid-cols-2'
                   }`}
+                  style={{ borderColor: theme.border }}
                 >
-                  <Clock
-                    className={`h-3 w-3 shrink-0 ${isDark ? 'text-[#A577FF]' : 'text-[#7040F0]'}`}
-                    aria-hidden="true"
-                  />
-                  <span>{safeHours}</span>
+                  {quickActions.map((act) => (
+                    <a
+                      key={act.id}
+                      href={act.href}
+                      target={act.external ? '_blank' : undefined}
+                      rel={act.external ? 'noopener noreferrer' : undefined}
+                      className="flex items-center justify-center gap-2 rounded-2xl border px-3.5 py-3 text-xs font-semibold transition-opacity hover:opacity-85 active:scale-[0.99]"
+                      style={{
+                        backgroundColor: theme.subtleSurface,
+                        borderColor: theme.border,
+                        color: theme.ink,
+                      }}
+                    >
+                      {act.icon}
+                      <span>{act.label}</span>
+                    </a>
+                  ))}
                 </div>
               )}
             </div>
-
-            {/* Deduplicated Quick Action Bar */}
-            {quickActionCount > 0 && (
-              <div
-                className={`mt-5 grid gap-2.5 ${
-                  quickActionCount === 1 ? 'grid-cols-1' : 'grid-cols-2'
-                }`}
-              >
-                {safePhone && (
-                  <a
-                    href={`tel:${safePhone.replace(/[^\d+]/g, '')}`}
-                    className={`flex items-center justify-center gap-2 rounded-2xl border px-3.5 py-3 text-xs font-bold transition-all ${actionTileClass}`}
-                  >
-                    <Phone className="h-4 w-4 text-emerald-500" aria-hidden="true" />
-                    <span>Call Business</span>
-                  </a>
-                )}
-
-                {primaryWhatsappUrl && (
-                  <a
-                    href={primaryWhatsappUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`flex items-center justify-center gap-2 rounded-2xl border px-3.5 py-3 text-xs font-bold transition-all ${actionTileClass}`}
-                  >
-                    <MessageCircle className="h-4 w-4 text-[#25D366]" aria-hidden="true" />
-                    <span>WhatsApp</span>
-                  </a>
-                )}
-
-                {safeEmail && (
-                  <a
-                    href={`mailto:${safeEmail}`}
-                    className={`flex items-center justify-center gap-2 rounded-2xl border px-3.5 py-3 text-xs font-bold transition-all ${actionTileClass}`}
-                  >
-                    <Mail
-                      className={`h-4 w-4 ${isDark ? 'text-[#A577FF]' : 'text-[#7040F0]'}`}
-                      aria-hidden="true"
-                    />
-                    <span>Email Us</span>
-                  </a>
-                )}
-
-                {primaryMapsUrl && (
-                  <a
-                    href={primaryMapsUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`flex items-center justify-center gap-2 rounded-2xl border px-3.5 py-3 text-xs font-bold transition-all ${actionTileClass}`}
-                  >
-                    <Navigation className="h-4 w-4 text-sky-500" aria-hidden="true" />
-                    <span>Directions</span>
-                  </a>
-                )}
-              </div>
-            )}
           </section>
 
-          {/* Google Reviews Highlight Banner */}
+          {/* Google Reviews Card */}
           {reviewLinks.map((rev) => (
             <a
               key={rev.id}
               href={rev.destination_url}
               target="_blank"
               rel="noopener noreferrer"
-              className={`group flex items-center justify-between gap-3 rounded-2xl border p-4 transition-all ${
-                isDark
-                  ? 'border-amber-400/30 bg-[#150A35] text-[#F5F7FC] shadow-card-dark hover:border-amber-400/55'
-                  : 'border-amber-200 bg-amber-50/50 text-[#150A35] shadow-editorial hover:border-amber-300'
-              }`}
+              className="group flex items-center justify-between gap-3 rounded-2xl border p-4 sm:p-5 transition-opacity hover:opacity-90"
+              style={{
+                backgroundColor: theme.card,
+                borderColor: theme.border,
+                color: theme.ink,
+              }}
             >
-              <div className="flex items-center gap-3 min-w-0">
+              <div className="flex items-center gap-3.5 min-w-0">
                 <span
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
-                    isDark ? 'bg-amber-400/15 text-amber-400' : 'bg-amber-100 text-amber-500'
-                  }`}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border"
+                  style={{ backgroundColor: theme.subtleSurface, borderColor: theme.border }}
                 >
-                  <Star className="h-5 w-5 fill-amber-400 text-amber-400" aria-hidden="true" />
+                  <Star className="h-4 w-4 fill-amber-400 text-amber-400" aria-hidden="true" />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-sm font-bold truncate">{rev.link_title}</p>
-                  <p className={`text-[11px] ${isDark ? 'text-[#C4A3FF]/75' : 'text-[#6B6480]'}`}>
-                    Tap to share your review on Google
+                  <p className="text-sm font-semibold truncate">{rev.link_title}</p>
+                  <p className="text-xs truncate" style={{ color: theme.muted }}>
+                    Share your experience on Google
                   </p>
                 </div>
               </div>
-              <ArrowUpRight className="h-4 w-4 shrink-0 opacity-70 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+              <ArrowUpRight className="h-4 w-4 shrink-0 opacity-60 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
             </a>
           ))}
 
           {/* About Our Business Card */}
           {(safeBio || safeContactPerson) && (
-            <section className={`rounded-2xl border p-4 sm:p-5 space-y-2.5 ${sectionCardClass}`}>
+            <section
+              className="rounded-2xl border p-5 sm:p-6 space-y-3"
+              style={{ backgroundColor: theme.card, borderColor: theme.border }}
+            >
               <h2
-                className={`text-[11px] font-mono font-bold uppercase tracking-[0.14em] ${
-                  isDark ? 'text-[#C4A3FF]' : 'text-[#7040F0]'
-                }`}
+                className="text-[11px] font-mono font-semibold uppercase tracking-[0.14em]"
+                style={{ color: theme.muted }}
               >
-                About Our Business
+                About
               </h2>
               {safeBio && (
-                <p
-                  className={`text-[14px] leading-relaxed whitespace-pre-line ${
-                    isDark ? 'text-[#EEF1F8]' : 'text-[#4E4668]'
-                  }`}
-                >
+                <p className="text-[14px] leading-relaxed whitespace-pre-line" style={{ color: theme.ink }}>
                   {safeBio}
                 </p>
               )}
               {safeContactPerson && (
                 <div
-                  className={`pt-2.5 border-t flex items-center gap-2 text-xs font-medium ${
-                    isDark
-                      ? 'border-[#A577FF]/15 text-[#C4A3FF]'
-                      : 'border-[#E2E6F0] text-[#6B6480]'
-                  }`}
+                  className="pt-3 border-t flex items-center gap-2 text-xs font-medium"
+                  style={{ borderColor: theme.border, color: theme.muted }}
                 >
-                  <User
-                    className={`h-3.5 w-3.5 shrink-0 ${isDark ? 'text-[#A577FF]' : 'text-[#7040F0]'}`}
-                    aria-hidden="true"
-                  />
-                  <span>Contact Person: {safeContactPerson}</span>
+                  <User className="h-3.5 w-3.5 shrink-0" style={{ color: theme.accent }} aria-hidden="true" />
+                  <span>Contact: {safeContactPerson}</span>
                 </div>
               )}
             </section>
           )}
 
-          {/* Business Social Media & Website Channels (Labeled Tiles) */}
+          {/* Spacious Full-Width Named Social Media & Official Channels */}
           {socialLinks.length > 0 && (
-            <section
-              className={`rounded-2xl border p-4 sm:p-5 space-y-3 ${sectionCardClass}`}
-              aria-label="Business Social Media Channels"
-            >
-              <div className="flex items-center justify-between">
-                <h2
-                  className={`text-[11px] font-mono font-bold uppercase tracking-[0.14em] ${
-                    isDark ? 'text-[#C4A3FF]' : 'text-[#7040F0]'
-                  }`}
-                >
-                  Connect With Us
-                </h2>
-                <Globe
-                  className={`h-3.5 w-3.5 ${isDark ? 'text-[#A577FF]/70' : 'text-[#6B6480]'}`}
-                  aria-hidden="true"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-2.5">
+            <section className="space-y-3" aria-label="Connect With Us">
+              <h2
+                className="px-1 text-[11px] font-mono font-semibold uppercase tracking-[0.14em]"
+                style={{ color: theme.muted }}
+              >
+                Social &amp; Channels
+              </h2>
+              <div className="space-y-2.5">
                 {socialLinks.map((link) => {
                   const meta = getPlatformMeta(link.platform)
+                  const subtitle = formatChannelSubtitle(link.destination_url, link.platform)
                   return (
                     <a
                       key={link.id}
                       href={link.destination_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className={`group flex items-center justify-between gap-2 rounded-xl border px-3 py-2.5 transition-all ${actionTileClass}`}
+                      className="group flex items-center justify-between gap-3.5 rounded-2xl border px-4 py-3.5 transition-opacity hover:opacity-90 active:scale-[0.99]"
+                      style={{
+                        backgroundColor: theme.card,
+                        borderColor: theme.border,
+                        color: theme.ink,
+                      }}
                     >
-                      <span className="flex items-center gap-2.5 min-w-0">
-                        <PlatformIcon platform={link.platform} size={18} />
-                        <span className="truncate text-xs font-semibold">{meta.label}</span>
-                      </span>
-                      <ArrowUpRight className="h-3.5 w-3.5 shrink-0 opacity-50 group-hover:opacity-100" />
+                      <div className="flex min-w-0 items-center gap-3.5">
+                        <span
+                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border"
+                          style={{
+                            backgroundColor: theme.subtleSurface,
+                            borderColor: theme.border,
+                          }}
+                        >
+                          <PlatformIcon platform={link.platform} size={20} />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold leading-tight">
+                            {meta.label}
+                          </p>
+                          <p
+                            className="mt-0.5 truncate text-xs leading-tight"
+                            style={{ color: theme.muted }}
+                          >
+                            {subtitle}
+                          </p>
+                        </div>
+                      </div>
+                      <ArrowUpRight
+                        className="h-4 w-4 shrink-0 opacity-50 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all"
+                        style={{ color: theme.muted }}
+                        aria-hidden="true"
+                      />
                     </a>
                   )
                 })}
@@ -467,63 +463,89 @@ export function BusinessStorefrontView({
 
           {/* Featured Business Services / Catalog / Custom Links */}
           {featuredCustomLinks.length > 0 && (
-            <section className="space-y-2.5" aria-label="Business Services and Resources">
-              {featuredCustomLinks.map((link) => (
-                <a
-                  key={link.id}
-                  href={link.destination_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`group flex min-h-[54px] w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3.5 transition-all ${
-                    isDark
-                      ? 'border-[#A577FF]/20 bg-[#150A35] text-[#F5F7FC] shadow-card-dark hover:border-[#A577FF]/50 hover:bg-[#1E1050]'
-                      : 'border-[#E2E6F0] bg-white text-[#150A35] shadow-editorial hover:border-[#7040F0]/45 hover:bg-[#FAFBFD]'
-                  }`}
-                >
-                  <div className="flex min-w-0 items-center gap-3">
-                    <span
-                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
-                        isDark ? 'bg-[#1E1050] text-[#C4A3FF]' : 'bg-[#F5F0FF] text-[#7040F0]'
-                      }`}
+            <section className="space-y-3" aria-label="Business Links">
+              <h2
+                className="px-1 text-[11px] font-mono font-semibold uppercase tracking-[0.14em]"
+                style={{ color: theme.muted }}
+              >
+                Links &amp; Resources
+              </h2>
+              <div className="space-y-2.5">
+                {featuredCustomLinks.map((link) => {
+                  const subtitle = formatChannelSubtitle(link.destination_url, link.platform)
+                  return (
+                    <a
+                      key={link.id}
+                      href={link.destination_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group flex items-center justify-between gap-3.5 rounded-2xl border px-4 py-3.5 transition-opacity hover:opacity-90 active:scale-[0.99]"
+                      style={{
+                        backgroundColor: theme.card,
+                        borderColor: theme.border,
+                        color: theme.ink,
+                      }}
                     >
-                      <PlatformIcon platform="custom" customIcon={link.icon} size={18} />
-                    </span>
-                    <span className="truncate text-sm font-semibold">{link.link_title}</span>
-                  </div>
-                  <ArrowUpRight className="h-4 w-4 shrink-0 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
-                </a>
-              ))}
+                      <div className="flex min-w-0 items-center gap-3.5">
+                        <span
+                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border"
+                          style={{
+                            backgroundColor: theme.subtleSurface,
+                            borderColor: theme.border,
+                            color: theme.accent,
+                          }}
+                        >
+                          <PlatformIcon platform="custom" customIcon={link.icon} size={18} />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold leading-tight">
+                            {link.link_title}
+                          </p>
+                          <p
+                            className="mt-0.5 truncate text-xs leading-tight"
+                            style={{ color: theme.muted }}
+                          >
+                            {subtitle}
+                          </p>
+                        </div>
+                      </div>
+                      <ArrowUpRight
+                        className="h-4 w-4 shrink-0 opacity-50 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all"
+                        style={{ color: theme.muted }}
+                        aria-hidden="true"
+                      />
+                    </a>
+                  )
+                })}
+              </div>
             </section>
           )}
 
           {/* Visit & Business Timings Card */}
           {(safeAddress || safeHours) && (
             <section
-              className={`rounded-2xl border p-4 sm:p-5 space-y-3 text-xs ${sectionCardClass}`}
-              aria-label="Business Location and Timings"
+              className="rounded-2xl border p-5 sm:p-6 space-y-3.5 text-xs"
+              style={{ backgroundColor: theme.card, borderColor: theme.border }}
+              aria-label="Location and Business Timings"
             >
               <h2
-                className={`text-[11px] font-mono font-bold uppercase tracking-[0.14em] ${
-                  isDark ? 'text-[#C4A3FF]' : 'text-[#7040F0]'
-                }`}
+                className="text-[11px] font-mono font-semibold uppercase tracking-[0.14em]"
+                style={{ color: theme.muted }}
               >
-                Visit &amp; Business Timings
+                Visit &amp; Timings
               </h2>
               {safeAddress && (
                 <div className="flex items-start gap-2.5">
-                  <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-emerald-500" aria-hidden="true" />
-                  <span className={`leading-relaxed ${isDark ? 'text-[#EEF1F8]' : 'text-[#4E4668]'}`}>
+                  <MapPin className="h-4 w-4 mt-0.5 shrink-0" style={{ color: theme.accent }} aria-hidden="true" />
+                  <span className="leading-relaxed" style={{ color: theme.ink }}>
                     {safeAddress}
                   </span>
                 </div>
               )}
               {safeHours && (
                 <div className="flex items-start gap-2.5">
-                  <Clock
-                    className={`h-4 w-4 mt-0.5 shrink-0 ${isDark ? 'text-[#A577FF]' : 'text-[#7040F0]'}`}
-                    aria-hidden="true"
-                  />
-                  <span className={`leading-relaxed font-medium ${isDark ? 'text-[#F5F7FC]' : 'text-[#150A35]'}`}>
+                  <Clock className="h-4 w-4 mt-0.5 shrink-0" style={{ color: theme.accent }} aria-hidden="true" />
+                  <span className="leading-relaxed font-medium" style={{ color: theme.ink }}>
                     {safeHours}
                   </span>
                 </div>
@@ -533,9 +555,7 @@ export function BusinessStorefrontView({
         </main>
       </div>
 
-      <div className="relative z-10">
-        <ProfileFooter isDark={isDark} />
-      </div>
+      <ProfileFooter isDark={isDark} />
     </div>
   )
 }

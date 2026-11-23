@@ -478,6 +478,9 @@ function readIndexHtml() {
 
 function serveSpaHtml(req, res, statusCode, pathname) {
   let html = readIndexHtml()
+  if (pathname !== '/') {
+    html = html.replace(/<!--SEO_FALLBACK_START-->[\s\S]*?<!--SEO_FALLBACK_END-->/, '')
+  }
   const canonicalUrl = `${APP_BASE_URL}${pathname === '/' ? '/' : pathname}`
   html = html.replace(
     /<link\s+rel="canonical"\s+href="[^"]*"\s*\/?>/i,

@@ -141,8 +141,10 @@
       }
     </script>
 
+    <style>.js-boot #seo-fallback{display:none!important}</style>
     <script>
       (function () {
+        document.documentElement.classList.add('js-boot');
         try {
           localStorage.removeItem('tapflow_theme');
           localStorage.setItem('spreadnfc_theme', 'light');
@@ -163,6 +165,7 @@
   </head>
   <body class="bg-white text-zinc-900 antialiased selection:bg-[#A577FF] selection:text-white transition-colors duration-150">
     <div id="root">
+      <!--SEO_FALLBACK_START--><div id="seo-fallback">
       <header>
         <nav aria-label="Primary Navigation">
           <a href="/">Spread NFC</a> |
@@ -214,6 +217,7 @@
           </p>
         </section>
       </main>
+      </div><!--SEO_FALLBACK_END-->
     </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

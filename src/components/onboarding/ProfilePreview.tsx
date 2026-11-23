@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Check, Copy, Moon, Pencil, QrCode, Sparkles, Sun } from 'lucide-react'
+import { Check, Copy, Pencil, QrCode, Sparkles } from 'lucide-react'
 import { profilePublicUrl, qrPublicUrl } from '../../lib/config'
 import { generateQrDataUrl } from '../../lib/qr'
 import type { ProfileTheme, PublicLinkItem, PublicProfileData } from '../../types'
 import { Spinner } from '../Spinner'
 import { PublicProfileView } from '../profile/PublicProfileView'
+import { ThemeTemplatePicker } from '../profile/ThemeTemplatePicker'
 
 interface ProfilePreviewProps {
   qrNumber: string
@@ -112,8 +113,8 @@ export function ProfilePreview({
           </div>
         )}
 
-        {/* Quick Edit Shortcuts & Default Theme Toggle */}
-        <div className="border-t border-[#E6E4DF] pt-3 flex flex-wrap items-center justify-between gap-2">
+        {/* Quick Edit Shortcuts & Template Picker */}
+        <div className="border-t border-[#E6E4DF] pt-3 space-y-4">
           <div className="flex flex-wrap items-center gap-1.5">
             <button
               type="button"
@@ -141,28 +142,11 @@ export function ProfilePreview({
             </button>
           </div>
 
-          <div className="inline-flex rounded-xl border border-[#E6E4DF] bg-[#FAF9F7] p-0.5">
-            <button
-              type="button"
-              onClick={() => onThemeChange('light')}
-              className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-colors ${
-                profile.theme === 'light' ? 'bg-white text-[#141413] shadow-2xs' : 'text-[#6F6E69]'
-              }`}
-            >
-              <Sun className="h-3 w-3" />
-              <span>Light</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => onThemeChange('dark')}
-              className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-colors ${
-                profile.theme === 'dark' ? 'bg-[#141413] text-white shadow-2xs' : 'text-[#6F6E69]'
-              }`}
-            >
-              <Moon className="h-3 w-3" />
-              <span>Dark</span>
-            </button>
-          </div>
+          <ThemeTemplatePicker
+            mode="personal"
+            value={profile.theme}
+            onChange={onThemeChange}
+          />
         </div>
       </div>
 

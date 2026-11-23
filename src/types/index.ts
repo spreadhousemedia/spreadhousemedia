@@ -8,7 +8,23 @@ export type BusinessPurpose =
   | 'feedback'
   | 'product'
   | 'custom'
-export type ProfileTheme = 'light' | 'dark'
+export type BusinessThemeId =
+  | 'biz_ivory'
+  | 'biz_obsidian'
+  | 'biz_sage'
+  | 'biz_slate'
+  | 'biz_sand'
+  | 'biz_emerald_dark'
+
+export type PersonalThemeId =
+  | 'per_paper'
+  | 'per_ink'
+  | 'per_terracotta'
+  | 'per_ocean'
+  | 'per_blush'
+  | 'per_moss'
+
+export type ProfileTheme = 'light' | 'dark' | BusinessThemeId | PersonalThemeId
 
 export type SocialPlatform =
   | 'instagram'

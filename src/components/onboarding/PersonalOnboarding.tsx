@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DEFAULT_AVATAR_ID, isValidAvatarId } from '../../lib/avatars'
+import { isValidProfileTheme } from '../../lib/profileThemes'
 import { savePersonalProfile } from '../../lib/profileApi'
 import {
   isValidDestinationUrl,
@@ -144,7 +145,9 @@ export function PersonalOnboarding({
       tagline: local?.tagline ?? dbProfile?.tagline ?? '',
       bio: local?.bio ?? dbProfile?.bio ?? '',
       publicSlug: local?.publicSlug ?? dbProfile?.public_slug ?? '',
-      theme: local?.theme ?? (dbProfile?.theme === 'dark' ? 'dark' : 'light'),
+      theme:
+        local?.theme ??
+        (isValidProfileTheme(dbProfile?.theme) ? dbProfile.theme : 'per_paper'),
     }
   }, [qrNumber, dashboard.profile, dashboard.links])
 

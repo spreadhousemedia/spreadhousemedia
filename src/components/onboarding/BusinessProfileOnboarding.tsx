@@ -18,21 +18,24 @@ import {
   Mail,
   MapPin,
   MessageCircle,
-  Moon,
   Pencil,
   Phone,
   Plus,
-  Sun,
   Trash2,
   User,
 } from 'lucide-react'
 import { profilePublicUrl, qrPublicUrl } from '../../lib/config'
 import { checkPublicSlugAvailable, saveBusinessProfile } from '../../lib/profileApi'
+import {
+  isValidProfileTheme,
+  resolveBusinessTheme,
+  toggleLightDarkVariant,
+} from '../../lib/profileThemes'
 import { downloadSingleQr, generateQrDataUrl } from '../../lib/qr'
 import {
   BUSINESS_CATEGORY_OPTIONS,
   BUSINESS_LINK_TEMPLATES,
-  compressProfileImage,
+  compressBusinessLogo,
   getPlatformMeta,
   isValidContactEmail,
   isValidContactPhone,
@@ -54,6 +57,7 @@ import type {
 import { Spinner } from '../Spinner'
 import { CUSTOM_LINK_ICONS, PlatformIcon } from '../profile/PlatformIcons'
 import { PublicProfileView } from '../profile/PublicProfileView'
+import { ThemeTemplatePicker } from '../profile/ThemeTemplatePicker'
 import { OnboardingLayout, type SaveStatus } from './OnboardingLayout'
 
 interface BusinessProfileOnboardingProps {
@@ -234,10 +238,13 @@ export function BusinessProfileOnboarding({
   const [linkErr, setLinkErr] = useState<string | null>(null)
   const [dragIdx, setDragIdx] = useState<number | null>(null)
 
-  const [theme, setTheme] = useState<ProfileTheme>(
-    savedDraft?.theme ?? (dbProfile?.theme ? (dbProfile.theme === 'dark' ? 'dark' : 'light') : 'dark'),
-  )
+  const [theme, setTheme] = useState<ProfileTheme>(() => {
+    if (savedDraft?.theme && isValidProfileTheme(savedDraft.theme)) return savedDraft.theme
+    if (isValidProfileTheme(dbProfile?.theme)) return dbProfile.theme
+    return 'biz_ivory'
+  })
 
+  const [uploadingLogo, setUploadingLogo] = useState(false)
   const [slugStatus, setSlugStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle')
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const [saving, setSaving] = useState(false)
@@ -355,11 +362,14 @@ export function BusinessProfileOnboarding({
   async function handleLogoUpload(file: File | null) {
     if (!file) return
     setError(null)
+    setUploadingLogo(true)
     try {
-      const compressed = await compressProfileImage(file)
+      const compressed = await compressBusinessLogo(file)
       setProfileImage(compressed)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not process logo image.')
+    } finally {
+      setUploadingLogo(false)
     }
   }
 
@@ -661,7 +671,7 @@ export function BusinessProfileOnboarding({
                 <div>
                   <h1 className="text-2xl sm:text-[30px] font-extrabold tracking-tight text-ink leading-tight">
                     Set Up Your{' '}
-                    <span className="font-editorial italic font-normal text-lavender-deep">
+                    <span className="font-editorial italic font-normal text-[#171717]">
                       Business Identity
                     </span>
                   </h1>
@@ -671,14 +681,20 @@ export function BusinessProfileOnboarding({
                 </div>
 
                 {/* Card 1: Brand & Category */}
-                <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 shadow-editorial space-y-5">
+                <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5 sm:p-6 shadow-editorial space-y-5">
                   <div className="flex flex-wrap items-center gap-4">
-                    <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-lavender-soft bg-gradient-to-br from-[#271466] via-[#1E1050] to-[#150A35] text-white shadow-editorial">
+                    <div
+                      className={`relative flex h-16 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl border transition-colors ${
+                        profileImage
+                          ? 'border-[#E5E7EB] bg-white p-1.5'
+                          : 'border-[#171717] bg-[#171717] text-white'
+                      }`}
+                    >
                       {profileImage ? (
                         <img
                           src={profileImage}
                           alt="Business logo"
-                          className="h-full w-full object-cover bg-white"
+                          className="h-full w-full object-contain"
                         />
                       ) : (
                         <span className="text-lg font-extrabold tracking-tight">{brandInitials}</span>
@@ -686,14 +702,34 @@ export function BusinessProfileOnboarding({
                     </div>
                     <div className="space-y-1.5">
                       <div className="flex flex-wrap items-center gap-2.5">
-                        <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-surface-border bg-ghost px-3.5 py-2 text-xs font-semibold text-ink hover:border-lavender-deep transition-colors">
-                          <ImagePlus className="h-4 w-4 text-lavender-deep" />
-                          <span>{profileImage ? 'Replace Logo' : 'Upload Brand Logo'}</span>
+                        <label
+                          className={`inline-flex items-center gap-2 rounded-xl border border-[#E5E7EB] bg-[#F7F7F5] px-3.5 py-2 text-xs font-semibold text-ink transition-colors ${
+                            uploadingLogo
+                              ? 'opacity-60 cursor-wait'
+                              : 'cursor-pointer hover:border-[#171717]'
+                          }`}
+                        >
+                          {uploadingLogo ? (
+                            <Spinner size={14} />
+                          ) : (
+                            <ImagePlus className="h-4 w-4 text-[#171717]" />
+                          )}
+                          <span>
+                            {uploadingLogo
+                              ? 'Processing Logo…'
+                              : profileImage
+                                ? 'Replace Logo'
+                                : 'Upload Brand Logo'}
+                          </span>
                           <input
                             type="file"
                             accept="image/png,image/jpeg,image/webp"
+                            disabled={uploadingLogo}
                             className="hidden"
-                            onChange={(e) => handleLogoUpload(e.target.files?.[0] ?? null)}
+                            onChange={(e) => {
+                              void handleLogoUpload(e.target.files?.[0] ?? null)
+                              e.target.value = ''
+                            }}
                           />
                         </label>
                         {profileImage && (
@@ -707,14 +743,14 @@ export function BusinessProfileOnboarding({
                         )}
                       </div>
                       <p className="text-[11px] text-ink-muted">
-                        PNG, JPG, or WebP. Without a logo, your sleek brand monogram is shown.
+                        PNG, JPG, or WebP (transparency &amp; wide logos preserved). Without a logo, a monogram is shown.
                       </p>
                     </div>
                   </div>
 
                   <div>
                     <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-ink">
-                      <Building2 className="h-3.5 w-3.5 text-lavender-deep" />
+                      <Building2 className="h-3.5 w-3.5 text-[#525252]" />
                       <span>Business Name *</span>
                     </label>
                     <input
@@ -725,7 +761,7 @@ export function BusinessProfileOnboarding({
                       }}
                       maxLength={80}
                       placeholder="e.g. Elevate Realty"
-                      className="w-full rounded-xl border border-surface-border bg-white px-4 py-3 text-sm font-semibold text-ink focus:border-lavender-deep focus:outline-none transition-colors"
+                      className="w-full rounded-xl border border-[#E5E7EB] bg-white px-4 py-3 text-sm font-semibold text-ink focus:border-[#171717] focus:outline-none transition-colors"
                     />
                   </div>
 
@@ -741,8 +777,8 @@ export function BusinessProfileOnboarding({
                             onClick={() => setBusinessCategory(cat.label)}
                             className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-all ${
                               selected
-                                ? 'border-cetacean bg-cetacean text-white shadow-xs'
-                                : 'border-surface-border bg-ghost text-ink-secondary hover:border-lavender-deep/50 hover:text-ink'
+                                ? 'border-[#171717] bg-[#171717] text-white shadow-xs'
+                                : 'border-[#E5E7EB] bg-[#F7F7F5] text-ink-secondary hover:border-[#171717]/45 hover:text-ink'
                             }`}
                           >
                             {cat.label}
@@ -756,7 +792,7 @@ export function BusinessProfileOnboarding({
                         onChange={(e) => setCustomCategory(e.target.value)}
                         maxLength={60}
                         placeholder="Specify category (e.g. Architecture Studio)"
-                        className="mt-2 w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink focus:border-lavender-deep focus:outline-none"
+                        className="mt-2 w-full rounded-xl border border-[#E5E7EB] px-3.5 py-2.5 text-sm text-ink focus:border-[#171717] focus:outline-none"
                       />
                     )}
                   </div>
@@ -772,12 +808,12 @@ export function BusinessProfileOnboarding({
                         onChange={(e) => setLocation(e.target.value)}
                         maxLength={80}
                         placeholder="e.g. Gomti Nagar, Lucknow"
-                        className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink focus:border-lavender-deep focus:outline-none"
+                        className="w-full rounded-xl border border-[#E5E7EB] px-3.5 py-2.5 text-sm text-ink focus:border-[#171717] focus:outline-none"
                       />
                     </div>
                     <div>
                       <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-ink">
-                        <Award className="h-3.5 w-3.5 text-amber-500" />
+                        <Award className="h-3.5 w-3.5 text-amber-600" />
                         <span>Experience / Badge</span>
                       </label>
                       <input
@@ -785,14 +821,14 @@ export function BusinessProfileOnboarding({
                         onChange={(e) => setBusinessExperience(e.target.value)}
                         maxLength={60}
                         placeholder="e.g. 10+ Years Experience"
-                        className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink focus:border-lavender-deep focus:outline-none"
+                        className="w-full rounded-xl border border-[#E5E7EB] px-3.5 py-2.5 text-sm text-ink focus:border-[#171717] focus:outline-none"
                       />
                     </div>
                   </div>
                 </div>
 
                 {/* Card 2: Tagline & About Story */}
-                <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 shadow-editorial space-y-4">
+                <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5 sm:p-6 shadow-editorial space-y-4">
                   <div>
                     <label className="mb-1.5 block text-xs font-semibold text-ink">Tagline (Optional)</label>
                     <input
@@ -800,7 +836,7 @@ export function BusinessProfileOnboarding({
                       onChange={(e) => setTagline(e.target.value)}
                       maxLength={80}
                       placeholder="e.g. Premium Properties. Transparent Guidance."
-                      className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink focus:border-lavender-deep focus:outline-none"
+                      className="w-full rounded-xl border border-[#E5E7EB] px-3.5 py-2.5 text-sm text-ink focus:border-[#171717] focus:outline-none"
                     />
                   </div>
 
@@ -815,7 +851,7 @@ export function BusinessProfileOnboarding({
                       value={bio}
                       onChange={(e) => setBio(e.target.value)}
                       placeholder="Briefly describe what your business offers and why customers choose you."
-                      className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink leading-relaxed focus:border-lavender-deep focus:outline-none"
+                      className="w-full rounded-xl border border-[#E5E7EB] px-3.5 py-2.5 text-sm text-ink leading-relaxed focus:border-[#171717] focus:outline-none"
                     />
                   </div>
 
@@ -829,7 +865,7 @@ export function BusinessProfileOnboarding({
                       onChange={(e) => setContactPersonName(e.target.value)}
                       maxLength={80}
                       placeholder="e.g. Aditya Sharma"
-                      className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink focus:border-lavender-deep focus:outline-none"
+                      className="w-full rounded-xl border border-[#E5E7EB] px-3.5 py-2.5 text-sm text-ink focus:border-[#171717] focus:outline-none"
                     />
                   </div>
                 </div>
@@ -850,7 +886,7 @@ export function BusinessProfileOnboarding({
                       }
                       goToStep(2)
                     }}
-                    className="inline-flex h-12 items-center gap-2 rounded-xl bg-cetacean px-6 text-sm font-bold text-white hover:bg-cetacean-mid shadow-md transition-colors"
+                    className="inline-flex h-12 items-center gap-2 rounded-xl bg-[#171717] px-6 text-sm font-bold text-white hover:bg-[#262626] shadow-md transition-colors"
                   >
                     <span>Continue to Contact &amp; Timings</span>
                     <ArrowRight className="h-4 w-4" />
@@ -865,7 +901,7 @@ export function BusinessProfileOnboarding({
                 <div>
                   <h1 className="text-2xl sm:text-[30px] font-extrabold tracking-tight text-ink leading-tight">
                     Contact &amp;{' '}
-                    <span className="font-editorial italic font-normal text-lavender-deep">
+                    <span className="font-editorial italic font-normal text-[#171717]">
                       Business Timings
                     </span>
                   </h1>
@@ -874,8 +910,8 @@ export function BusinessProfileOnboarding({
                   </p>
                 </div>
 
-                <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 shadow-editorial space-y-4">
-                  <div className="space-y-2.5 rounded-xl border border-lavender-soft bg-lavender-subtle/50 p-3.5">
+                <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5 sm:p-6 shadow-editorial space-y-4">
+                  <div className="space-y-2.5 rounded-xl border border-[#E5E7EB] bg-[#F7F7F5] p-3.5">
                     <ContactFieldRow
                       icon={Clock}
                       label="Business Timings (Working Hours)"
@@ -893,8 +929,8 @@ export function BusinessProfileOnboarding({
                           onClick={() => setWorkingHours(preset)}
                           className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors ${
                             workingHours === preset
-                              ? 'border-cetacean bg-cetacean text-white'
-                              : 'border-surface-border bg-white text-ink-secondary hover:border-lavender-deep/50'
+                              ? 'border-[#171717] bg-[#171717] text-white'
+                              : 'border-[#E5E7EB] bg-white text-ink-secondary hover:border-[#171717]/45'
                           }`}
                         >
                           {preset}
@@ -975,7 +1011,7 @@ export function BusinessProfileOnboarding({
                       if (!validateStep2Contact()) return
                       goToStep(3)
                     }}
-                    className="inline-flex h-12 items-center gap-2 rounded-xl bg-cetacean px-6 text-sm font-bold text-white hover:bg-cetacean-mid shadow-md transition-colors"
+                    className="inline-flex h-12 items-center gap-2 rounded-xl bg-[#171717] px-6 text-sm font-bold text-white hover:bg-[#262626] shadow-md transition-colors"
                   >
                     <span>Continue to Links</span>
                     <ArrowRight className="h-4 w-4" />
@@ -990,7 +1026,7 @@ export function BusinessProfileOnboarding({
                 <div>
                   <h1 className="text-2xl sm:text-[30px] font-extrabold tracking-tight text-ink leading-tight">
                     Social &amp;{' '}
-                    <span className="font-editorial italic font-normal text-lavender-deep">
+                    <span className="font-editorial italic font-normal text-[#171717]">
                       Business Links
                     </span>
                   </h1>
@@ -1000,7 +1036,7 @@ export function BusinessProfileOnboarding({
                 </div>
 
                 {/* Card A: Social Media Channels */}
-                <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 shadow-editorial space-y-4">
+                <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5 sm:p-6 shadow-editorial space-y-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <h2 className="text-sm font-bold text-ink">Social Media &amp; Website</h2>
                     <span className="text-[11px] text-ink-muted">
@@ -1019,20 +1055,20 @@ export function BusinessProfileOnboarding({
                           aria-pressed={active}
                           className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-all ${
                             active
-                              ? 'border-cetacean bg-lavender-subtle text-cetacean ring-1 ring-cetacean'
-                              : 'border-surface-border bg-ghost text-ink-secondary hover:border-lavender-deep/45 hover:text-ink'
+                              ? 'border-[#171717] bg-[#F7F7F5] text-[#171717] ring-1 ring-[#171717]'
+                              : 'border-[#E5E7EB] bg-[#F7F7F5] text-ink-secondary hover:border-[#171717]/40 hover:text-ink'
                           }`}
                         >
                           <PlatformIcon platform={p.id} size={15} />
                           <span>{p.label}</span>
-                          {active && <Check className="h-3 w-3 text-lavender-deep" />}
+                          {active && <Check className="h-3 w-3 text-[#171717]" />}
                         </button>
                       )
                     })}
                   </div>
 
                   {selectedPlatforms.length > 0 && (
-                    <div className="space-y-3 pt-2 border-t border-surface-border">
+                    <div className="space-y-3 pt-2 border-t border-[#E5E7EB]">
                       {selectedPlatforms.map((pid) => {
                         const meta = getPlatformMeta(pid)
                         return (
@@ -1057,7 +1093,7 @@ export function BusinessProfileOnboarding({
                                 setError(null)
                               }}
                               placeholder={meta.placeholder}
-                              className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-xs font-mono text-ink focus:border-lavender-deep focus:outline-none"
+                              className="w-full rounded-xl border border-[#E5E7EB] px-3.5 py-2.5 text-xs font-mono text-ink focus:border-[#171717] focus:outline-none"
                             />
                           </div>
                         )
@@ -1067,7 +1103,7 @@ export function BusinessProfileOnboarding({
                 </div>
 
                 {/* Card B: Business & Custom Links */}
-                <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 shadow-editorial space-y-4">
+                <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5 sm:p-6 shadow-editorial space-y-4">
                   <h2 className="text-sm font-bold text-ink">Google Reviews, Catalog &amp; Custom Links</h2>
 
                   <div className="flex flex-wrap gap-1.5">
@@ -1078,8 +1114,8 @@ export function BusinessProfileOnboarding({
                         onClick={() => applyBusinessTemplate(tpl.id)}
                         className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all ${
                           newLinkTitle === tpl.defaultTitle
-                            ? 'border-cetacean bg-cetacean text-white'
-                            : 'border-surface-border bg-ghost text-ink-secondary hover:border-lavender-deep/45'
+                            ? 'border-[#171717] bg-[#171717] text-white'
+                            : 'border-[#E5E7EB] bg-[#F7F7F5] text-ink-secondary hover:border-[#171717]/40'
                         }`}
                       >
                         <PlatformIcon platform={tpl.platform} customIcon={tpl.icon} size={14} />
@@ -1095,7 +1131,7 @@ export function BusinessProfileOnboarding({
                         setNewLinkPlaceholder('https://example.com/your-link')
                         setLinkErr(null)
                       }}
-                      className="inline-flex items-center gap-1 rounded-xl border border-dashed border-lavender-deep/50 bg-white px-3 py-1.5 text-xs font-semibold text-cetacean hover:bg-lavender-subtle/40"
+                      className="inline-flex items-center gap-1 rounded-xl border border-dashed border-[#171717]/40 bg-white px-3 py-1.5 text-xs font-semibold text-[#171717] hover:bg-[#F7F7F5]"
                     >
                       <Plus className="h-3.5 w-3.5" />
                       <span>Custom</span>
@@ -1108,7 +1144,7 @@ export function BusinessProfileOnboarding({
                       onChange={(e) => setNewLinkTitle(e.target.value)}
                       maxLength={80}
                       placeholder="Button title"
-                      className="rounded-xl border border-surface-border px-3 py-2.5 text-xs text-ink focus:border-lavender-deep focus:outline-none"
+                      className="rounded-xl border border-[#E5E7EB] px-3 py-2.5 text-xs text-ink focus:border-[#171717] focus:outline-none"
                     />
                     <div className="sm:col-span-2 flex gap-2">
                       <input
@@ -1118,12 +1154,12 @@ export function BusinessProfileOnboarding({
                           setLinkErr(null)
                         }}
                         placeholder={newLinkPlaceholder}
-                        className="flex-1 rounded-xl border border-surface-border px-3 py-2.5 text-xs font-mono text-ink focus:border-lavender-deep focus:outline-none"
+                        className="flex-1 rounded-xl border border-[#E5E7EB] px-3 py-2.5 text-xs font-mono text-ink focus:border-[#171717] focus:outline-none"
                       />
                       <button
                         type="button"
                         onClick={handleAddBusinessLink}
-                        className="inline-flex items-center gap-1 rounded-xl bg-lavender-deep px-4 py-2.5 text-xs font-bold text-white hover:bg-lavender-hover shrink-0"
+                        className="inline-flex items-center gap-1 rounded-xl bg-[#171717] px-4 py-2.5 text-xs font-bold text-white hover:bg-[#262626] shrink-0"
                       >
                         <Plus className="h-3.5 w-3.5" />
                         <span>Add</span>
@@ -1140,8 +1176,8 @@ export function BusinessProfileOnboarding({
                           onClick={() => setNewLinkIcon(opt.id)}
                           className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-medium ${
                             newLinkIcon === opt.id
-                              ? 'border-cetacean bg-lavender-subtle text-cetacean'
-                              : 'border-surface-border text-ink-muted'
+                              ? 'border-[#171717] bg-[#F7F7F5] text-[#171717] font-semibold'
+                              : 'border-[#E5E7EB] text-ink-muted'
                           }`}
                         >
                           <PlatformIcon platform="custom" customIcon={opt.id} size={13} />
@@ -1154,7 +1190,7 @@ export function BusinessProfileOnboarding({
                   {linkErr && <p className="text-xs font-medium text-rose-600">{linkErr}</p>}
 
                   {businessLinks.length > 0 && (
-                    <div className="space-y-2 pt-2 border-t border-surface-border">
+                    <div className="space-y-2 pt-2 border-t border-[#E5E7EB]">
                       {businessLinks.map((item, idx) => (
                         <div
                           key={item.id}
@@ -1162,7 +1198,7 @@ export function BusinessProfileOnboarding({
                           onDragStart={() => setDragIdx(idx)}
                           onDragOver={(e) => e.preventDefault()}
                           onDrop={() => handleDropLink(idx)}
-                          className="flex items-center justify-between gap-2 rounded-xl border border-surface-border bg-ghost px-3 py-2"
+                          className="flex items-center justify-between gap-2 rounded-xl border border-[#E5E7EB] bg-[#F7F7F5] px-3 py-2"
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
                             <GripVertical className="h-4 w-4 text-ink-muted cursor-grab shrink-0" />
@@ -1223,7 +1259,7 @@ export function BusinessProfileOnboarding({
                       if (!validateStep3Social()) return
                       goToStep(4)
                     }}
-                    className="inline-flex h-12 items-center gap-2 rounded-xl bg-cetacean px-6 text-sm font-bold text-white hover:bg-cetacean-mid shadow-md transition-colors"
+                    className="inline-flex h-12 items-center gap-2 rounded-xl bg-[#171717] px-6 text-sm font-bold text-white hover:bg-[#262626] shadow-md transition-colors"
                   >
                     <span>Review &amp; Publish</span>
                     <ArrowRight className="h-4 w-4" />
@@ -1235,31 +1271,18 @@ export function BusinessProfileOnboarding({
 
           {/* RIGHT: STICKY LIVE PHONE PREVIEW (DESKTOP) */}
           <div className="hidden lg:block lg:col-span-5 lg:sticky lg:top-28">
-            <div className="rounded-2xl border border-surface-border bg-white p-4 shadow-editorial space-y-3">
-              <div className="flex items-center justify-between">
+            <div className="rounded-2xl border border-[#E5E7EB] bg-white p-4 shadow-editorial space-y-3">
+              <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-bold text-ink">Live Storefront Preview</span>
-                <div className="inline-flex rounded-lg border border-surface-border bg-ghost p-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setTheme('dark')}
-                    className={`rounded-md px-2 py-1 text-[11px] font-semibold ${
-                      theme === 'dark' ? 'bg-cetacean text-white' : 'text-ink-muted'
-                    }`}
-                  >
-                    Dark
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTheme('light')}
-                    className={`rounded-md px-2 py-1 text-[11px] font-semibold ${
-                      theme === 'light' ? 'bg-white text-ink shadow-2xs' : 'text-ink-muted'
-                    }`}
-                  >
-                    Light
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setTheme(toggleLightDarkVariant(theme, 'business'))}
+                  className="rounded-lg border border-[#E5E7EB] bg-[#F7F7F5] px-2.5 py-1 text-[11px] font-semibold text-[#171717] hover:border-[#171717]/40 transition-colors"
+                >
+                  {resolveBusinessTheme(theme).name}
+                </button>
               </div>
-              <div className="mx-auto max-w-[340px] rounded-[30px] border-[5px] border-cetacean bg-cetacean p-1 shadow-xl overflow-hidden">
+              <div className="mx-auto max-w-[340px] rounded-[30px] border-[5px] border-[#171717] bg-[#171717] p-1 shadow-xl overflow-hidden">
                 <div className="h-[540px] overflow-y-auto rounded-[24px]">
                   <PublicProfileView
                     profile={previewProfile}
@@ -1278,45 +1301,32 @@ export function BusinessProfileOnboarding({
       {/* STEP 4: REVIEW, CUSTOM HANDLE, THEME & PUBLISH */}
       {step === 4 && (
         <div className="mx-auto max-w-2xl space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h1 className="text-2xl sm:text-[30px] font-extrabold tracking-tight text-ink">
-                Review &amp;{' '}
-                <span className="font-editorial italic font-normal text-lavender-deep">
-                  Publish Storefront
-                </span>
-              </h1>
-              <p className="mt-1 text-sm text-ink-secondary">
-                Choose your theme and optional custom handle, then publish <span className="font-mono font-bold text-ink">{qrNumber}</span> live.
-              </p>
-            </div>
-            <div className="inline-flex rounded-xl border border-surface-border bg-white p-1 self-start shadow-2xs">
-              <button
-                type="button"
-                onClick={() => setTheme('dark')}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold ${
-                  theme === 'dark' ? 'bg-cetacean text-white' : 'text-ink-muted'
-                }`}
-              >
-                <Moon className="h-3.5 w-3.5" /> Executive Dark
-              </button>
-              <button
-                type="button"
-                onClick={() => setTheme('light')}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold ${
-                  theme === 'light' ? 'bg-cetacean text-white' : 'text-ink-muted'
-                }`}
-              >
-                <Sun className="h-3.5 w-3.5" /> Editorial Light
-              </button>
-            </div>
+          <div>
+            <h1 className="text-2xl sm:text-[30px] font-extrabold tracking-tight text-ink">
+              Review &amp;{' '}
+              <span className="font-editorial italic font-normal text-[#171717]">
+                Publish Storefront
+              </span>
+            </h1>
+            <p className="mt-1 text-sm text-ink-secondary">
+              Choose a visual template and optional custom handle, then publish{' '}
+              <span className="font-mono font-bold text-ink">{qrNumber}</span> live.
+            </p>
           </div>
 
-          <div className="rounded-2xl border border-surface-border bg-white p-5 shadow-editorial space-y-2">
+          <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-editorial">
+            <ThemeTemplatePicker
+              mode="business"
+              value={theme}
+              onChange={setTheme}
+            />
+          </div>
+
+          <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-editorial space-y-2">
             <label className="block text-xs font-semibold text-ink">
               Custom Profile URL Handle (Optional)
             </label>
-            <div className="flex items-center rounded-xl border border-surface-border bg-ghost px-3.5 focus-within:border-lavender-deep">
+            <div className="flex items-center rounded-xl border border-[#E5E7EB] bg-[#F7F7F5] px-3.5 focus-within:border-[#171717]">
               <span className="text-xs font-mono text-ink-muted shrink-0">spreadnfc.in/p/</span>
               <input
                 value={publicSlug}
@@ -1333,7 +1343,7 @@ export function BusinessProfileOnboarding({
             )}
           </div>
 
-          <div className="mx-auto max-w-[380px] rounded-[34px] border-[6px] border-cetacean bg-cetacean p-1 shadow-2xl overflow-hidden">
+          <div className="mx-auto max-w-[380px] rounded-[34px] border-[6px] border-[#171717] bg-[#171717] p-1 shadow-2xl overflow-hidden">
             <div className="h-[560px] overflow-y-auto rounded-[28px]">
               <PublicProfileView
                 profile={previewProfile}
@@ -1356,7 +1366,7 @@ export function BusinessProfileOnboarding({
               type="button"
               disabled={saving}
               onClick={handlePublish}
-              className="inline-flex h-12 min-w-[260px] items-center justify-center gap-2 rounded-xl bg-lavender-deep px-7 text-sm font-bold text-white hover:bg-lavender-hover shadow-lg transition-colors disabled:opacity-60"
+              className="inline-flex h-12 min-w-[260px] items-center justify-center gap-2 rounded-xl bg-[#171717] px-7 text-sm font-bold text-white hover:bg-[#262626] shadow-lg transition-colors disabled:opacity-60"
             >
               {saving && <Spinner size={16} />}
               <span>{saving ? 'Publishing…' : 'Publish Business Profile'}</span>
@@ -1368,9 +1378,9 @@ export function BusinessProfileOnboarding({
 
       {/* STEP 5: PUBLISHED READY SCREEN */}
       {step === 5 && (
-        <div className="mx-auto max-w-xl rounded-3xl border border-surface-border bg-white p-6 sm:p-8 text-center space-y-6 shadow-editorial">
+        <div className="mx-auto max-w-xl rounded-3xl border border-[#E5E7EB] bg-white p-6 sm:p-8 text-center space-y-6 shadow-editorial">
           <div className="space-y-2">
-            <span className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-lavender-subtle border border-lavender-soft text-lavender-deep">
+            <span className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700">
               <CheckCircle2 className="h-6 w-6" />
             </span>
             <h1 className="text-2xl sm:text-[28px] font-extrabold tracking-tight text-ink">
@@ -1381,7 +1391,7 @@ export function BusinessProfileOnboarding({
             </p>
           </div>
 
-          <div className="rounded-2xl border border-surface-border bg-ghost p-4 space-y-3">
+          <div className="rounded-2xl border border-[#E5E7EB] bg-[#F7F7F5] p-4 space-y-3">
             <p className="text-[11px] font-mono uppercase tracking-wider text-ink-muted">
               Public Profile URL
             </p>
@@ -1394,7 +1404,7 @@ export function BusinessProfileOnboarding({
                   setCopiedUrl(true)
                   setTimeout(() => setCopiedUrl(false), 1500)
                 }}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-surface-border bg-white px-3.5 py-2 text-xs font-semibold text-ink hover:border-lavender-deep/50"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-[#E5E7EB] bg-white px-3.5 py-2 text-xs font-semibold text-ink hover:border-[#171717]/40"
               >
                 {copiedUrl ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
                 <span>{copiedUrl ? 'Copied' : 'Copy Link'}</span>
@@ -1403,7 +1413,7 @@ export function BusinessProfileOnboarding({
                 href={liveProfileUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-xl border border-surface-border bg-white px-3.5 py-2 text-xs font-semibold text-ink hover:border-lavender-deep/50"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-[#E5E7EB] bg-white px-3.5 py-2 text-xs font-semibold text-ink hover:border-[#171717]/40"
               >
                 <span>Open Storefront</span>
                 <ExternalLink className="h-3.5 w-3.5" />
@@ -1412,7 +1422,7 @@ export function BusinessProfileOnboarding({
                 href={permanentQrUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-xl bg-cetacean px-4 py-2 text-xs font-semibold text-white hover:bg-cetacean-mid"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[#171717] px-4 py-2 text-xs font-semibold text-white hover:bg-[#262626]"
               >
                 <span>Test QR</span>
                 <ExternalLink className="h-3.5 w-3.5" />
@@ -1420,8 +1430,8 @@ export function BusinessProfileOnboarding({
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-5 border-t border-surface-border pt-5">
-            <div className="h-32 w-32 rounded-2xl border border-surface-border bg-white p-2 flex items-center justify-center">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-5 border-t border-[#E5E7EB] pt-5">
+            <div className="h-32 w-32 rounded-2xl border border-[#E5E7EB] bg-white p-2 flex items-center justify-center">
               {qrDataUrl ? <img src={qrDataUrl} alt={`QR ${qrNumber}`} className="h-full w-full object-contain" /> : <Spinner size={22} />}
             </div>
             <div className="space-y-2 text-center sm:text-left">
@@ -1430,14 +1440,14 @@ export function BusinessProfileOnboarding({
                 <button
                   type="button"
                   onClick={() => downloadSingleQr(qrNumber, 'png')}
-                  className="inline-flex items-center gap-1 rounded-xl border border-surface-border bg-ghost px-3 py-1.5 text-xs font-semibold text-ink hover:bg-white"
+                  className="inline-flex items-center gap-1 rounded-xl border border-[#E5E7EB] bg-[#F7F7F5] px-3 py-1.5 text-xs font-semibold text-ink hover:bg-white"
                 >
                   <Download className="h-3.5 w-3.5" /> PNG
                 </button>
                 <button
                   type="button"
                   onClick={() => downloadSingleQr(qrNumber, 'svg')}
-                  className="inline-flex items-center gap-1 rounded-xl border border-surface-border bg-ghost px-3 py-1.5 text-xs font-semibold text-ink hover:bg-white"
+                  className="inline-flex items-center gap-1 rounded-xl border border-[#E5E7EB] bg-[#F7F7F5] px-3 py-1.5 text-xs font-semibold text-ink hover:bg-white"
                 >
                   <Download className="h-3.5 w-3.5" /> SVG
                 </button>
@@ -1448,7 +1458,7 @@ export function BusinessProfileOnboarding({
           <button
             type="button"
             onClick={onCompleteToEditor}
-            className="inline-flex items-center gap-2 rounded-xl bg-lavender-deep px-6 py-3 text-sm font-bold text-white hover:bg-lavender-hover shadow-md transition-colors"
+            className="inline-flex items-center gap-2 rounded-xl bg-[#171717] px-6 py-3 text-sm font-bold text-white hover:bg-[#262626] shadow-md transition-colors"
           >
             <Pencil className="h-4 w-4" />
             <span>Open Business Editor</span>
@@ -1480,7 +1490,7 @@ function ContactFieldRow({
     <div className="space-y-1.5">
       <div className="flex items-center justify-between gap-2">
         <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink">
-          <Icon className="h-3.5 w-3.5 text-lavender-deep" />
+          <Icon className="h-3.5 w-3.5 text-[#525252]" />
           <span>{label}</span>
         </label>
         <button
@@ -1488,8 +1498,8 @@ function ContactFieldRow({
           onClick={onToggle}
           className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold border transition-colors ${
             visible
-              ? 'border-lavender-soft bg-lavender-subtle text-cetacean'
-              : 'border-surface-border bg-ghost text-ink-muted'
+              ? 'border-[#171717]/20 bg-[#F3F4F6] text-[#171717]'
+              : 'border-[#E5E7EB] bg-[#F7F7F5] text-ink-muted'
           }`}
         >
           {visible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
@@ -1500,7 +1510,7 @@ function ContactFieldRow({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-xl border border-surface-border bg-white px-3.5 py-2.5 text-sm text-ink focus:border-lavender-deep focus:outline-none transition-colors"
+        className="w-full rounded-xl border border-[#E5E7EB] bg-white px-3.5 py-2.5 text-sm text-ink focus:border-[#171717] focus:outline-none transition-colors"
       />
     </div>
   )
