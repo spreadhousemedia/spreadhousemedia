@@ -9,6 +9,7 @@ import { AboutFounderSection } from '../../components/landing/AboutFounderSectio
 import { UseCasesSection } from '../../components/landing/UseCasesSection'
 import { ArchitectureSecurity } from '../../components/landing/ArchitectureSecurity'
 import { FaqSection } from '../../components/landing/FaqSection'
+import { SpreadNfcCafeSection } from '../../components/landing/SpreadNfcCafeSection'
 import { CtaFooter } from '../../components/landing/CtaFooter'
 
 export function LandingPage() {
@@ -28,6 +29,7 @@ export function LandingPage() {
         <UseCasesSection />
         <ArchitectureSecurity />
         <FaqSection />
+        <SpreadNfcCafeSection />
       </main>
       <CtaFooter />
     </div>
