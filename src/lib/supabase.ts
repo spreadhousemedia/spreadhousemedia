@@ -1,35 +1,15 @@
-import { createClient } from '@supabase/supabase-js'
 import { mockDb, type MockQr } from './mockDb'
 
-const DEFAULT_SUPABASE_URL = 'https://dvuuturphjumffqyigtz.supabase.co'
-const DEFAULT_SUPABASE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR2dXV0dXJwaGp1bWZmcXlpZ3R6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE4Nzk2NTMsImV4cCI6MjEwNzQ1NTY1M30.9oiTvJCDnX9j8EQylGoHlgctew0LBoPdVahnPMOO5Q8'
-
-const rawUrl = (import.meta.env.VITE_SUPABASE_URL || '').trim()
-const rawKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim()
-
-const isPlaceholder = (val: string) =>
-  !val ||
-  val.includes('placeholder') ||
-  val.includes('your-project') ||
-  val.includes('your-anon-key')
-
-const envUrl = isPlaceholder(rawUrl) ? DEFAULT_SUPABASE_URL : rawUrl
-const envAnonKey = isPlaceholder(rawKey) ? DEFAULT_SUPABASE_ANON_KEY : rawKey
-
-// Check if app is in Offline/Demo mode
+// Check if app is explicitly in local Offline/Demo mode
 function computeOfflineMode(): boolean {
   try {
-    const explicitOffline = localStorage.getItem('spreadnfc_offline_mode') === 'true'
-    return explicitOffline
+    return localStorage.getItem('spreadnfc_offline_mode') === 'true'
   } catch {
     return false
   }
 }
 
 export const isOfflineMode = computeOfflineMode()
-
-const realClient = createClient(envUrl, envAnonKey)
 
 function attachBatchAndProfile(qr: MockQr) {
   const batches = mockDb.getBatches()
@@ -52,10 +32,6 @@ function attachBatchAndProfile(qr: MockQr) {
   }
 }
 
-/**
- * High-performance query builder for offline mock operations.
- * Implements the exact chaining API of Supabase PostgREST client.
- */
 class MockQueryBuilder {
   private table: string
   private filters: ((item: any) => boolean)[] = []
@@ -80,7 +56,6 @@ class MockQueryBuilder {
   }
 
   or(filterString: string) {
-    // e.g. qr_number.ilike.%term%,qr_name.ilike.%term%,destination_url.ilike.%term%
     const match = filterString.match(/ilike\.%([^%]+)%/i)
     if (match && match[1]) {
       const term = match[1].toLowerCase()
@@ -111,8 +86,6 @@ class MockQueryBuilder {
         const val = row[column]
         return val !== null && val !== undefined && val !== ''
       })
-    } else if (operator === 'eq') {
-      this.filters.push((row: any) => row[column] !== value)
     } else {
       this.filters.push((row: any) => row[column] !== value)
     }
@@ -160,22 +133,18 @@ class MockQueryBuilder {
 
   async then(resolve: (value: any) => void) {
     if (this.table === 'batches') {
-      let data = mockDb.getBatches()
+      const data = mockDb.getBatches()
       data.sort((a, b) => a.batch_name.localeCompare(b.batch_name))
       return resolve({ data, count: data.length, error: null })
     }
 
     if (this.table === 'qr_codes') {
       let qrs = mockDb.getQrs()
-
-      // Handle DELETE mutation
       if (this.isDelete) {
         const remaining = qrs.filter((row) => !this.filters.every((f) => f(row)))
         mockDb.saveQrs(remaining)
         return resolve({ data: null, error: null })
       }
-
-      // Handle UPDATE mutation
       if (this.updatePayload) {
         qrs = qrs.map((row) => {
           if (this.filters.every((f) => f(row))) {
@@ -187,10 +156,8 @@ class MockQueryBuilder {
         return resolve({ data: null, error: null })
       }
 
-      // Handle SELECT queries
-      let filtered = qrs.filter((row) => this.filters.every((f) => f(row)))
+      const filtered = qrs.filter((row) => this.filters.every((f) => f(row)))
       const totalCount = filtered.length
-
       filtered.sort((a: any, b: any) => {
         const valA = a[this.sortKey] ?? ''
         const valB = b[this.sortKey] ?? ''
@@ -200,12 +167,7 @@ class MockQueryBuilder {
       })
 
       const paginated = filtered.slice(this.rangeFrom, this.rangeTo + 1).map(attachBatchAndProfile)
-
-      return resolve({
-        data: paginated,
-        count: totalCount,
-        error: null,
-      })
+      return resolve({ data: paginated, count: totalCount, error: null })
     }
 
     if (this.table === 'qr_profiles') {
@@ -224,15 +186,239 @@ class MockQueryBuilder {
   }
 }
 
-// Proxied Supabase Client that seamlessly handles Offline / Local mode
+type FilterSpec =
+  | { op: 'eq' | 'neq' | 'is'; column: string; value: unknown }
+  | { op: 'not'; column: string; operator: string; value: unknown }
+  | { op: 'in'; column: string; values: unknown[] }
+  | { op: 'or'; value: string }
+
+/**
+ * Server-proxied query builder: executes all table reads/writes via /api/db
+ * so zero database URLs or API keys are ever exposed in the client bundle.
+ */
+class ServerApiQueryBuilder {
+  private table: string
+  private action: 'select' | 'insert' | 'update' | 'delete' = 'select'
+  private columns = '*'
+  private countMode: 'exact' | undefined
+  private headOnly = false
+  private filters: FilterSpec[] = []
+  private orderSpec: { column: string; ascending: boolean } | undefined
+  private limitVal: number | undefined
+  private rangeSpec: { from: number; to: number } | undefined
+  private bodyPayload: unknown = undefined
+
+  constructor(table: string) {
+    this.table = table
+  }
+
+  select(columns = '*', options?: { count?: 'exact'; head?: boolean }) {
+    if (this.action === 'select') {
+      this.columns = columns
+      this.countMode = options?.count
+      this.headOnly = Boolean(options?.head)
+    }
+    return this
+  }
+
+  insert(payload: unknown) {
+    this.action = 'insert'
+    this.bodyPayload = payload
+    return this
+  }
+
+  update(payload: unknown) {
+    this.action = 'update'
+    this.bodyPayload = payload
+    return this
+  }
+
+  delete() {
+    this.action = 'delete'
+    return this
+  }
+
+  eq(column: string, value: unknown) {
+    this.filters.push({ op: 'eq', column, value })
+    return this
+  }
+
+  neq(column: string, value: unknown) {
+    this.filters.push({ op: 'neq', column, value })
+    return this
+  }
+
+  is(column: string, value: unknown) {
+    this.filters.push({ op: 'is', column, value })
+    return this
+  }
+
+  not(column: string, operator: string, value: unknown) {
+    this.filters.push({ op: 'not', column, operator, value })
+    return this
+  }
+
+  in(column: string, values: unknown[]) {
+    this.filters.push({ op: 'in', column, values })
+    return this
+  }
+
+  or(value: string) {
+    this.filters.push({ op: 'or', value })
+    return this
+  }
+
+  order(column: string, options?: { ascending?: boolean }) {
+    this.orderSpec = { column, ascending: options?.ascending ?? true }
+    return this
+  }
+
+  limit(count: number) {
+    this.limitVal = count
+    return this
+  }
+
+  range(from: number, to: number) {
+    this.rangeSpec = { from, to }
+    return this
+  }
+
+  async then(resolve: (value: { data: any; count?: number | null; error: { message: string } | null }) => void) {
+    try {
+      const res = await fetch('/api/db', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          table: this.table,
+          action: this.action,
+          columns: this.columns,
+          count: this.countMode,
+          head: this.headOnly,
+          filters: this.filters,
+          order: this.orderSpec,
+          limit: this.limitVal,
+          range: this.rangeSpec,
+          payload: this.bodyPayload,
+        }),
+      })
+      const json = await res.json()
+      resolve({
+        data: json?.data ?? null,
+        count: json?.count ?? null,
+        error: json?.error ?? (!res.ok ? { message: 'Request failed' } : null),
+      })
+    } catch {
+      resolve({ data: null, count: null, error: { message: 'Network request failed' } })
+    }
+  }
+}
+
+export interface AuthUser {
+  id: string
+  email?: string
+  user_metadata?: Record<string, unknown>
+}
+
+export interface AuthSession {
+  user: AuthUser
+}
+
+type AuthListener = (event: string, session: AuthSession | null) => void
+const authListeners = new Set<AuthListener>()
+
+function notifyAuthListeners(event: string, session: AuthSession | null) {
+  for (const listener of authListeners) {
+    listener(event, session)
+  }
+}
+
+/**
+ * Zero-exposure client proxy: all live database, RPC, and auth calls run
+ * strictly through our server-side /api/* endpoints.
+ */
 export const supabase = {
-  ...realClient,
+  auth: {
+    async getSession(): Promise<{ data: { session: AuthSession | null } }> {
+      try {
+        const res = await fetch('/api/auth/session', { credentials: 'same-origin' })
+        if (!res.ok) return { data: { session: null } }
+        const json = await res.json()
+        if (json?.authenticated && json?.user) {
+          return { data: { session: { user: json.user } } }
+        }
+      } catch {
+        // ignore
+      }
+      return { data: { session: null } }
+    },
+
+    onAuthStateChange(callback: AuthListener) {
+      authListeners.add(callback)
+      return {
+        data: {
+          subscription: {
+            unsubscribe: () => {
+              authListeners.delete(callback)
+            },
+          },
+        },
+      }
+    },
+
+    async signInWithPassword({ email, password }: { email: string; password: string }) {
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        })
+        const json = await res.json()
+        if (!res.ok || !json?.ok || !json?.user) {
+          return { data: { session: null }, error: { message: json?.error || 'Invalid email or password.' } }
+        }
+        const session: AuthSession = { user: json.user }
+        notifyAuthListeners('SIGNED_IN', session)
+        return { data: { session }, error: null }
+      } catch {
+        return { data: { session: null }, error: { message: 'Authentication service unavailable.' } }
+      }
+    },
+
+    async updateUser({ password }: { password: string }) {
+      try {
+        const res = await fetch('/api/auth/change-password', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password }),
+        })
+        const json = await res.json()
+        if (!res.ok || !json?.ok) {
+          return { error: { message: json?.error || 'Could not update password.' } }
+        }
+        return { error: null }
+      } catch {
+        return { error: { message: 'Could not update password.' } }
+      }
+    },
+
+    async signOut() {
+      try {
+        await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' })
+      } catch {
+        // ignore
+      }
+      notifyAuthListeners('SIGNED_OUT', null)
+    },
+  },
 
   from(table: string): any {
     if (isOfflineMode) {
       return new MockQueryBuilder(table)
     }
-    return realClient.from(table)
+    return new ServerApiQueryBuilder(table)
   },
 
   async rpc(name: string, params?: any) {
@@ -262,6 +448,10 @@ export const supabase = {
           return mockDb.selectUsageMode(params)
         case 'customer_save_personal_profile':
           return mockDb.savePersonalProfile(params)
+        case 'customer_save_business_profile':
+          return mockDb.saveBusinessProfile(params)
+        case 'customer_get_multi_qr_summary':
+          return mockDb.getMultiQrSummary(params)
         case 'check_public_slug_available':
           return mockDb.checkPublicSlugAvailable(params)
         case 'customer_save_business_settings':
@@ -281,14 +471,23 @@ export const supabase = {
       }
     }
 
-    // Try real Supabase; do NOT fall back to mockDb on network failures for live site.
-    // A production network failure should surface as an error, not silently serve
-    // stale localStorage data that has no real QR records.
     try {
-      const res = await realClient.rpc(name, params)
-      return res
+      const res = await fetch(`/api/rpc/${encodeURIComponent(name)}`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params ?? {}),
+      })
+      const json = await res.json()
+      return {
+        data: json?.data ?? null,
+        error: json?.error ?? (!res.ok ? { message: 'Database RPC failed.' } : null),
+      }
     } catch {
-      return { data: null, error: { message: 'Database connection failed. Please check your internet connection and try again.' } }
+      return {
+        data: null,
+        error: { message: 'Database connection failed. Please check your internet connection and try again.' },
+      }
     }
   },
 }

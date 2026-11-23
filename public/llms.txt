@@ -1,0 +1,28 @@
+# Spread NFC
+
+> Smart dynamic QR & NFC business cards, contactless standees, and digital multi-link profiles for modern businesses and professionals. Print once, update destinations anytime in under 30 seconds at spreadnfc.in.
+
+Spread NFC (engineered by ETROMO) provides NTAG216 NFC hardware, laser-etched acrylic standees, and a server-verified dynamic QR redirection and digital identity platform.
+
+## Core Pages
+
+- [Home](https://spreadnfc.in/): Overview of dynamic QR & NFC standees, live interactive simulator, features, security architecture, and FAQs.
+- [About Spread NFC](https://spreadnfc.in/about): Company mission, founder story, and platform security architecture.
+- [Products & Pricing](https://spreadnfc.in/products): Catalog of Matte PVC NFC cards, Stainless Steel cards, Eco Bamboo cards, Acrylic Standees, and Epoxy Tags with bulk tier pricing.
+- [Update Card & QR Portal](https://spreadnfc.in/update): Self-service activation and dashboard for Personal Profiles, Business Direct Links, Business Profiles, and Multi-QR Management.
+- [Support Helpdesk](https://spreadnfc.in/support): Submit and track NFC hardware, QR redirection, and order status support tickets.
+- [Contact & Enterprise Orders](https://spreadnfc.in/contact): Corporate volume quote estimator, custom engraving inquiries, and direct studio contact.
+
+## Legal & Machine-Readable Resources
+
+- [Privacy Policy](https://spreadnfc.in/privacy): Data handling, bcrypt/RLS security practices, and contact rights.
+- [Terms of Service](https://spreadnfc.in/terms): Acceptable use, hardware orders, and service terms.
+- [MCP Server Card](https://spreadnfc.in/.well-known/mcp/server-card.json): SEP-1649 machine-readable MCP capability card for Spread NFC tools.
+- [XML Sitemap](https://spreadnfc.in/sitemap.xml): Canonical index of public pages.
+
+## Contact
+
+- Email: contact@spreadnfc.in
+- Phone / WhatsApp: +91 93510 42276
+- Partner / Engineering Studio: https://etromo.in
+

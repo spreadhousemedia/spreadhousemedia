@@ -1,5 +1,6 @@
 export type QrStatus = 'active' | 'inactive'
-export type UsageType = 'personal' | 'business'
+export type UsageType = 'personal' | 'business' | 'business_profile'
+export type ProfileType = 'personal' | 'business'
 export type BusinessPurpose =
   | 'google_reviews'
   | 'website'
@@ -25,10 +26,13 @@ export type SocialPlatform =
   | 'github'
   | 'discord'
   | 'spotify'
+  | 'google_reviews'
+  | 'google_maps'
   | 'custom'
 
 export interface QrProfileSummary {
   id: string
+  profile_type?: ProfileType
   public_slug: string | null
   is_published: boolean
   profile_name: string
@@ -57,12 +61,32 @@ export interface QrCode {
   updated_at: string
 }
 
+export interface ContactVisibility {
+  phone: boolean
+  whatsapp: boolean
+  email: boolean
+  address: boolean
+  maps: boolean
+  hours: boolean
+  contact_person: boolean
+}
+
 export interface QrProfile {
   id: string
   qr_code_id: string
+  profile_type?: ProfileType
   profile_name: string
   profile_image: string | null
   avatar_id?: string | null
+  business_category?: string | null
+  location?: string | null
+  contact_person_name?: string | null
+  business_experience?: string | null
+  whatsapp_number?: string | null
+  full_address?: string | null
+  working_hours?: string | null
+  google_maps_url?: string | null
+  contact_visibility?: ContactVisibility
   tagline?: string | null
   bio: string | null
   contact_email: string | null
@@ -106,15 +130,42 @@ export interface CustomerDashboardData {
 }
 
 export interface PublicProfileData {
+  profile_type?: ProfileType
   profile_name: string
   profile_image: string | null
   avatar_id?: string | null
+  business_category?: string | null
+  location?: string | null
+  contact_person_name?: string | null
+  business_experience?: string | null
+  whatsapp_number?: string | null
+  full_address?: string | null
+  working_hours?: string | null
+  google_maps_url?: string | null
   tagline?: string | null
   bio: string | null
   contact_email?: string | null
   contact_phone?: string | null
   public_slug: string | null
   theme: ProfileTheme
+}
+
+export interface MultiQrSummaryItem {
+  session_token: string
+  qr_number: string
+  qr_name: string
+  status: QrStatus
+  usage_type: UsageType | null
+  destination_url: string | null
+  business_name: string | null
+  business_purpose: BusinessPurpose | null
+  scan_count: number
+  public_slug: string | null
+  profile_name: string | null
+  is_published: boolean
+  active_links_count: number
+  updated_at: string
+  label?: string
 }
 
 export interface PublicLinkItem {
@@ -175,11 +226,13 @@ export const RPC_ERROR_MESSAGES: Record<string, string> = {
   unauthorized: 'Your session has expired or you are not authorized. Please sign in again.',
   mode_locked: 'Account experience mode is locked after setup. Contact support to change it.',
   mode_mismatch: 'This action is not valid for the selected QR mode.',
-  invalid_usage_type: 'Please select Personal or Business mode.',
+  invalid_usage_type: 'Please select Personal Profile, Business Direct Link, or Business Profile.',
   invalid_profile_name: 'Please enter a display name (1–80 characters).',
-  invalid_profile_image: 'Please choose a valid curated avatar.',
+  invalid_profile_image: 'Please choose a valid curated avatar or upload a PNG/JPG/WebP image under 350 KB.',
   invalid_avatar: 'Please choose one of the curated avatars.',
   invalid_tagline: 'Tagline must be 80 characters or fewer.',
+  invalid_contact_email: 'Please enter a valid contact email address.',
+  invalid_contact_phone: 'Please enter a valid contact phone number (digits, +, spaces, hyphens).',
   invalid_theme: 'Theme must be light or dark.',
   invalid_slug: 'Username must be 3–40 lowercase letters, numbers, hyphens, or underscores, and cannot use a reserved name.',
   slug_taken: 'This custom profile username is already taken. Please choose another.',

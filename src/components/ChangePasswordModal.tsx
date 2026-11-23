@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { KeyRound, X, Check, Eye, EyeOff, ShieldCheck, AlertCircle } from 'lucide-react'
-import { supabase, isOfflineMode } from '../lib/supabase'
+import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { Spinner } from './Spinner'
 
@@ -61,28 +61,14 @@ export function ChangePasswordModal({ onClose }: ChangePasswordModalProps) {
     setLoading(true)
 
     try {
-      // 1. Update in Supabase Auth if online
-      if (!isOfflineMode) {
-        const { error: updateError } = await supabase.auth.updateUser({
-          password: newPassword,
-        })
-        if (updateError) {
-          setError(updateError.message || 'Could not update password. Please re-authenticate.')
-          setLoading(false)
-          return
-        }
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword,
+      })
+      if (updateError) {
+        setError(updateError.message || 'Could not update password. Please re-authenticate.')
+        setLoading(false)
+        return
       }
-
-      // 2. Also persist in local admin credentials store for offline/demo reliability
-      const currentEmail = user?.email || 'admin@spreadnfc.in'
-      localStorage.setItem(
-        'spreadnfc_admin_auth',
-        JSON.stringify({
-          email: currentEmail,
-          password: newPassword,
-          updated_at: new Date().toISOString(),
-        })
-      )
 
       setSuccess(true)
       setLoading(false)

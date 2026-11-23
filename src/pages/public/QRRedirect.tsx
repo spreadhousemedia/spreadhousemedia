@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { Spinner } from '../../components/Spinner'
 import { getCached, setCached } from '../../lib/cache'
+import { isValidDestinationUrl } from '../../lib/validation'
 import type { QrRedirectResult } from '../../types'
 
 type ViewState = 'loading' | 'not_found' | 'inactive' | 'redirecting' | 'setup' | 'error'
@@ -26,13 +27,13 @@ export function QRRedirect() {
       // 1. Instant Cache Check (sub-millisecond resolution for repeated scans)
       const cached = getCached<QrRedirectResult>(`redirect_${normQr}`)
       if (cached && cached.status === 'active') {
-        if (cached.usage_type === 'personal') {
+        if (cached.usage_type === 'personal' || cached.usage_type === 'business_profile') {
           setState('redirecting')
           const identifier = cached.public_slug || normQr
           navigate(`/p/${encodeURIComponent(identifier)}`, { replace: true })
           return
         }
-        if (cached.destination_url && cached.destination_url.trim().length > 0) {
+        if (cached.destination_url && isValidDestinationUrl(cached.destination_url)) {
           setState('redirecting')
           window.location.replace(cached.destination_url)
           return
@@ -60,8 +61,8 @@ export function QRRedirect() {
       }
 
       // 3. Route by usage_type
-      // PERSONAL MODE -> Render Digital Profile (/p/:slug or /p/:qrNumber)
-      if (row.usage_type === 'personal') {
+      // PERSONAL or BUSINESS PROFILE MODE -> Render Digital Profile (/p/:slug or /p/:qrNumber)
+      if (row.usage_type === 'personal' || row.usage_type === 'business_profile') {
         setCached(`redirect_${normQr}`, row, 30_000)
         setState('redirecting')
         const identifier = row.public_slug || normQr
@@ -69,8 +70,8 @@ export function QRRedirect() {
         return
       }
 
-      // BUSINESS MODE (or legacy QR with configured destination_url) -> Direct Redirect
-      if (row.destination_url && row.destination_url.trim().length > 0) {
+      // BUSINESS DIRECT LINK MODE (or legacy QR with configured destination_url) -> Direct Redirect
+      if (row.destination_url && isValidDestinationUrl(row.destination_url)) {
         setCached(`redirect_${normQr}`, row, 30_000)
         setState('redirecting')
         window.location.replace(row.destination_url)

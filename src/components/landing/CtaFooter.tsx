@@ -71,11 +71,19 @@ export function CtaFooter() {
               <span className="flex h-2 w-2 rounded-full bg-emerald-500" />
               <span className="text-xs font-medium text-ink-muted">All redirection services fully operational</span>
             </div>
+            <div className="flex flex-wrap items-center gap-4 pt-1 text-xs font-mono text-ink-muted">
+              <a href="mailto:contact@spreadnfc.in" className="text-electric hover:underline">
+                contact@spreadnfc.in
+              </a>
+              <a href="tel:+919351042276" className="text-ink hover:text-electric transition-colors">
+                +91 93510 42276
+              </a>
+            </div>
           </div>
 
           {/* Client Navigation */}
           <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-ink mb-3.5">Store &amp; Showcase</h4>
+            <h4 className="text-xs font-bold uppercase tracking-wider text-ink mb-3.5">Store &amp; Company</h4>
             <ul className="space-y-2.5 text-xs text-ink-muted">
               <li>
                 <Link to="/products" className="text-lavender hover:text-lavender-hover font-semibold transition-colors flex items-center gap-1.5">
@@ -84,24 +92,24 @@ export function CtaFooter() {
                 </Link>
               </li>
               <li>
-                <Link to="/contact" className="hover:text-lavender transition-colors">
-                  Corporate Team Bundles
+                <Link to="/about" className="hover:text-lavender transition-colors">
+                  About Spread NFC
                 </Link>
               </li>
               <li>
-                <a href="/#how-it-works" className="hover:text-lavender transition-colors">
-                  How NFC &amp; QR Works
-                </a>
+                <Link to="/contact" className="hover:text-lavender transition-colors">
+                  Contact &amp; Corporate Bundles
+                </Link>
               </li>
               <li>
-                <a href="/#about" className="hover:text-lavender transition-colors">
-                  About the Founder
-                </a>
+                <Link to="/privacy" className="hover:text-lavender transition-colors">
+                  Privacy Policy
+                </Link>
               </li>
               <li>
-                <a href="/#faq" className="hover:text-lavender transition-colors">
-                  Common Questions
-                </a>
+                <Link to="/terms" className="hover:text-lavender transition-colors">
+                  Terms of Service
+                </Link>
               </li>
             </ul>
           </div>

@@ -9,6 +9,7 @@ import {
   EyeOff,
   ExternalLink,
   GripVertical,
+  Layers,
   Link2,
   Lock,
   Moon,
@@ -51,6 +52,8 @@ import { CustomerAccountSettings } from './CustomerAccountSettings'
 interface PersonalDashboardProps {
   dashboard: CustomerDashboardData
   sessionToken: string
+  multiQrCount?: number
+  onOpenMultiQr?: () => void
   onRefresh: () => Promise<void>
   onStartOnboarding?: () => void
   onLogout: () => void
@@ -68,6 +71,8 @@ type DraftLink = {
 export function PersonalDashboard({
   dashboard,
   sessionToken,
+  multiQrCount = 1,
+  onOpenMultiQr,
   onRefresh,
   onStartOnboarding,
   onLogout,
@@ -369,6 +374,16 @@ export function PersonalDashboard({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {onOpenMultiQr && (
+            <button
+              type="button"
+              onClick={onOpenMultiQr}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900 hover:bg-amber-100 transition-colors"
+            >
+              <Layers className="h-3.5 w-3.5" />
+              <span>Multi-QR{multiQrCount > 1 ? ` (${multiQrCount})` : ''}</span>
+            </button>
+          )}
           {onStartOnboarding && (
             <button
               type="button"

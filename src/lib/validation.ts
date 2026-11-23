@@ -103,6 +103,22 @@ export interface PlatformMeta {
 
 export const SOCIAL_PLATFORMS: PlatformMeta[] = [
   {
+    id: 'google_reviews',
+    label: 'Google Reviews',
+    defaultTitle: 'Leave a Google Review',
+    placeholder: 'https://g.page/r/your-business/review',
+    allowedHosts: ['g.page', 'google.com', 'maps.app.goo.gl', 'goo.gl', 'search.google.com'],
+    brandColor: '#FBBC05',
+  },
+  {
+    id: 'google_maps',
+    label: 'Google Maps',
+    defaultTitle: 'Find Us on Google Maps',
+    placeholder: 'https://maps.app.goo.gl/... or Google Maps URL',
+    allowedHosts: ['maps.google.com', 'google.com', 'maps.app.goo.gl', 'goo.gl'],
+    brandColor: '#34A853',
+  },
+  {
     id: 'instagram',
     label: 'Instagram',
     defaultTitle: 'Instagram',
@@ -337,14 +353,7 @@ export function validatePlatformLinkUrl(
   try {
     const parsed = new URL(normalized)
     const host = parsed.hostname.toLowerCase().replace(/^www\./, '')
-    if (
-      host === 'localhost' ||
-      host === '127.0.0.1' ||
-      host === '0.0.0.0' ||
-      host.startsWith('192.168.') ||
-      host.startsWith('10.') ||
-      host.endsWith('.local')
-    ) {
+    if (isPrivateOrLocalHost(host)) {
       return { ok: false, error: 'Local or private network URLs cannot be used as public links.' }
     }
 
@@ -461,21 +470,167 @@ export async function compressProfileImage(file: File): Promise<string> {
   })
 }
 
+export interface BusinessCategoryOption {
+  id: string
+  label: string
+  examples: string
+}
+
+export const BUSINESS_CATEGORY_OPTIONS: BusinessCategoryOption[] = [
+  { id: 'Food & Beverage', label: 'Food & Beverage', examples: 'Restaurant, Cafe, Bakery' },
+  { id: 'Retail', label: 'Retail', examples: 'Clothing, Electronics, Grocery' },
+  { id: 'Real Estate', label: 'Real Estate', examples: 'Property Dealer, Builder, Consultant' },
+  { id: 'Professional Services', label: 'Professional Services', examples: 'Agency, Consultant, Freelancer' },
+  { id: 'Beauty & Wellness', label: 'Beauty & Wellness', examples: 'Salon, Spa, Fitness' },
+  { id: 'Hospitality', label: 'Hospitality', examples: 'Hotel, Resort, Travel' },
+  { id: 'Education', label: 'Education', examples: 'Institute, Coaching, School' },
+  { id: 'Healthcare', label: 'Healthcare', examples: 'Clinic, Dental, Pharmacy' },
+  { id: 'Automotive', label: 'Automotive', examples: 'Car Dealer, Service Centre' },
+  { id: 'Other', label: 'Other', examples: 'Any other business' },
+]
+
+export const BUSINESS_CATEGORIES: string[] = BUSINESS_CATEGORY_OPTIONS.map((c) => c.label)
+
+export interface BusinessLinkTemplate {
+  id: string
+  label: string
+  purpose: string
+  platform: SocialPlatform
+  defaultTitle: string
+  icon: string | null
+  placeholder: string
+}
+
+export const BUSINESS_LINK_TEMPLATES: BusinessLinkTemplate[] = [
+  {
+    id: 'google_reviews',
+    label: 'Google Reviews',
+    purpose: 'Collect customer reviews',
+    platform: 'google_reviews',
+    defaultTitle: 'Leave a Google Review',
+    icon: null,
+    placeholder: 'https://g.page/r/your-business/review',
+  },
+  {
+    id: 'google_maps',
+    label: 'Google Maps',
+    purpose: 'Show business location',
+    platform: 'google_maps',
+    defaultTitle: 'Find Us on Google Maps',
+    icon: null,
+    placeholder: 'https://maps.app.goo.gl/...',
+  },
+  {
+    id: 'website',
+    label: 'Website',
+    purpose: 'Official website',
+    platform: 'website',
+    defaultTitle: 'Visit Our Website',
+    icon: null,
+    placeholder: 'https://yourbusiness.com',
+  },
+  {
+    id: 'menu',
+    label: 'Menu',
+    purpose: 'Restaurant / Cafe menu',
+    platform: 'custom',
+    defaultTitle: 'View Digital Menu',
+    icon: 'file-text',
+    placeholder: 'https://yourcafe.com/menu',
+  },
+  {
+    id: 'book_appointment',
+    label: 'Book Appointment',
+    purpose: 'Appointment booking',
+    platform: 'custom',
+    defaultTitle: 'Book an Appointment',
+    icon: 'calendar',
+    placeholder: 'https://cal.com/your-business',
+  },
+  {
+    id: 'online_store',
+    label: 'Online Store',
+    purpose: 'E-commerce',
+    platform: 'custom',
+    defaultTitle: 'Shop Online Store',
+    icon: 'shopping-bag',
+    placeholder: 'https://shop.yourbusiness.com',
+  },
+  {
+    id: 'payment',
+    label: 'Payment',
+    purpose: 'Payment gateway',
+    platform: 'custom',
+    defaultTitle: 'Pay Online',
+    icon: 'credit-card',
+    placeholder: 'https://rzp.io/l/yourstore',
+  },
+  {
+    id: 'contact_us',
+    label: 'Contact Us',
+    purpose: 'Contact page',
+    platform: 'custom',
+    defaultTitle: 'Contact Us',
+    icon: 'phone',
+    placeholder: 'https://yourbusiness.com/contact',
+  },
+  {
+    id: 'catalogue',
+    label: 'Catalogue',
+    purpose: 'Product catalogue',
+    platform: 'custom',
+    defaultTitle: 'View Product Catalogue',
+    icon: 'book-open',
+    placeholder: 'https://yourbusiness.com/catalogue',
+  },
+  {
+    id: 'booking',
+    label: 'Booking',
+    purpose: 'Reservation page',
+    platform: 'custom',
+    defaultTitle: 'Reserve a Table / Slot',
+    icon: 'calendar',
+    placeholder: 'https://yourbusiness.com/book',
+  },
+]
+
+export function isValidContactEmail(value: string): boolean {
+  const clean = value.trim()
+  if (!clean) return true
+  return clean.length <= 120 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)
+}
+
+export function isValidContactPhone(value: string): boolean {
+  const clean = value.trim()
+  if (!clean) return true
+  return /^[+\d\s().-]{6,30}$/.test(clean)
+}
+
+function isPrivateOrLocalHost(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/^www\./, '')
+  return (
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host === '0.0.0.0' ||
+    host === '::1' ||
+    host === '[::1]' ||
+    host.startsWith('127.') ||
+    host.startsWith('192.168.') ||
+    host.startsWith('10.') ||
+    host.startsWith('169.254.') ||
+    /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(host) ||
+    host.endsWith('.local') ||
+    host.endsWith('.internal')
+  )
+}
+
 /**
  * Validates a URL is well-formed and has a reachable-looking structure.
  */
 export async function isUrlReachable(url: string, _timeoutMs = 6000): Promise<boolean> {
   try {
     const parsed = new URL(url)
-    const host = parsed.hostname.toLowerCase()
-    if (
-      host === 'localhost' ||
-      host === '127.0.0.1' ||
-      host === '0.0.0.0' ||
-      host.startsWith('192.168.') ||
-      host.startsWith('10.') ||
-      host.endsWith('.local')
-    ) {
+    if (isPrivateOrLocalHost(parsed.hostname)) {
       return false
     }
     return true

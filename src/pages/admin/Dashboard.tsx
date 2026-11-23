@@ -344,6 +344,10 @@ export function Dashboard() {
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
                             <User className="h-2.5 w-2.5" /> Personal
                           </span>
+                        ) : row.usage_type === 'business_profile' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-violet-50 text-violet-700 border border-violet-200">
+                            <Building2 className="h-2.5 w-2.5" /> Biz Profile
+                          </span>
                         ) : row.usage_type === 'business' ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-sky-50 text-sky-700 border border-sky-200">
                             <Building2 className="h-2.5 w-2.5" /> Business
@@ -396,7 +400,7 @@ export function Dashboard() {
                       </div>
                     </td>
                     <td className="px-5 py-4 max-w-[200px]">
-                      {row.usage_type === 'personal' ? (
+                      {row.usage_type === 'personal' || row.usage_type === 'business_profile' ? (
                         <div className="space-y-0.5">
                           <a
                             href={profilePublicUrl(row.qr_profiles?.public_slug || row.qr_number)}
@@ -543,6 +547,10 @@ export function Dashboard() {
                       <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
                         Personal
                       </span>
+                    ) : row.usage_type === 'business_profile' ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-semibold bg-violet-50 text-violet-700 border border-violet-200">
+                        Biz Profile
+                      </span>
                     ) : row.usage_type === 'business' ? (
                       <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-semibold bg-sky-50 text-sky-700 border border-sky-200">
                         Business
@@ -608,7 +616,7 @@ export function Dashboard() {
                     </button>
                   )}
                 </div>
-                {row.usage_type === 'personal' ? (
+                {row.usage_type === 'personal' || row.usage_type === 'business_profile' ? (
                   <a
                     href={profilePublicUrl(row.qr_profiles?.public_slug || row.qr_number)}
                     target="_blank"

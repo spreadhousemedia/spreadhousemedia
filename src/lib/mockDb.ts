@@ -6,7 +6,12 @@ import type {
   SocialPlatform,
   UsageType,
 } from '../types'
-import { isValidDestinationUrl, isValidPublicSlug } from './validation'
+import {
+  isValidContactEmail,
+  isValidContactPhone,
+  isValidDestinationUrl,
+  isValidPublicSlug,
+} from './validation'
 
 /**
  * Local/Offline High-Performance Mock Database.
@@ -601,13 +606,19 @@ export const mockDb = {
     target.updated_at = new Date().toISOString()
     this.saveQrs(qrs)
 
-    if (params.p_usage_type === 'personal') {
+    if (params.p_usage_type === 'personal' || params.p_usage_type === 'business_profile') {
       const profiles = this.getProfiles()
-      if (!profiles.some((p) => p.qr_code_id === target.id)) {
+      const existing = profiles.find((p) => p.qr_code_id === target.id)
+      const nextProfileType = params.p_usage_type === 'business_profile' ? 'business' : 'personal'
+      if (!existing) {
         profiles.push({
           id: 'prof-' + Date.now(),
           qr_code_id: target.id,
-          profile_name: target.qr_name || target.qr_number,
+          profile_type: nextProfileType,
+          profile_name:
+            params.p_usage_type === 'business_profile'
+              ? target.business_name || target.qr_name || target.qr_number
+              : target.qr_name || target.qr_number,
           profile_image: null,
           bio: null,
           contact_email: null,
@@ -616,8 +627,10 @@ export const mockDb = {
           theme: 'light',
           is_published: false,
         })
-        this.saveProfiles(profiles)
+      } else {
+        existing.profile_type = nextProfileType
       }
+      this.saveProfiles(profiles)
     }
 
     return { data: { ok: true, qr_number: target.qr_number, usage_type: params.p_usage_type }, error: null }
@@ -789,16 +802,23 @@ export const mockDb = {
       return { data: { ok: false, error: 'mode_locked' }, error: null }
     }
 
+    if (params.p_usage_type !== 'personal' && params.p_usage_type !== 'business' && params.p_usage_type !== 'business_profile') {
+      return { data: { ok: false, error: 'invalid_usage_type' }, error: null }
+    }
+
     target.usage_type = params.p_usage_type
     target.updated_at = new Date().toISOString()
     this.saveQrs(qrs)
 
-    if (params.p_usage_type === 'personal') {
+    if (params.p_usage_type === 'personal' || params.p_usage_type === 'business_profile') {
       const profiles = this.getProfiles()
-      if (!profiles.some((p) => p.qr_code_id === qrId)) {
+      const existing = profiles.find((p) => p.qr_code_id === qrId)
+      const nextProfileType = params.p_usage_type === 'business_profile' ? 'business' : 'personal'
+      if (!existing) {
         profiles.push({
           id: 'prof-' + Date.now(),
           qr_code_id: qrId,
+          profile_type: nextProfileType,
           profile_name: '',
           profile_image: null,
           bio: null,
@@ -808,8 +828,10 @@ export const mockDb = {
           theme: 'light',
           is_published: false,
         })
-        this.saveProfiles(profiles)
+      } else {
+        existing.profile_type = nextProfileType
       }
+      this.saveProfiles(profiles)
     }
 
     return { data: { ok: true, usage_type: params.p_usage_type, qr_number: target.qr_number }, error: null }
@@ -936,6 +958,250 @@ export const mockDb = {
     }
   },
 
+  saveBusinessProfile(params: {
+    p_session_token: string
+    p_business_name: string
+    p_business_category?: string | null
+    p_location?: string | null
+    p_tagline?: string | null
+    p_bio?: string | null
+    p_profile_image?: string | null
+    p_avatar_id?: string | null
+    p_contact_email?: string | null
+    p_contact_phone?: string | null
+    p_contact_person_name?: string | null
+    p_business_experience?: string | null
+    p_whatsapp_number?: string | null
+    p_full_address?: string | null
+    p_working_hours?: string | null
+    p_google_maps_url?: string | null
+    p_contact_visibility?: {
+      phone?: boolean
+      whatsapp?: boolean
+      email?: boolean
+      address?: boolean
+      maps?: boolean
+      hours?: boolean
+      contact_person?: boolean
+    } | null
+    p_public_slug?: string | null
+    p_theme?: ProfileTheme
+    p_is_published?: boolean
+    p_links?: Array<{
+      platform: SocialPlatform
+      link_title: string
+      destination_url: string
+      icon?: string | null
+      is_active?: boolean
+    }>
+  }) {
+    const qrId = verifySession(params.p_session_token)
+    if (!qrId) return { data: { ok: false, error: 'unauthorized' }, error: null }
+
+    const qrs = this.getQrs()
+    const qr = qrs.find((q) => q.id === qrId)
+    if (!qr) return { data: { ok: false, error: 'not_found' }, error: null }
+    if (qr.usage_type !== 'business_profile') return { data: { ok: false, error: 'mode_mismatch' }, error: null }
+
+    const cleanName = (params.p_business_name || '').trim()
+    if (!cleanName || cleanName.length > 80) {
+      return { data: { ok: false, error: 'invalid_profile_name' }, error: null }
+    }
+
+    const cleanEmail = params.p_contact_email?.trim() || null
+    if (cleanEmail && !isValidContactEmail(cleanEmail)) {
+      return { data: { ok: false, error: 'invalid_contact_email' }, error: null }
+    }
+
+    const cleanPhone = params.p_contact_phone?.trim() || null
+    if (cleanPhone && !isValidContactPhone(cleanPhone)) {
+      return { data: { ok: false, error: 'invalid_contact_phone' }, error: null }
+    }
+
+    const cleanWhatsapp = params.p_whatsapp_number?.trim() || null
+    if (cleanWhatsapp && !isValidContactPhone(cleanWhatsapp)) {
+      return { data: { ok: false, error: 'invalid_contact_phone' }, error: null }
+    }
+
+    const cleanMapsUrl = params.p_google_maps_url?.trim() || null
+    if (cleanMapsUrl && !isValidDestinationUrl(cleanMapsUrl)) {
+      return { data: { ok: false, error: 'invalid_url' }, error: null }
+    }
+
+    const cleanVisibility = {
+      phone: params.p_contact_visibility?.phone !== false,
+      whatsapp: params.p_contact_visibility?.whatsapp !== false,
+      email: params.p_contact_visibility?.email !== false,
+      address: params.p_contact_visibility?.address !== false,
+      maps: params.p_contact_visibility?.maps !== false,
+      hours: params.p_contact_visibility?.hours !== false,
+      contact_person: params.p_contact_visibility?.contact_person !== false,
+    }
+
+    const cleanSlug = params.p_public_slug?.trim().toLowerCase() || null
+    if (cleanSlug && !isValidPublicSlug(cleanSlug)) {
+      return { data: { ok: false, error: 'invalid_slug' }, error: null }
+    }
+
+    const profiles = this.getProfiles()
+    if (cleanSlug) {
+      const conflictProfile = profiles.find(
+        (p) => p.public_slug?.toLowerCase() === cleanSlug && p.qr_code_id !== qrId,
+      )
+      const conflictQr = qrs.find((q) => q.qr_number.toLowerCase() === cleanSlug && q.id !== qrId)
+      if (conflictProfile || conflictQr) {
+        return { data: { ok: false, error: 'slug_taken' }, error: null }
+      }
+    }
+
+    const rawLinks = params.p_links ?? []
+    if (!Array.isArray(rawLinks) || rawLinks.length > 50) {
+      return { data: { ok: false, error: 'invalid_links_payload' }, error: null }
+    }
+
+    const seen = new Set<string>()
+    for (const l of rawLinks) {
+      if (!l.link_title?.trim() || l.link_title.trim().length > 80) {
+        return { data: { ok: false, error: 'invalid_link_title' }, error: null }
+      }
+      if (!isValidDestinationUrl(l.destination_url)) {
+        return { data: { ok: false, error: 'invalid_url' }, error: null }
+      }
+      const key = `${l.platform}|${l.destination_url.toLowerCase()}`
+      if (seen.has(key)) return { data: { ok: false, error: 'duplicate_link' }, error: null }
+      seen.add(key)
+    }
+
+    const cleanCategory = params.p_business_category?.trim().slice(0, 60) || null
+    const cleanLocation = params.p_location?.trim().slice(0, 80) || null
+    const cleanTagline = params.p_tagline?.trim().slice(0, 80) || null
+    const cleanAvatarId = params.p_avatar_id?.trim().toLowerCase() || null
+    const cleanPerson = params.p_contact_person_name?.trim().slice(0, 80) || null
+    const cleanExp = params.p_business_experience?.trim().slice(0, 60) || null
+    const cleanAddress = params.p_full_address?.trim().slice(0, 240) || null
+    const cleanHours = params.p_working_hours?.trim().slice(0, 120) || null
+
+    let profile = profiles.find((p) => p.qr_code_id === qrId)
+    if (!profile) {
+      profile = {
+        id: 'prof-' + Date.now(),
+        qr_code_id: qrId,
+        profile_type: 'business',
+        profile_name: cleanName,
+        business_category: cleanCategory,
+        location: cleanLocation,
+        profile_image: params.p_profile_image || null,
+        avatar_id: cleanAvatarId,
+        tagline: cleanTagline,
+        bio: params.p_bio?.trim().slice(0, 280) || null,
+        contact_email: cleanEmail,
+        contact_phone: cleanPhone,
+        contact_person_name: cleanPerson,
+        business_experience: cleanExp,
+        whatsapp_number: cleanWhatsapp,
+        full_address: cleanAddress,
+        working_hours: cleanHours,
+        google_maps_url: cleanMapsUrl,
+        contact_visibility: cleanVisibility,
+        public_slug: cleanSlug,
+        theme: params.p_theme === 'dark' ? 'dark' : 'light',
+        is_published: Boolean(params.p_is_published),
+      }
+      profiles.push(profile)
+    } else {
+      profile.profile_type = 'business'
+      profile.profile_name = cleanName
+      profile.business_category = cleanCategory
+      profile.location = cleanLocation
+      profile.profile_image = params.p_profile_image || null
+      profile.avatar_id = cleanAvatarId
+      profile.tagline = cleanTagline
+      profile.bio = params.p_bio?.trim().slice(0, 280) || null
+      profile.contact_email = cleanEmail
+      profile.contact_phone = cleanPhone
+      profile.contact_person_name = cleanPerson
+      profile.business_experience = cleanExp
+      profile.whatsapp_number = cleanWhatsapp
+      profile.full_address = cleanAddress
+      profile.working_hours = cleanHours
+      profile.google_maps_url = cleanMapsUrl
+      profile.contact_visibility = cleanVisibility
+      profile.public_slug = cleanSlug
+      profile.theme = params.p_theme === 'dark' ? 'dark' : 'light'
+      profile.is_published = Boolean(params.p_is_published)
+      profile.updated_at = new Date().toISOString()
+    }
+    this.saveProfiles(profiles)
+
+    qr.business_name = cleanName
+    qr.updated_at = new Date().toISOString()
+    this.saveQrs(qrs)
+
+    const otherLinks = this.getLinks().filter((l) => l.qr_profile_id !== profile!.id)
+    const nextLinks: QrLink[] = rawLinks.map((l, idx) => ({
+      id: `link-${Date.now()}-${idx}`,
+      qr_profile_id: profile!.id,
+      platform: l.platform || 'custom',
+      link_title: l.link_title.trim(),
+      destination_url: l.destination_url.trim(),
+      icon: l.icon || null,
+      display_order: idx,
+      is_active: l.is_active !== false,
+    }))
+    this.saveLinks([...otherLinks, ...nextLinks])
+
+    return {
+      data: {
+        ok: true,
+        profile_id: profile.id,
+        public_slug: profile.public_slug,
+        qr_number: qr.qr_number,
+        is_published: profile.is_published,
+      },
+      error: null,
+    }
+  },
+
+  getMultiQrSummary(params: { p_session_tokens?: string[] }) {
+    const tokens = Array.isArray(params.p_session_tokens) ? params.p_session_tokens.slice(0, 25) : []
+    const qrs = this.getQrs()
+    const profiles = this.getProfiles()
+    const links = this.getLinks()
+    const seen = new Set<string>()
+    const items = []
+
+    for (const tok of tokens) {
+      const qrId = verifySession(tok)
+      if (!qrId || seen.has(qrId)) continue
+      const qr = qrs.find((q) => q.id === qrId && q.status === 'active')
+      if (!qr) continue
+      seen.add(qrId)
+      const profile = profiles.find((p) => p.qr_code_id === qr.id)
+      const activeCount = profile
+        ? links.filter((l) => l.qr_profile_id === profile.id && l.is_active).length
+        : 0
+
+      items.push({
+        session_token: tok,
+        qr_number: qr.qr_number,
+        qr_name: qr.qr_name,
+        status: qr.status,
+        usage_type: qr.usage_type ?? null,
+        destination_url: qr.destination_url,
+        business_name: qr.business_name ?? null,
+        business_purpose: qr.business_purpose ?? null,
+        scan_count: qr.scan_count ?? 0,
+        public_slug: profile?.public_slug ?? null,
+        profile_name: profile?.profile_name ?? null,
+        is_published: Boolean(profile?.is_published),
+        active_links_count: activeCount,
+        updated_at: qr.updated_at,
+      })
+    }
+
+    return { data: { ok: true, items }, error: null }
+  },
+
   saveBusinessSettings(params: {
     p_session_token: string
     p_business_name?: string | null
@@ -997,7 +1263,9 @@ export const mockDb = {
     const target = qrs.find((q) => q.qr_number.toUpperCase() === params.p_qr_number.trim().toUpperCase())
     if (!target) return { data: { ok: false, error: 'not_found' }, error: null }
     if (target.status !== 'active') return { data: { ok: false, error: 'inactive' }, error: null }
-    if (target.usage_type === 'personal') return { data: { ok: false, error: 'mode_mismatch' }, error: null }
+    if (target.usage_type === 'personal' || target.usage_type === 'business_profile') {
+      return { data: { ok: false, error: 'mode_mismatch' }, error: null }
+    }
     if (!isValidDestinationUrl(params.p_new_url)) return { data: { ok: false, error: 'invalid_url' }, error: null }
     if (target.password !== params.p_password) {
       return { data: { ok: false, error: 'wrong_password' }, error: null }
@@ -1050,7 +1318,7 @@ export const mockDb = {
 
     if (!qr) return { data: { ok: false, error: 'not_found' }, error: null }
     if (qr.status !== 'active') return { data: { ok: false, error: 'inactive' }, error: null }
-    if (qr.usage_type !== 'personal') {
+    if (qr.usage_type !== 'personal' && qr.usage_type !== 'business_profile') {
       return { data: { ok: false, error: 'not_personal_profile', qr_number: qr.qr_number }, error: null }
     }
     if (!profile || !profile.is_published) {
@@ -1061,20 +1329,39 @@ export const mockDb = {
       .filter((l) => l.qr_profile_id === profile!.id && l.is_active)
       .sort((a, b) => a.display_order - b.display_order)
 
+    const isBizProfile = qr.usage_type === 'business_profile'
+    const profilePayload: Record<string, unknown> = {
+      profile_type: isBizProfile ? 'business' : 'personal',
+      profile_name: profile.profile_name,
+      profile_image: profile.profile_image,
+      avatar_id: profile.avatar_id ?? null,
+      business_category: isBizProfile ? profile.business_category ?? null : null,
+      location: isBizProfile ? profile.location ?? null : null,
+      tagline: profile.tagline ?? null,
+      bio: profile.bio,
+      public_slug: profile.public_slug,
+      theme: profile.theme,
+    }
+
+    if (isBizProfile) {
+      const vis = profile.contact_visibility
+      profilePayload.business_experience = profile.business_experience ?? null
+      profilePayload.contact_person_name = vis?.contact_person !== false ? profile.contact_person_name ?? null : null
+      profilePayload.contact_email = vis?.email !== false ? profile.contact_email ?? null : null
+      profilePayload.contact_phone = vis?.phone !== false ? profile.contact_phone ?? null : null
+      profilePayload.whatsapp_number = vis?.whatsapp !== false ? profile.whatsapp_number ?? null : null
+      profilePayload.full_address = vis?.address !== false ? profile.full_address ?? null : null
+      profilePayload.google_maps_url = vis?.maps !== false ? profile.google_maps_url ?? null : null
+      profilePayload.working_hours = vis?.hours !== false ? profile.working_hours ?? null : null
+    }
+
     return {
       data: {
         ok: true,
         is_published: true,
         qr_number: qr.qr_number,
-        profile: {
-          profile_name: profile.profile_name,
-          profile_image: profile.profile_image,
-          avatar_id: profile.avatar_id ?? null,
-          tagline: profile.tagline ?? null,
-          bio: profile.bio,
-          public_slug: profile.public_slug,
-          theme: profile.theme,
-        },
+        usage_type: qr.usage_type,
+        profile: profilePayload,
         links,
       },
       error: null,

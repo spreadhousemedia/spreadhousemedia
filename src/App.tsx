@@ -8,9 +8,12 @@ import { WhatsAppWidget } from './components/WhatsAppWidget'
 import { PORTAL_AUTH_PATH, PORTAL_BASE_PATH } from './lib/config'
 
 const LandingPage = lazy(() => import('./pages/public/LandingPage').then((m) => ({ default: m.LandingPage })))
+const AboutPage = lazy(() => import('./pages/public/AboutPage').then((m) => ({ default: m.AboutPage })))
 const ProductsPage = lazy(() => import('./pages/public/ProductsPage').then((m) => ({ default: m.ProductsPage })))
 const SupportPage = lazy(() => import('./pages/public/SupportPage').then((m) => ({ default: m.SupportPage })))
 const ContactPage = lazy(() => import('./pages/public/ContactPage').then((m) => ({ default: m.ContactPage })))
+const PrivacyPage = lazy(() => import('./pages/public/LegalPages').then((m) => ({ default: m.PrivacyPage })))
+const TermsPage = lazy(() => import('./pages/public/LegalPages').then((m) => ({ default: m.TermsPage })))
 const Login = lazy(() => import('./pages/Login').then((m) => ({ default: m.Login })))
 const UpdatePage = lazy(() => import('./pages/public/UpdatePage').then((m) => ({ default: m.UpdatePage })))
 const QRRedirect = lazy(() => import('./pages/public/QRRedirect').then((m) => ({ default: m.QRRedirect })))
@@ -46,9 +49,12 @@ export default function App() {
           <Suspense fallback={<PageFallback />}>
             <Routes>
               <Route path="/" element={<LandingPage />} />
+              <Route path="/about" element={<AboutPage />} />
               <Route path="/products" element={<ProductsPage />} />
               <Route path="/support" element={<SupportPage />} />
               <Route path="/contact" element={<ContactPage />} />
+              <Route path="/privacy" element={<PrivacyPage />} />
+              <Route path="/terms" element={<TermsPage />} />
               <Route path="/update" element={<UpdatePage />} />
               <Route path="/q/:qrNumber" element={<QRRedirect />} />
               <Route path="/p/:identifier" element={<PublicProfile />} />

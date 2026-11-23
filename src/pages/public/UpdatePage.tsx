@@ -16,10 +16,19 @@ import {
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { invalidateQrRedirectCache } from '../../lib/cache'
+import {
+  clearAllMultiQrVaultSessions,
+  getStoredSingleSession,
+  listMultiQrVault,
+  registerQrSessionInVault,
+  removeQrFromVault,
+} from '../../lib/multiQrVault'
 import { isValidPassword, normalizeQrNumber } from '../../lib/validation'
 import { rpcErrorMessage, type CustomerDashboardData, type UsageType } from '../../types'
 import { Spinner } from '../../components/Spinner'
 import { ModeSelector } from '../../components/customer/ModeSelector'
+import { WelcomeBackCard } from '../../components/customer/WelcomeBackCard'
+import { MultiQrManager } from '../../components/customer/MultiQrManager'
 
 const PersonalOnboarding = lazy(() =>
   import('../../components/onboarding/PersonalOnboarding').then((m) => ({
@@ -29,6 +38,11 @@ const PersonalOnboarding = lazy(() =>
 const CommercialOnboarding = lazy(() =>
   import('../../components/onboarding/CommercialOnboarding').then((m) => ({
     default: m.CommercialOnboarding,
+  })),
+)
+const BusinessProfileOnboarding = lazy(() =>
+  import('../../components/onboarding/BusinessProfileOnboarding').then((m) => ({
+    default: m.BusinessProfileOnboarding,
   })),
 )
 const PersonalDashboard = lazy(() =>
@@ -41,6 +55,11 @@ const BusinessDashboard = lazy(() =>
     default: m.BusinessDashboard,
   })),
 )
+const BusinessProfileDashboard = lazy(() =>
+  import('../../components/customer/BusinessProfileDashboard').then((m) => ({
+    default: m.BusinessProfileDashboard,
+  })),
+)
 
 type PageMode =
   | 'lookup'
@@ -48,33 +67,8 @@ type PageMode =
   | 'activate'
   | 'login'
   | 'select_mode'
+  | 'welcome_back'
   | 'dashboard'
-
-const SESSION_PREFIX = 'spreadnfc_customer_session_'
-
-function getStoredSession(qr: string): string | null {
-  try {
-    return sessionStorage.getItem(`${SESSION_PREFIX}${qr}`)
-  } catch {
-    return null
-  }
-}
-
-function setStoredSession(qr: string, token: string): void {
-  try {
-    sessionStorage.setItem(`${SESSION_PREFIX}${qr}`, token)
-  } catch {
-    // ignore storage errors
-  }
-}
-
-function clearStoredSession(qr: string): void {
-  try {
-    sessionStorage.removeItem(`${SESSION_PREFIX}${qr}`)
-  } catch {
-    // ignore storage errors
-  }
-}
 
 export function UpdatePage() {
   const [searchParams] = useSearchParams()
@@ -101,6 +95,8 @@ export function UpdatePage() {
   const [dashboard, setDashboard] = useState<CustomerDashboardData | null>(null)
   const [forceWizard, setForceWizard] = useState(false)
   const [wizardDoneToEditor, setWizardDoneToEditor] = useState(false)
+  const [multiQrOpen, setMultiQrOpen] = useState(false)
+  const [multiQrCount, setMultiQrCount] = useState(() => listMultiQrVault().length)
 
   const [showPassword, setShowPassword] = useState(false)
   const [showQrHelp, setShowQrHelp] = useState(false)
@@ -108,32 +104,54 @@ export function UpdatePage() {
   const [checking, setChecking] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
-  const loadCustomerDashboard = useCallback(async (token: string, normQr: string) => {
-    const { data, error: rpcError } = await supabase.rpc('customer_get_dashboard', {
-      p_session_token: token,
-    })
-
-    if (rpcError || !data?.ok) {
-      clearStoredSession(normQr)
-      setSessionToken(null)
-      setDashboard(null)
-      return false
-    }
-
-    const dash = {
-      qr: data.qr,
-      profile: data.profile ?? null,
-      links: data.links ?? [],
-    } as CustomerDashboardData
-
-    setDashboard(dash)
-    if (!dash.qr.usage_type) {
-      setMode('select_mode')
-    } else {
-      setMode('dashboard')
-    }
-    return true
+  const syncMultiQrCount = useCallback(() => {
+    setMultiQrCount(listMultiQrVault().length)
   }, [])
+
+  const isDashConfigured = (dash: CustomerDashboardData): boolean => {
+    if (dash.qr.usage_type === 'personal' || dash.qr.usage_type === 'business_profile') {
+      return Boolean(dash.profile?.is_published || dash.profile?.profile_name?.trim())
+    }
+    if (dash.qr.usage_type === 'business') {
+      return Boolean(dash.qr.destination_url?.trim())
+    }
+    return false
+  }
+
+  const loadCustomerDashboard = useCallback(
+    async (token: string, normQr: string, showWelcomeIfConfigured = false) => {
+      const { data, error: rpcError } = await supabase.rpc('customer_get_dashboard', {
+        p_session_token: token,
+      })
+
+      if (rpcError || !data?.ok) {
+        removeQrFromVault(normQr)
+        syncMultiQrCount()
+        setSessionToken(null)
+        setDashboard(null)
+        return false
+      }
+
+      const dash = {
+        qr: data.qr,
+        profile: data.profile ?? null,
+        links: data.links ?? [],
+      } as CustomerDashboardData
+
+      registerQrSessionInVault(normQr, token)
+      syncMultiQrCount()
+      setDashboard(dash)
+      if (!dash.qr.usage_type) {
+        setMode('select_mode')
+      } else if (showWelcomeIfConfigured && isDashConfigured(dash)) {
+        setMode('welcome_back')
+      } else {
+        setMode('dashboard')
+      }
+      return true
+    },
+    [syncMultiQrCount],
+  )
 
   const checkQrStatus = useCallback(
     async (serial: string) => {
@@ -143,9 +161,9 @@ export function UpdatePage() {
       setChecking(true)
 
       // Resume active customer session if still valid
-      const existingToken = getStoredSession(norm)
+      const existingToken = getStoredSingleSession(norm)
       if (existingToken) {
-        const resumed = await loadCustomerDashboard(existingToken, norm)
+        const resumed = await loadCustomerDashboard(existingToken, norm, false)
         if (resumed) {
           setSessionToken(existingToken)
           setChecking(false)
@@ -259,10 +277,11 @@ export function UpdatePage() {
 
     const token = data.session_token as string
     setSessionToken(token)
-    setStoredSession(norm, token)
+    registerQrSessionInVault(norm, token)
+    syncMultiQrCount()
     invalidateQrRedirectCache(norm)
 
-    await loadCustomerDashboard(token, norm)
+    await loadCustomerDashboard(token, norm, false)
   }
 
   async function handleOwnerLoginSubmit(e: FormEvent) {
@@ -289,9 +308,10 @@ export function UpdatePage() {
 
     const token = data.session_token as string
     setSessionToken(token)
-    setStoredSession(norm, token)
+    registerQrSessionInVault(norm, token)
+    syncMultiQrCount()
     setCurrentPassword('')
-    await loadCustomerDashboard(token, norm)
+    await loadCustomerDashboard(token, norm, false)
   }
 
   async function handleModeSelect(chosen: UsageType) {
@@ -312,12 +332,17 @@ export function UpdatePage() {
     }
 
     invalidateQrRedirectCache(norm)
-    await loadCustomerDashboard(sessionToken, norm)
+    await loadCustomerDashboard(sessionToken, norm, false)
   }
 
-  function handleCustomerLogout() {
+  function handleCustomerLogout(clearAll = false) {
     const norm = normalizeQrNumber(qrNumber)
-    clearStoredSession(norm)
+    if (clearAll) {
+      clearAllMultiQrVaultSessions()
+    } else {
+      removeQrFromVault(norm)
+    }
+    syncMultiQrCount()
     setSessionToken(null)
     setDashboard(null)
     setForceWizard(false)
@@ -327,7 +352,17 @@ export function UpdatePage() {
     setMode(qrNumberLocked ? 'login' : 'lookup')
   }
 
-  const isWideMode = mode === 'dashboard' || mode === 'select_mode'
+  async function handleSwitchQrFromVault(targetQr: string, targetToken: string) {
+    const norm = normalizeQrNumber(targetQr)
+    setQrNumber(norm)
+    setSessionToken(targetToken)
+    setForceWizard(false)
+    setWizardDoneToEditor(false)
+    setError(null)
+    await loadCustomerDashboard(targetToken, norm, false)
+  }
+
+  const isWideMode = mode === 'dashboard' || mode === 'select_mode' || mode === 'welcome_back'
 
   const isFirstTimePersonalSetup =
     mode === 'dashboard' &&
@@ -341,7 +376,38 @@ export function UpdatePage() {
     !wizardDoneToEditor &&
     (forceWizard || !dashboard.qr.destination_url?.trim())
 
+  const isFirstTimeBusinessProfileSetup =
+    mode === 'dashboard' &&
+    dashboard?.qr.usage_type === 'business_profile' &&
+    !wizardDoneToEditor &&
+    (forceWizard || (!dashboard.profile?.is_published && !dashboard.profile?.profile_name?.trim()))
+
   if (isFirstTimePersonalSetup && dashboard && sessionToken) {
+    if (isFirstTimeBusinessProfileSetup && dashboard && sessionToken) {
+      return (
+        <Suspense
+          fallback={
+            <div className="flex min-h-screen items-center justify-center bg-[#F7F6F3]">
+              <Spinner size={26} className="text-[#141413]" />
+            </div>
+          }
+        >
+          <BusinessProfileOnboarding
+            dashboard={dashboard}
+            sessionToken={sessionToken}
+            onRefresh={async () => {
+              await loadCustomerDashboard(sessionToken, dashboard.qr.qr_number)
+            }}
+            onCompleteToEditor={() => {
+              setForceWizard(false)
+              setWizardDoneToEditor(true)
+            }}
+            onLogout={() => handleCustomerLogout(false)}
+          />
+        </Suspense>
+      )
+    }
+
     return (
       <Suspense
         fallback={
@@ -360,7 +426,7 @@ export function UpdatePage() {
             setForceWizard(false)
             setWizardDoneToEditor(true)
           }}
-          onLogout={handleCustomerLogout}
+          onLogout={() => handleCustomerLogout(false)}
         />
       </Suspense>
     )
@@ -385,7 +451,32 @@ export function UpdatePage() {
             setForceWizard(false)
             setWizardDoneToEditor(true)
           }}
-          onLogout={handleCustomerLogout}
+          onLogout={() => handleCustomerLogout(false)}
+        />
+      </Suspense>
+    )
+  }
+
+  if (isFirstTimeBusinessProfileSetup && dashboard && sessionToken) {
+    return (
+      <Suspense
+        fallback={
+          <div className="flex min-h-screen items-center justify-center bg-[#F7F6F3]">
+            <Spinner size={26} className="text-[#141413]" />
+          </div>
+        }
+      >
+        <BusinessProfileOnboarding
+          dashboard={dashboard}
+          sessionToken={sessionToken}
+          onRefresh={async () => {
+            await loadCustomerDashboard(sessionToken, dashboard.qr.qr_number)
+          }}
+          onCompleteToEditor={() => {
+            setForceWizard(false)
+            setWizardDoneToEditor(true)
+          }}
+          onLogout={() => handleCustomerLogout(false)}
         />
       </Suspense>
     )
@@ -414,7 +505,18 @@ export function UpdatePage() {
         />
       )}
 
-      {/* PHASE 3–5: PERSONAL OR BUSINESS DASHBOARD */}
+      {/* WELCOME BACK: RETURNING USER FLOW */}
+      {mode === 'welcome_back' && dashboard && sessionToken && (
+        <WelcomeBackCard
+          dashboard={dashboard}
+          multiQrCount={multiQrCount}
+          onProceedToEditor={() => setMode('dashboard')}
+          onOpenMultiQr={() => setMultiQrOpen(true)}
+          onLogout={() => handleCustomerLogout(false)}
+        />
+      )}
+
+      {/* PHASE 3–5: PERSONAL, BUSINESS DIRECT LINK, OR BUSINESS PROFILE DASHBOARD */}
       {mode === 'dashboard' && dashboard && sessionToken && (
         <Suspense
           fallback={
@@ -427,6 +529,8 @@ export function UpdatePage() {
             <PersonalDashboard
               dashboard={dashboard}
               sessionToken={sessionToken}
+              multiQrCount={multiQrCount}
+              onOpenMultiQr={() => setMultiQrOpen(true)}
               onRefresh={async () => {
                 await loadCustomerDashboard(sessionToken, dashboard.qr.qr_number)
               }}
@@ -434,12 +538,25 @@ export function UpdatePage() {
                 setWizardDoneToEditor(false)
                 setForceWizard(true)
               }}
-              onLogout={handleCustomerLogout}
+              onLogout={() => handleCustomerLogout(false)}
+            />
+          ) : dashboard.qr.usage_type === 'business_profile' ? (
+            <BusinessProfileDashboard
+              dashboard={dashboard}
+              sessionToken={sessionToken}
+              multiQrCount={multiQrCount}
+              onOpenMultiQr={() => setMultiQrOpen(true)}
+              onRefresh={async () => {
+                await loadCustomerDashboard(sessionToken, dashboard.qr.qr_number)
+              }}
+              onLogout={() => handleCustomerLogout(false)}
             />
           ) : (
             <BusinessDashboard
               dashboard={dashboard}
               sessionToken={sessionToken}
+              multiQrCount={multiQrCount}
+              onOpenMultiQr={() => setMultiQrOpen(true)}
               onRefresh={async () => {
                 await loadCustomerDashboard(sessionToken, dashboard.qr.qr_number)
               }}
@@ -447,7 +564,7 @@ export function UpdatePage() {
                 setWizardDoneToEditor(false)
                 setForceWizard(true)
               }}
-              onLogout={handleCustomerLogout}
+              onLogout={() => handleCustomerLogout(false)}
             />
           )}
         </Suspense>
@@ -457,7 +574,14 @@ export function UpdatePage() {
       {!isWideMode && (
         <div className="w-full max-w-md rounded-2xl border border-surface-border bg-white p-7 sm:p-9 shadow-xl relative z-10">
           {mode === 'lookup' && (
-            <form onSubmit={handleLookupSubmit} noValidate>
+            <form
+              onSubmit={handleLookupSubmit}
+              noValidate
+              {...({
+                toolname: 'lookup_qr_status',
+                tooldescription: 'Verify a Spread NFC QR code number to activate a device or open its dashboard.',
+              } as Record<string, string>)}
+            >
               <HeaderBadge icon={QrCode} color="electric">
                 DEVICE ACTIVATION &amp; DASHBOARD
               </HeaderBadge>
@@ -727,10 +851,12 @@ export function UpdatePage() {
               <p className="mt-2 text-center text-xs sm:text-sm text-ink-muted leading-relaxed">
                 Enter your personal password to manage your{' '}
                 {detectedUsageType === 'personal'
-                  ? 'digital profile and social links.'
-                  : detectedUsageType === 'business'
-                    ? 'business destination URL.'
-                    : 'smart QR configuration.'}
+                  ? 'personal digital profile and social links.'
+                  : detectedUsageType === 'business_profile'
+                    ? 'business profile and multi-link hub.'
+                    : detectedUsageType === 'business'
+                      ? 'business destination URL.'
+                      : 'smart QR configuration.'}
               </p>
 
               <div className="mt-4 p-3 rounded-xl bg-zinc-50 border border-zinc-200 text-xs text-zinc-700 flex items-center justify-between">
@@ -806,6 +932,14 @@ export function UpdatePage() {
           )}
         </div>
       )}
+
+      <MultiQrManager
+        open={multiQrOpen}
+        activeQrNumber={dashboard?.qr.qr_number || normalizeQrNumber(qrNumber)}
+        onClose={() => setMultiQrOpen(false)}
+        onSwitchQr={handleSwitchQrFromVault}
+        onLogoutAll={() => handleCustomerLogout(true)}
+      />
 
       {/* Attribution footer */}
       <div className="mt-8 text-center relative z-10">

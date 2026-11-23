@@ -1,0 +1,1225 @@
+import { useMemo, useState } from 'react'
+import {
+  ArrowDown,
+  ArrowUp,
+  Briefcase,
+  Check,
+  CheckCircle2,
+  Copy,
+  ExternalLink,
+  Eye,
+  EyeOff,
+  GripVertical,
+  ImagePlus,
+  Layers,
+  Link2,
+  Lock,
+  Moon,
+  Pencil,
+  Plus,
+  Save,
+  Smartphone,
+  Sun,
+  Trash2,
+  X,
+} from 'lucide-react'
+import { CURATED_AVATARS, DEFAULT_AVATAR_ID } from '../../lib/avatars'
+import { profilePublicUrl } from '../../lib/config'
+import { saveBusinessProfile } from '../../lib/profileApi'
+import {
+  BUSINESS_CATEGORIES,
+  BUSINESS_LINK_TEMPLATES,
+  compressProfileImage,
+  getPlatformMeta,
+  isValidContactEmail,
+  isValidContactPhone,
+  isValidDestinationUrl,
+  isValidPublicSlug,
+  normalizeDestinationUrl,
+  normalizePublicSlug,
+  SOCIAL_PLATFORMS,
+  validatePlatformLinkUrl,
+} from '../../lib/validation'
+import type {
+  ContactVisibility,
+  CustomerDashboardData,
+  ProfileTheme,
+  PublicLinkItem,
+  PublicProfileData,
+  QrLink,
+  SocialPlatform,
+} from '../../types'
+import { Spinner } from '../Spinner'
+import { CUSTOM_LINK_ICONS, PlatformIcon } from '../profile/PlatformIcons'
+import { PublicProfileView } from '../profile/PublicProfileView'
+import { CustomerAccountSettings } from './CustomerAccountSettings'
+
+interface BusinessProfileDashboardProps {
+  dashboard: CustomerDashboardData
+  sessionToken: string
+  multiQrCount?: number
+  onOpenMultiQr?: () => void
+  onRefresh: () => Promise<void>
+  onLogout: () => void
+}
+
+type EditorSection =
+  | 'overview'
+  | 'identity'
+  | 'about'
+  | 'social'
+  | 'business_links'
+  | 'custom_links'
+  | 'contact'
+  | 'appearance'
+  | 'account'
+
+type DraftLink = {
+  id: string
+  platform: SocialPlatform
+  link_title: string
+  destination_url: string
+  icon: string | null
+  is_active: boolean
+}
+
+const DEFAULT_VISIBILITY: ContactVisibility = {
+  phone: true,
+  whatsapp: true,
+  email: true,
+  address: true,
+  maps: true,
+  hours: true,
+  contact_person: true,
+}
+
+const SECTIONS: Array<{ id: EditorSection; label: string }> = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'identity', label: 'Business Identity' },
+  { id: 'about', label: 'About' },
+  { id: 'social', label: 'Social Links' },
+  { id: 'business_links', label: 'Business Links' },
+  { id: 'custom_links', label: 'Custom Links' },
+  { id: 'contact', label: 'Contact Details' },
+  { id: 'appearance', label: 'Appearance' },
+  { id: 'account', label: 'Account & QR' },
+]
+
+export function BusinessProfileDashboard({
+  dashboard,
+  sessionToken,
+  multiQrCount = 1,
+  onOpenMultiQr,
+  onRefresh,
+  onLogout,
+}: BusinessProfileDashboardProps) {
+  const qrNumber = dashboard.qr.qr_number
+
+  const [section, setSection] = useState<EditorSection>('overview')
+  const [mobileView, setMobileView] = useState<'edit' | 'preview'>('edit')
+
+  // Profile fields
+  const [businessName, setBusinessName] = useState(
+    dashboard.profile?.profile_name || dashboard.qr.business_name || '',
+  )
+  const [businessCategory, setBusinessCategory] = useState(
+    dashboard.profile?.business_category || BUSINESS_CATEGORIES[0],
+  )
+  const [location, setLocation] = useState(dashboard.profile?.location || '')
+  const [tagline, setTagline] = useState(dashboard.profile?.tagline || '')
+  const [contactPersonName, setContactPersonName] = useState(
+    dashboard.profile?.contact_person_name || '',
+  )
+  const [businessExperience, setBusinessExperience] = useState(
+    dashboard.profile?.business_experience || '',
+  )
+  const [bio, setBio] = useState(dashboard.profile?.bio || '')
+  const [contactEmail, setContactEmail] = useState(dashboard.profile?.contact_email || '')
+  const [contactPhone, setContactPhone] = useState(dashboard.profile?.contact_phone || '')
+  const [whatsappNumber, setWhatsappNumber] = useState(dashboard.profile?.whatsapp_number || '')
+  const [fullAddress, setFullAddress] = useState(dashboard.profile?.full_address || '')
+  const [workingHours, setWorkingHours] = useState(dashboard.profile?.working_hours || '')
+  const [googleMapsUrl, setGoogleMapsUrl] = useState(dashboard.profile?.google_maps_url || '')
+  const [visibility, setVisibility] = useState<ContactVisibility>(
+    dashboard.profile?.contact_visibility ?? DEFAULT_VISIBILITY,
+  )
+  const [publicSlug, setPublicSlug] = useState(dashboard.profile?.public_slug || '')
+  const [theme, setTheme] = useState<ProfileTheme>(
+    dashboard.profile?.theme === 'dark' ? 'dark' : 'light',
+  )
+  const [isPublished, setIsPublished] = useState<boolean>(
+    dashboard.profile?.is_published ?? false,
+  )
+  const [profileImage, setProfileImage] = useState<string | null>(
+    dashboard.profile?.profile_image || null,
+  )
+  const [avatarId, setAvatarId] = useState<string | null>(
+    dashboard.profile?.avatar_id || (dashboard.profile?.profile_image ? null : DEFAULT_AVATAR_ID),
+  )
+
+  const [links, setLinks] = useState<DraftLink[]>(
+    (dashboard.links ?? []).map((l: QrLink) => ({
+      id: l.id,
+      platform: l.platform,
+      link_title: l.link_title,
+      destination_url: l.destination_url,
+      icon: l.icon ?? null,
+      is_active: l.is_active !== false,
+    })),
+  )
+
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [dragIndex, setDragIndex] = useState<number | null>(null)
+
+  // Modal state
+  const [linkModalOpen, setLinkModalOpen] = useState(false)
+  const [editingLinkId, setEditingLinkId] = useState<string | null>(null)
+  const [draftPlatform, setDraftPlatform] = useState<SocialPlatform>('instagram')
+  const [draftTitle, setDraftTitle] = useState('Instagram')
+  const [draftUrl, setDraftUrl] = useState('')
+  const [draftIcon, setDraftIcon] = useState<string>('link')
+  const [draftActive, setDraftActive] = useState(true)
+  const [linkError, setLinkError] = useState<string | null>(null)
+
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [saveSuccess, setSaveSuccess] = useState<string | null>(null)
+  const [copiedPublicUrl, setCopiedPublicUrl] = useState(false)
+
+  const markDirty = () => {
+    setHasUnsavedChanges(true)
+    setSaveSuccess(null)
+  }
+
+  const activeIdentifier = publicSlug.trim() ? normalizePublicSlug(publicSlug) : qrNumber
+  const publicShareUrl = profilePublicUrl(activeIdentifier)
+
+  const socialLinks = links.filter(
+    (l) => l.platform !== 'custom' && l.platform !== 'google_reviews' && l.platform !== 'google_maps',
+  )
+  const businessAndCustomLinks = links.filter(
+    (l) => l.platform === 'custom' || l.platform === 'google_reviews' || l.platform === 'google_maps',
+  )
+
+  function openNewLinkModal(platform: SocialPlatform, presetTitle?: string, presetIcon?: string | null) {
+    setEditingLinkId(null)
+    setDraftPlatform(platform)
+    setDraftTitle(presetTitle ?? getPlatformMeta(platform).defaultTitle)
+    setDraftUrl('')
+    setDraftIcon(presetIcon || 'link')
+    setDraftActive(true)
+    setLinkError(null)
+    setLinkModalOpen(true)
+  }
+
+  function openEditLinkModal(link: DraftLink) {
+    setEditingLinkId(link.id)
+    setDraftPlatform(link.platform)
+    setDraftTitle(link.link_title)
+    setDraftUrl(link.destination_url)
+    setDraftIcon(link.icon || 'link')
+    setDraftActive(link.is_active)
+    setLinkError(null)
+    setLinkModalOpen(true)
+  }
+
+  function handleSaveLinkModal() {
+    setLinkError(null)
+    const cleanTitle = draftTitle.trim() || getPlatformMeta(draftPlatform).defaultTitle
+    if (cleanTitle.length > 80) {
+      setLinkError('Title must be 80 characters or fewer.')
+      return
+    }
+    const validation = validatePlatformLinkUrl(draftPlatform, draftUrl)
+    if (!validation.ok) {
+      setLinkError(validation.error)
+      return
+    }
+    const dup = links.some(
+      (l) =>
+        l.id !== editingLinkId &&
+        l.platform === draftPlatform &&
+        l.destination_url.toLowerCase() === validation.normalizedUrl.toLowerCase(),
+    )
+    if (dup) {
+      setLinkError('You already added this exact platform and URL.')
+      return
+    }
+
+    if (editingLinkId) {
+      setLinks((prev) =>
+        prev.map((l) =>
+          l.id === editingLinkId
+            ? {
+                ...l,
+                platform: draftPlatform,
+                link_title: cleanTitle,
+                destination_url: validation.normalizedUrl,
+                icon: draftPlatform === 'custom' ? draftIcon : null,
+                is_active: draftActive,
+              }
+            : l,
+        ),
+      )
+    } else {
+      setLinks((prev) => [
+        ...prev,
+        {
+          id: `link-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          platform: draftPlatform,
+          link_title: cleanTitle,
+          destination_url: validation.normalizedUrl,
+          icon: draftPlatform === 'custom' ? draftIcon : null,
+          is_active: draftActive,
+        },
+      ])
+    }
+
+    markDirty()
+    setLinkModalOpen(false)
+  }
+
+  function moveLinkById(id: string, delta: -1 | 1) {
+    const idx = links.findIndex((l) => l.id === id)
+    const nextIdx = idx + delta
+    if (idx === -1 || nextIdx < 0 || nextIdx >= links.length) return
+    setLinks((prev) => {
+      const copy = [...prev]
+      const [item] = copy.splice(idx, 1)
+      copy.splice(nextIdx, 0, item)
+      return copy
+    })
+    markDirty()
+  }
+
+  function handleDropById(targetId: string) {
+    if (dragIndex === null) return
+    const targetIdx = links.findIndex((l) => l.id === targetId)
+    if (targetIdx === -1 || dragIndex === targetIdx) {
+      setDragIndex(null)
+      return
+    }
+    setLinks((prev) => {
+      const copy = [...prev]
+      const [moved] = copy.splice(dragIndex, 1)
+      copy.splice(targetIdx, 0, moved)
+      return copy
+    })
+    setDragIndex(null)
+    markDirty()
+  }
+
+  async function handleLogoUpload(file: File | null) {
+    if (!file) return
+    setSaveError(null)
+    try {
+      const compressed = await compressProfileImage(file)
+      setProfileImage(compressed)
+      setAvatarId(null)
+      markDirty()
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Could not process image.')
+    }
+  }
+
+  async function handleSaveAll(publishOverride?: boolean) {
+    setSaveError(null)
+    setSaveSuccess(null)
+
+    if (!businessName.trim() || businessName.trim().length > 80) {
+      setSaveError('Business name is required (1–80 characters).')
+      return
+    }
+    if (contactEmail.trim() && !isValidContactEmail(contactEmail)) {
+      setSaveError('Please enter a valid contact email.')
+      return
+    }
+    if (contactPhone.trim() && !isValidContactPhone(contactPhone)) {
+      setSaveError('Please enter a valid contact phone number.')
+      return
+    }
+    if (whatsappNumber.trim() && !isValidContactPhone(whatsappNumber)) {
+      setSaveError('Please enter a valid WhatsApp number.')
+      return
+    }
+    const cleanMaps = googleMapsUrl.trim() ? normalizeDestinationUrl(googleMapsUrl) : null
+    if (cleanMaps && !isValidDestinationUrl(cleanMaps)) {
+      setSaveError('Please enter a valid https:// Google Maps URL.')
+      return
+    }
+    const cleanSlug = normalizePublicSlug(publicSlug)
+    if (cleanSlug && !isValidPublicSlug(cleanSlug)) {
+      setSaveError('Custom URL slug must be 3–40 lowercase letters, numbers, hyphens, or underscores.')
+      return
+    }
+
+    const nextPublished = publishOverride !== undefined ? publishOverride : isPublished
+
+    setSaving(true)
+    const res = await saveBusinessProfile({
+      sessionToken,
+      qrNumber,
+      previousSlug: dashboard.profile?.public_slug,
+      businessName: businessName.trim(),
+      businessCategory: businessCategory.trim() || null,
+      location: location.trim() || null,
+      tagline: tagline.trim() || null,
+      bio: bio.trim() || null,
+      profileImage,
+      avatarId: profileImage ? null : avatarId,
+      contactEmail: contactEmail.trim() || null,
+      contactPhone: contactPhone.trim() || null,
+      contactPersonName: contactPersonName.trim() || null,
+      businessExperience: businessExperience.trim() || null,
+      whatsappNumber: whatsappNumber.trim() || null,
+      fullAddress: fullAddress.trim() || null,
+      workingHours: workingHours.trim() || null,
+      googleMapsUrl: cleanMaps,
+      contactVisibility: visibility,
+      publicSlug: cleanSlug || null,
+      theme,
+      isPublished: nextPublished,
+      links: links.map((l) => ({
+        platform: l.platform,
+        link_title: l.link_title,
+        destination_url: l.destination_url,
+        icon: l.icon,
+        is_active: l.is_active,
+      })),
+    })
+    setSaving(false)
+
+    if (!res.ok) {
+      setSaveError(res.error || 'Failed to save Business Profile.')
+      return
+    }
+
+    setIsPublished(nextPublished)
+    setHasUnsavedChanges(false)
+    setSaveSuccess('Your profile has been updated successfully.')
+    await onRefresh()
+  }
+
+  const previewProfile: PublicProfileData = useMemo(
+    () => ({
+      profile_type: 'business',
+      profile_name: businessName.trim() || 'Your Business Name',
+      business_category: businessCategory.trim() || null,
+      location: location.trim() || null,
+      business_experience: businessExperience.trim() || null,
+      contact_person_name: visibility.contact_person ? contactPersonName.trim() || null : null,
+      tagline: tagline.trim() || null,
+      bio: bio.trim() || null,
+      profile_image: profileImage,
+      avatar_id: profileImage ? null : avatarId,
+      contact_email: visibility.email ? contactEmail.trim() || null : null,
+      contact_phone: visibility.phone ? contactPhone.trim() || null : null,
+      whatsapp_number: visibility.whatsapp ? whatsappNumber.trim() || null : null,
+      full_address: visibility.address ? fullAddress.trim() || null : null,
+      google_maps_url: visibility.maps && googleMapsUrl.trim() ? normalizeDestinationUrl(googleMapsUrl) : null,
+      working_hours: visibility.hours ? workingHours.trim() || null : null,
+      public_slug: normalizePublicSlug(publicSlug) || null,
+      theme,
+    }),
+    [
+      businessName,
+      businessCategory,
+      location,
+      businessExperience,
+      visibility,
+      contactPersonName,
+      tagline,
+      bio,
+      profileImage,
+      avatarId,
+      contactEmail,
+      contactPhone,
+      whatsappNumber,
+      fullAddress,
+      googleMapsUrl,
+      workingHours,
+      publicSlug,
+      theme,
+    ],
+  )
+
+  const previewLinks: PublicLinkItem[] = useMemo(
+    () =>
+      links
+        .filter((l) => l.is_active)
+        .map((l, idx) => ({
+          id: l.id,
+          platform: l.platform,
+          link_title: l.link_title,
+          destination_url: l.destination_url,
+          icon: l.icon,
+          display_order: idx,
+        })),
+    [links],
+  )
+
+  return (
+    <div className="w-full max-w-6xl mx-auto space-y-5 relative z-10">
+      {/* Top Bar */}
+      <div className="rounded-2xl border border-surface-border bg-white p-4 sm:p-5 shadow-sm flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div className="flex items-start sm:items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-electric/10 text-electric border border-electric/20">
+            <Briefcase className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-bold text-base text-ink">{businessName || qrNumber}</span>
+              <span className="font-mono text-xs text-ink-muted">({qrNumber})</span>
+              <span
+                className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold border ${
+                  isPublished
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    : 'bg-amber-50 text-amber-700 border-amber-200'
+                }`}
+              >
+                {isPublished ? 'Published' : 'Draft'}
+              </span>
+              {hasUnsavedChanges && (
+                <span className="rounded-full bg-amber-100 text-amber-900 border border-amber-300 px-2.5 py-0.5 text-[11px] font-bold">
+                  Unsaved Changes
+                </span>
+              )}
+            </div>
+            <p className="mt-0.5 text-xs text-ink-muted">
+              Public Profile:{' '}
+              <a
+                href={publicShareUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono font-medium text-electric hover:underline"
+              >
+                {publicShareUrl}
+              </a>
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <a
+            href={publicShareUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-surface-border bg-zinc-50 px-3 py-2 text-xs font-semibold text-ink hover:bg-zinc-100"
+          >
+            <span>View Public Profile</span>
+            <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+
+          {onOpenMultiQr && (
+            <button
+              type="button"
+              onClick={onOpenMultiQr}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900 hover:bg-amber-100"
+            >
+              <Layers className="h-3.5 w-3.5" />
+              <span>Multi-QR{multiQrCount > 1 ? ` (${multiQrCount})` : ''}</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => handleSaveAll(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-electric px-4 py-2 text-xs font-bold text-white hover:bg-electric-hover shadow-sm disabled:opacity-60"
+          >
+            {saving ? <Spinner size={13} /> : <Save className="h-3.5 w-3.5" />}
+            <span>{saving ? 'Saving…' : 'Save Changes'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onLogout}
+            className="rounded-xl border border-surface-border px-3 py-2 text-xs font-semibold text-ink-muted hover:text-ink"
+          >
+            Sign Out
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Edit / Preview Tabs */}
+      <div className="flex lg:hidden items-center justify-between gap-2">
+        <div className="inline-flex rounded-xl border border-surface-border bg-white p-1 w-full">
+          <button
+            type="button"
+            onClick={() => setMobileView('edit')}
+            className={`flex-1 rounded-lg py-2 text-xs font-bold ${
+              mobileView === 'edit' ? 'bg-ink text-white' : 'text-ink-muted'
+            }`}
+          >
+            Edit Sections
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileView('preview')}
+            className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold ${
+              mobileView === 'preview' ? 'bg-ink text-white' : 'text-ink-muted'
+            }`}
+          >
+            <Smartphone className="h-3.5 w-3.5" /> Live Preview
+          </button>
+        </div>
+      </div>
+
+      {/* Section Tabs */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+        {SECTIONS.map((sec) => (
+          <button
+            key={sec.id}
+            type="button"
+            onClick={() => {
+              setSection(sec.id)
+              setMobileView('edit')
+            }}
+            className={`shrink-0 rounded-xl px-3.5 py-2 text-xs font-semibold border transition-colors ${
+              section === sec.id
+                ? 'border-ink bg-ink text-white'
+                : 'border-surface-border bg-white text-ink-muted hover:text-ink'
+            }`}
+          >
+            {sec.label}
+          </button>
+        ))}
+      </div>
+
+      {saveError && (
+        <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-medium text-rose-700">
+          {saveError}
+        </p>
+      )}
+      {saveSuccess && (
+        <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-medium text-emerald-800 flex items-center gap-2">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          <span>{saveSuccess}</span>
+        </p>
+      )}
+
+      {section === 'account' ? (
+        <CustomerAccountSettings qrNumber={qrNumber} sessionToken={sessionToken} />
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+          {/* Left: Editor Sections */}
+          <div className={`lg:col-span-7 space-y-5 ${mobileView === 'preview' ? 'hidden lg:block' : 'block'}`}>
+            {section === 'overview' && (
+              <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 space-y-4 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-bold text-ink">Profile Overview</h2>
+                  <span className="inline-flex items-center gap-1 text-xs font-mono text-ink-muted">
+                    <Lock className="h-3 w-3" /> {dashboard.qr.scan_count} total scans
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div className="rounded-xl border border-surface-border bg-zinc-50 p-3.5">
+                    <p className="text-ink-muted uppercase font-mono text-[10px]">Business Name</p>
+                    <p className="mt-1 font-bold text-ink text-sm">{businessName || 'Not set'}</p>
+                    <p className="text-ink-muted mt-0.5">{businessCategory}{location ? ` · ${location}` : ''}</p>
+                  </div>
+                  <div className="rounded-xl border border-surface-border bg-zinc-50 p-3.5">
+                    <p className="text-ink-muted uppercase font-mono text-[10px]">Links Summary</p>
+                    <p className="mt-1 font-bold text-ink text-sm">
+                      {links.filter((l) => l.is_active).length} active links ({socialLinks.length} social, {businessAndCustomLinks.length} business/custom)
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(publicShareUrl)
+                      setCopiedPublicUrl(true)
+                      setTimeout(() => setCopiedPublicUrl(false), 1500)
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-surface-border bg-white px-3.5 py-2 text-xs font-semibold text-ink hover:bg-zinc-50"
+                  >
+                    {copiedPublicUrl ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                    <span>{copiedPublicUrl ? 'Copied Profile Link' : 'Copy Profile Link'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSaveAll(!isPublished)}
+                    disabled={saving}
+                    className="rounded-xl border border-surface-border bg-zinc-50 px-3.5 py-2 text-xs font-semibold text-ink hover:bg-zinc-100"
+                  >
+                    {isPublished ? 'Switch to Draft' : 'Publish Live Now'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {section === 'identity' && (
+              <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 space-y-4 shadow-xs">
+                <h2 className="text-base font-bold text-ink">Business Identity</h2>
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-surface-border bg-zinc-50 px-3 py-2 text-xs font-semibold text-ink hover:bg-zinc-100">
+                    <ImagePlus className="h-3.5 w-3.5 text-electric" />
+                    <span>{profileImage ? 'Replace Logo' : 'Upload Logo'}</span>
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      className="hidden"
+                      onChange={(e) => handleLogoUpload(e.target.files?.[0] ?? null)}
+                    />
+                  </label>
+                  {profileImage && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileImage(null)
+                        setAvatarId(DEFAULT_AVATAR_ID)
+                        markDirty()
+                      }}
+                      className="text-xs font-medium text-rose-600 hover:underline"
+                    >
+                      Remove Logo
+                    </button>
+                  )}
+                </div>
+
+                {!profileImage && (
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                    {CURATED_AVATARS.slice(0, 10).map((av) => (
+                      <button
+                        key={av.id}
+                        type="button"
+                        onClick={() => {
+                          setAvatarId(av.id)
+                          markDirty()
+                        }}
+                        className={`h-10 w-10 shrink-0 overflow-hidden rounded-xl border-2 ${
+                          avatarId === av.id ? 'border-electric scale-105' : 'border-transparent opacity-70 hover:opacity-100'
+                        }`}
+                      >
+                        <img src={av.src} alt={av.label} className="h-full w-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="sm:col-span-2">
+                    <label className="mb-1 block text-xs font-semibold text-ink">Business Name *</label>
+                    <input
+                      value={businessName}
+                      onChange={(e) => {
+                        setBusinessName(e.target.value)
+                        markDirty()
+                      }}
+                      maxLength={80}
+                      className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink focus:border-electric focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-ink">Business Category</label>
+                    <select
+                      value={businessCategory}
+                      onChange={(e) => {
+                        setBusinessCategory(e.target.value)
+                        markDirty()
+                      }}
+                      className="w-full rounded-xl border border-surface-border bg-white px-3 py-2.5 text-sm text-ink focus:border-electric focus:outline-none"
+                    >
+                      {BUSINESS_CATEGORIES.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-ink">Contact Person Name</label>
+                    <input
+                      value={contactPersonName}
+                      onChange={(e) => {
+                        setContactPersonName(e.target.value)
+                        markDirty()
+                      }}
+                      maxLength={80}
+                      className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink focus:border-electric focus:outline-none"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="mb-1 block text-xs font-semibold text-ink">Tagline</label>
+                    <input
+                      value={tagline}
+                      onChange={(e) => {
+                        setTagline(e.target.value)
+                        markDirty()
+                      }}
+                      maxLength={80}
+                      className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink focus:border-electric focus:outline-none"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="mb-1 block text-xs font-semibold text-ink">Custom URL Handle (/p/…)</label>
+                    <input
+                      value={publicSlug}
+                      onChange={(e) => {
+                        setPublicSlug(normalizePublicSlug(e.target.value))
+                        markDirty()
+                      }}
+                      className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-xs font-mono text-ink focus:border-electric focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {section === 'about' && (
+              <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 space-y-4 shadow-xs">
+                <h2 className="text-base font-bold text-ink">About Your Business</h2>
+                <div>
+                  <div className="mb-1 flex items-center justify-between">
+                    <label className="text-xs font-semibold text-ink">Short Description</label>
+                    <span className="font-mono text-[11px] text-ink-muted">{bio.length}/280</span>
+                  </div>
+                  <textarea
+                    rows={4}
+                    maxLength={280}
+                    value={bio}
+                    onChange={(e) => {
+                      setBio(e.target.value)
+                      markDirty()
+                    }}
+                    className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink focus:border-electric focus:outline-none"
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-ink">Business Experience</label>
+                    <input
+                      value={businessExperience}
+                      onChange={(e) => {
+                        setBusinessExperience(e.target.value)
+                        markDirty()
+                      }}
+                      maxLength={60}
+                      placeholder="e.g. 10+ Years"
+                      className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink focus:border-electric focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-ink">City / Location</label>
+                    <input
+                      value={location}
+                      onChange={(e) => {
+                        setLocation(e.target.value)
+                        markDirty()
+                      }}
+                      maxLength={80}
+                      placeholder="e.g. Lucknow"
+                      className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink focus:border-electric focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {section === 'social' && (
+              <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 space-y-4 shadow-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-base font-bold text-ink">Social Media Links ({socialLinks.length})</h2>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {SOCIAL_PLATFORMS.filter(
+                    (p) => p.id !== 'custom' && p.id !== 'google_reviews' && p.id !== 'google_maps',
+                  ).map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => openNewLinkModal(p.id)}
+                      className="flex items-center gap-2 rounded-xl border border-surface-border bg-zinc-50 px-2.5 py-2 text-xs font-semibold text-ink hover:bg-zinc-100"
+                    >
+                      <PlatformIcon platform={p.id} size={15} />
+                      <span className="truncate">{p.label}</span>
+                    </button>
+                  ))}
+                </div>
+                <LinkListEditor
+                  items={socialLinks}
+                  allLinks={links}
+                  onMove={moveLinkById}
+                  onDragStart={setDragIndex}
+                  onDrop={handleDropById}
+                  onToggle={(id) => {
+                    setLinks((prev) => prev.map((l) => (l.id === id ? { ...l, is_active: !l.is_active } : l)))
+                    markDirty()
+                  }}
+                  onEdit={openEditLinkModal}
+                  onDelete={(id) => {
+                    setLinks((prev) => prev.filter((l) => l.id !== id))
+                    markDirty()
+                  }}
+                />
+              </div>
+            )}
+
+            {(section === 'business_links' || section === 'custom_links') && (
+              <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 space-y-4 shadow-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-base font-bold text-ink flex items-center gap-2">
+                    <Link2 className="h-4 w-4 text-electric" />
+                    <span>
+                      {section === 'business_links' ? 'Business Links (Reviews, Maps, Menu)' : 'Custom Links'} ({businessAndCustomLinks.length})
+                    </span>
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => openNewLinkModal('custom', 'Custom Link', 'link')}
+                    className="inline-flex items-center gap-1 rounded-xl bg-ink px-3 py-1.5 text-xs font-bold text-white"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Add Custom Link
+                  </button>
+                </div>
+
+                {section === 'business_links' && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {BUSINESS_LINK_TEMPLATES.map((tpl) => (
+                      <button
+                        key={tpl.id}
+                        type="button"
+                        onClick={() => openNewLinkModal(tpl.platform, tpl.defaultTitle, tpl.icon)}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-surface-border bg-zinc-50 px-3 py-1.5 text-xs font-semibold text-ink hover:bg-zinc-100"
+                      >
+                        <PlatformIcon platform={tpl.platform} customIcon={tpl.icon} size={14} />
+                        <span>+ {tpl.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <LinkListEditor
+                  items={businessAndCustomLinks}
+                  allLinks={links}
+                  onMove={moveLinkById}
+                  onDragStart={setDragIndex}
+                  onDrop={handleDropById}
+                  onToggle={(id) => {
+                    setLinks((prev) => prev.map((l) => (l.id === id ? { ...l, is_active: !l.is_active } : l)))
+                    markDirty()
+                  }}
+                  onEdit={openEditLinkModal}
+                  onDelete={(id) => {
+                    setLinks((prev) => prev.filter((l) => l.id !== id))
+                    markDirty()
+                  }}
+                />
+              </div>
+            )}
+
+            {section === 'contact' && (
+              <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 space-y-4 shadow-xs">
+                <h2 className="text-base font-bold text-ink">Contact Details &amp; Public Visibility</h2>
+                <div className="space-y-3.5">
+                  <ToggleField
+                    label="Phone Number"
+                    value={contactPhone}
+                    onChange={(v) => { setContactPhone(v); markDirty() }}
+                    visible={visibility.phone}
+                    onToggle={() => { setVisibility((v) => ({ ...v, phone: !v.phone })); markDirty() }}
+                  />
+                  <ToggleField
+                    label="WhatsApp Number"
+                    value={whatsappNumber}
+                    onChange={(v) => { setWhatsappNumber(v); markDirty() }}
+                    visible={visibility.whatsapp}
+                    onToggle={() => { setVisibility((v) => ({ ...v, whatsapp: !v.whatsapp })); markDirty() }}
+                  />
+                  <ToggleField
+                    label="Business Email"
+                    value={contactEmail}
+                    onChange={(v) => { setContactEmail(v); markDirty() }}
+                    visible={visibility.email}
+                    onToggle={() => { setVisibility((v) => ({ ...v, email: !v.email })); markDirty() }}
+                  />
+                  <ToggleField
+                    label="Full Business Address"
+                    value={fullAddress}
+                    onChange={(v) => { setFullAddress(v); markDirty() }}
+                    visible={visibility.address}
+                    onToggle={() => { setVisibility((v) => ({ ...v, address: !v.address })); markDirty() }}
+                  />
+                  <ToggleField
+                    label="Google Maps Location URL"
+                    value={googleMapsUrl}
+                    onChange={(v) => { setGoogleMapsUrl(v); markDirty() }}
+                    visible={visibility.maps}
+                    onToggle={() => { setVisibility((v) => ({ ...v, maps: !v.maps })); markDirty() }}
+                  />
+                  <ToggleField
+                    label="Working Hours"
+                    value={workingHours}
+                    onChange={(v) => { setWorkingHours(v); markDirty() }}
+                    visible={visibility.hours}
+                    onToggle={() => { setVisibility((v) => ({ ...v, hours: !v.hours })); markDirty() }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {section === 'appearance' && (
+              <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 space-y-4 shadow-xs">
+                <h2 className="text-base font-bold text-ink">Profile Appearance</h2>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => { setTheme('light'); markDirty() }}
+                    className={`flex items-center justify-center gap-2 rounded-2xl border-2 p-4 text-sm font-bold ${
+                      theme === 'light' ? 'border-ink bg-zinc-50 text-ink' : 'border-surface-border text-ink-muted'
+                    }`}
+                  >
+                    <Sun className="h-4 w-4" /> Light Theme
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setTheme('dark'); markDirty() }}
+                    className={`flex items-center justify-center gap-2 rounded-2xl border-2 p-4 text-sm font-bold ${
+                      theme === 'dark' ? 'border-ink bg-zinc-900 text-white' : 'border-surface-border text-ink-muted'
+                    }`}
+                  >
+                    <Moon className="h-4 w-4" /> Dark Theme
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right: Live Profile Preview */}
+          <div className={`lg:col-span-5 ${mobileView === 'preview' ? 'block' : 'hidden lg:block'} lg:sticky lg:top-6`}>
+            <div className="rounded-2xl border border-surface-border bg-white p-4 shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-ink">Live Profile Preview</span>
+                <a
+                  href={publicShareUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-electric hover:underline"
+                >
+                  <span>Open Live</span>
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+              <div className="mx-auto max-w-[360px] rounded-[30px] border-[5px] border-[#141413] bg-[#141413] p-1 overflow-hidden">
+                <div className="h-[560px] overflow-y-auto rounded-[24px]">
+                  <PublicProfileView
+                    profile={previewProfile}
+                    links={previewLinks}
+                    qrNumber={qrNumber}
+                    previewMode
+                    onThemeChange={(next) => {
+                      setTheme(next)
+                      markDirty()
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add / Edit Link Modal */}
+      {linkModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setLinkModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-surface-border bg-white p-5 shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-ink">
+                {editingLinkId ? 'Edit Link' : 'Add Link'}
+              </h3>
+              <button type="button" onClick={() => setLinkModalOpen(false)} className="rounded-lg p-1 text-ink-muted hover:text-ink">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-ink">Platform</label>
+                <select
+                  value={draftPlatform}
+                  onChange={(e) => {
+                    const next = e.target.value as SocialPlatform
+                    setDraftPlatform(next)
+                    if (!editingLinkId) setDraftTitle(getPlatformMeta(next).defaultTitle)
+                  }}
+                  className="w-full rounded-xl border border-surface-border bg-white px-3 py-2.5 text-xs font-semibold text-ink"
+                >
+                  {SOCIAL_PLATFORMS.map((p) => (
+                    <option key={p.id} value={p.id}>{p.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-ink">Link Title *</label>
+                <input
+                  value={draftTitle}
+                  onChange={(e) => setDraftTitle(e.target.value)}
+                  maxLength={80}
+                  className="w-full rounded-xl border border-surface-border px-3 py-2.5 text-xs text-ink focus:border-electric focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-ink">Destination URL / Handle *</label>
+                <input
+                  value={draftUrl}
+                  onChange={(e) => { setDraftUrl(e.target.value); setLinkError(null) }}
+                  placeholder={getPlatformMeta(draftPlatform).placeholder}
+                  className="w-full rounded-xl border border-surface-border px-3 py-2.5 text-xs font-mono text-ink focus:border-electric focus:outline-none"
+                />
+              </div>
+              {draftPlatform === 'custom' && (
+                <div className="flex flex-wrap gap-1.5">
+                  {CUSTOM_LINK_ICONS.map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setDraftIcon(opt.id)}
+                      className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] ${
+                        draftIcon === opt.id ? 'border-ink bg-zinc-100 font-semibold' : 'border-surface-border text-ink-muted'
+                      }`}
+                    >
+                      <PlatformIcon platform="custom" customIcon={opt.id} size={13} />
+                      <span>{opt.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              <label className="inline-flex items-center gap-2 text-xs font-medium text-ink">
+                <input type="checkbox" checked={draftActive} onChange={(e) => setDraftActive(e.target.checked)} />
+                <span>Visible on public profile</span>
+              </label>
+              {linkError && <p className="text-xs font-medium text-rose-600">{linkError}</p>}
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setLinkModalOpen(false)} className="rounded-xl border border-surface-border px-3.5 py-2 text-xs font-semibold text-ink">
+                Cancel
+              </button>
+              <button type="button" onClick={handleSaveLinkModal} className="rounded-xl bg-electric px-4 py-2 text-xs font-bold text-white hover:bg-electric-hover">
+                {editingLinkId ? 'Update Link' : 'Add Link'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ToggleField({
+  label,
+  value,
+  onChange,
+  visible,
+  onToggle,
+}: {
+  label: string
+  value: string
+  onChange: (val: string) => void
+  visible: boolean
+  onToggle: () => void
+}) {
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between">
+        <label className="text-xs font-semibold text-ink">{label}</label>
+        <button
+          type="button"
+          onClick={onToggle}
+          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold border ${
+            visible ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-zinc-200 bg-zinc-100 text-zinc-600'
+          }`}
+        >
+          {visible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+          <span>{visible ? 'Public' : 'Hidden'}</span>
+        </button>
+      </div>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink focus:border-electric focus:outline-none"
+      />
+    </div>
+  )
+}
+
+function LinkListEditor({
+  items,
+  allLinks,
+  onMove,
+  onDragStart,
+  onDrop,
+  onToggle,
+  onEdit,
+  onDelete,
+}: {
+  items: DraftLink[]
+  allLinks: DraftLink[]
+  onMove: (id: string, delta: -1 | 1) => void
+  onDragStart: (idx: number) => void
+  onDrop: (targetId: string) => void
+  onToggle: (id: string) => void
+  onEdit: (item: DraftLink) => void
+  onDelete: (id: string) => void
+}) {
+  if (items.length === 0) {
+    return (
+      <p className="rounded-xl border border-dashed border-zinc-300 p-6 text-center text-xs text-ink-muted">
+        No links in this section yet. Click a platform or template above to add one.
+      </p>
+    )
+  }
+  return (
+    <div className="space-y-2">
+      {items.map((item) => {
+        const globalIdx = allLinks.findIndex((l) => l.id === item.id)
+        return (
+          <div
+            key={item.id}
+            draggable
+            onDragStart={() => onDragStart(globalIdx)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={() => onDrop(item.id)}
+            className={`flex items-center justify-between gap-2.5 rounded-xl border px-3 py-2.5 ${
+              item.is_active ? 'border-surface-border bg-zinc-50/70' : 'border-dashed border-zinc-200 bg-zinc-50/30 opacity-60'
+            }`}
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <GripVertical className="h-4 w-4 text-zinc-400 cursor-grab shrink-0" />
+              <PlatformIcon platform={item.platform} customIcon={item.icon} size={18} />
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-ink truncate">{item.link_title}</p>
+                <p className="text-[11px] font-mono text-ink-muted truncate">{item.destination_url}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              <button type="button" onClick={() => onMove(item.id, -1)} className="rounded-lg p-1.5 text-ink-muted hover:text-ink" title="Move up">
+                <ArrowUp className="h-3.5 w-3.5" />
+              </button>
+              <button type="button" onClick={() => onMove(item.id, 1)} className="rounded-lg p-1.5 text-ink-muted hover:text-ink" title="Move down">
+                <ArrowDown className="h-3.5 w-3.5" />
+              </button>
+              <button type="button" onClick={() => onToggle(item.id)} className="rounded-lg p-1.5 text-ink-muted hover:text-ink" title="Toggle visibility">
+                {item.is_active ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+              </button>
+              <button type="button" onClick={() => onEdit(item)} className="rounded-lg p-1.5 text-ink-muted hover:text-ink" title="Edit">
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+              <button type="button" onClick={() => onDelete(item.id)} className="rounded-lg p-1.5 text-rose-600 hover:bg-rose-50" title="Delete">
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}

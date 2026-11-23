@@ -3,6 +3,7 @@ import {
   Building2,
   CheckCircle2,
   ExternalLink,
+  Layers,
   Link2,
   Lock,
   Save,
@@ -24,6 +25,8 @@ import { CustomerAccountSettings } from './CustomerAccountSettings'
 interface BusinessDashboardProps {
   dashboard: CustomerDashboardData
   sessionToken: string
+  multiQrCount?: number
+  onOpenMultiQr?: () => void
   onRefresh: () => Promise<void>
   onStartOnboarding?: () => void
   onLogout: () => void
@@ -32,6 +35,8 @@ interface BusinessDashboardProps {
 export function BusinessDashboard({
   dashboard,
   sessionToken,
+  multiQrCount = 1,
+  onOpenMultiQr,
   onRefresh,
   onStartOnboarding,
   onLogout,
@@ -121,7 +126,17 @@ export function BusinessDashboard({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          {onOpenMultiQr && (
+            <button
+              type="button"
+              onClick={onOpenMultiQr}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900 hover:bg-amber-100 transition-colors"
+            >
+              <Layers className="h-3.5 w-3.5" />
+              <span>Multi-QR{multiQrCount > 1 ? ` (${multiQrCount})` : ''}</span>
+            </button>
+          )}
           {onStartOnboarding && (
             <button
               type="button"

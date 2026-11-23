@@ -1,0 +1,1484 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  ArrowDown,
+  ArrowRight,
+  ArrowUp,
+  Award,
+  Briefcase,
+  Building2,
+  Check,
+  CheckCircle2,
+  Clock,
+  Copy,
+  Download,
+  ExternalLink,
+  Eye,
+  EyeOff,
+  GripVertical,
+  ImagePlus,
+  Mail,
+  MapPin,
+  Moon,
+  Pencil,
+  Phone,
+  Plus,
+  Sun,
+  Trash2,
+  User,
+} from 'lucide-react'
+import { CURATED_AVATARS, DEFAULT_AVATAR_ID } from '../../lib/avatars'
+import { profilePublicUrl, qrPublicUrl } from '../../lib/config'
+import { checkPublicSlugAvailable, saveBusinessProfile } from '../../lib/profileApi'
+import { downloadSingleQr, generateQrDataUrl } from '../../lib/qr'
+import {
+  BUSINESS_CATEGORY_OPTIONS,
+  BUSINESS_LINK_TEMPLATES,
+  compressProfileImage,
+  getPlatformMeta,
+  isValidContactEmail,
+  isValidContactPhone,
+  isValidDestinationUrl,
+  isValidPublicSlug,
+  normalizeDestinationUrl,
+  normalizePublicSlug,
+  validatePlatformLinkUrl,
+} from '../../lib/validation'
+import type {
+  ContactVisibility,
+  CustomerDashboardData,
+  ProfileTheme,
+  PublicLinkItem,
+  PublicProfileData,
+  SocialPlatform,
+} from '../../types'
+import { Spinner } from '../Spinner'
+import { CUSTOM_LINK_ICONS, PlatformIcon } from '../profile/PlatformIcons'
+import { PublicProfileView } from '../profile/PublicProfileView'
+import { OnboardingLayout, type SaveStatus } from './OnboardingLayout'
+import { PlatformSelector } from './PlatformSelector'
+
+interface BusinessProfileOnboardingProps {
+  dashboard: CustomerDashboardData
+  sessionToken: string
+  onRefresh: () => Promise<void>
+  onCompleteToEditor: () => void
+  onLogout: () => void
+}
+
+interface CustomBusinessLinkDraft {
+  id: string
+  platform: SocialPlatform
+  link_title: string
+  destination_url: string
+  icon: string | null
+  is_active: boolean
+}
+
+const DEFAULT_VISIBILITY: ContactVisibility = {
+  phone: true,
+  whatsapp: true,
+  email: true,
+  address: true,
+  maps: true,
+  hours: true,
+  contact_person: true,
+}
+
+const STEP_LABELS: Record<number, string> = {
+  1: 'Business category',
+  2: 'Business identity',
+  3: 'About business',
+  4: 'Select platforms',
+  5: 'Social links',
+  6: 'Business & custom links',
+  7: 'Contact details',
+  8: 'Preview profile',
+  9: 'Published',
+}
+
+function draftKey(qr: string) {
+  return `spreadnfc_biz_onboarding_draft_${qr.toUpperCase()}`
+}
+
+export function BusinessProfileOnboarding({
+  dashboard,
+  sessionToken,
+  onRefresh,
+  onCompleteToEditor,
+  onLogout,
+}: BusinessProfileOnboardingProps) {
+  const qrNumber = dashboard.qr.qr_number
+  const dbProfile = dashboard.profile
+
+  const savedDraft = useMemo(() => {
+    try {
+      const raw = sessionStorage.getItem(draftKey(qrNumber))
+      return raw ? JSON.parse(raw) : null
+    } catch {
+      return null
+    }
+  }, [qrNumber])
+
+  const initialSocialPlatforms = useMemo<SocialPlatform[]>(() => {
+    if (savedDraft?.selectedPlatforms) return savedDraft.selectedPlatforms
+    const list: SocialPlatform[] = []
+    for (const l of dashboard.links ?? []) {
+      if (
+        l.platform !== 'custom' &&
+        l.platform !== 'google_reviews' &&
+        l.platform !== 'google_maps' &&
+        !list.includes(l.platform)
+      ) {
+        list.push(l.platform)
+      }
+    }
+    return list
+  }, [dashboard.links, savedDraft])
+
+  const initialSocialValues = useMemo<Partial<Record<SocialPlatform, string>>>(() => {
+    if (savedDraft?.socialValues) return savedDraft.socialValues
+    const map: Partial<Record<SocialPlatform, string>> = {}
+    for (const l of dashboard.links ?? []) {
+      if (l.platform !== 'custom' && l.platform !== 'google_reviews' && l.platform !== 'google_maps') {
+        if (!map[l.platform]) map[l.platform] = l.destination_url
+      }
+    }
+    return map
+  }, [dashboard.links, savedDraft])
+
+  const initialBusinessLinks = useMemo<CustomBusinessLinkDraft[]>(() => {
+    if (savedDraft?.businessLinks) return savedDraft.businessLinks
+    return (dashboard.links ?? [])
+      .filter((l) => l.platform === 'custom' || l.platform === 'google_reviews' || l.platform === 'google_maps')
+      .map((l) => ({
+        id: l.id,
+        platform: l.platform,
+        link_title: l.link_title,
+        destination_url: l.destination_url,
+        icon: l.icon ?? null,
+        is_active: l.is_active !== false,
+      }))
+  }, [dashboard.links, savedDraft])
+
+  const [step, setStep] = useState<number>(savedDraft?.step ?? 1)
+  const [businessCategory, setBusinessCategory] = useState<string>(
+    savedDraft?.businessCategory ?? dbProfile?.business_category ?? 'Real Estate',
+  )
+  const [customCategory, setCustomCategory] = useState<string>(savedDraft?.customCategory ?? '')
+  const [businessName, setBusinessName] = useState<string>(
+    savedDraft?.businessName ?? dbProfile?.profile_name ?? dashboard.qr.business_name ?? '',
+  )
+  const [tagline, setTagline] = useState<string>(savedDraft?.tagline ?? dbProfile?.tagline ?? '')
+  const [contactPersonName, setContactPersonName] = useState<string>(
+    savedDraft?.contactPersonName ?? dbProfile?.contact_person_name ?? '',
+  )
+  const [profileImage, setProfileImage] = useState<string | null>(
+    savedDraft?.profileImage !== undefined ? savedDraft.profileImage : dbProfile?.profile_image ?? null,
+  )
+  const [avatarId, setAvatarId] = useState<string | null>(
+    savedDraft?.avatarId !== undefined
+      ? savedDraft.avatarId
+      : dbProfile?.avatar_id ?? (dbProfile?.profile_image ? null : DEFAULT_AVATAR_ID),
+  )
+  const [publicSlug, setPublicSlug] = useState<string>(savedDraft?.publicSlug ?? dbProfile?.public_slug ?? '')
+
+  // About
+  const [bio, setBio] = useState<string>(savedDraft?.bio ?? dbProfile?.bio ?? '')
+  const [businessExperience, setBusinessExperience] = useState<string>(
+    savedDraft?.businessExperience ?? dbProfile?.business_experience ?? '',
+  )
+  const [location, setLocation] = useState<string>(savedDraft?.location ?? dbProfile?.location ?? '')
+
+  // Social
+  const [selectedPlatforms, setSelectedPlatforms] = useState<SocialPlatform[]>(initialSocialPlatforms)
+  const [socialValues, setSocialValues] = useState<Partial<Record<SocialPlatform, string>>>(initialSocialValues)
+
+  // Business-specific & custom links
+  const [businessLinks, setBusinessLinks] = useState<CustomBusinessLinkDraft[]>(initialBusinessLinks)
+  const [newLinkPlatform, setNewLinkPlatform] = useState<SocialPlatform>('google_reviews')
+  const [newLinkTitle, setNewLinkTitle] = useState<string>(BUSINESS_LINK_TEMPLATES[0].defaultTitle)
+  const [newLinkUrl, setNewLinkUrl] = useState<string>('')
+  const [newLinkIcon, setNewLinkIcon] = useState<string>('link')
+  const [newLinkPlaceholder, setNewLinkPlaceholder] = useState<string>(BUSINESS_LINK_TEMPLATES[0].placeholder)
+  const [linkErr, setLinkErr] = useState<string | null>(null)
+  const [dragIdx, setDragIdx] = useState<number | null>(null)
+
+  // Contact details & visibility
+  const [contactPhone, setContactPhone] = useState<string>(savedDraft?.contactPhone ?? dbProfile?.contact_phone ?? '')
+  const [whatsappNumber, setWhatsappNumber] = useState<string>(
+    savedDraft?.whatsappNumber ?? dbProfile?.whatsapp_number ?? '',
+  )
+  const [contactEmail, setContactEmail] = useState<string>(savedDraft?.contactEmail ?? dbProfile?.contact_email ?? '')
+  const [fullAddress, setFullAddress] = useState<string>(savedDraft?.fullAddress ?? dbProfile?.full_address ?? '')
+  const [googleMapsUrl, setGoogleMapsUrl] = useState<string>(
+    savedDraft?.googleMapsUrl ?? dbProfile?.google_maps_url ?? '',
+  )
+  const [workingHours, setWorkingHours] = useState<string>(savedDraft?.workingHours ?? dbProfile?.working_hours ?? '')
+  const [visibility, setVisibility] = useState<ContactVisibility>(
+    savedDraft?.visibility ?? dbProfile?.contact_visibility ?? DEFAULT_VISIBILITY,
+  )
+
+  const [theme, setTheme] = useState<ProfileTheme>(savedDraft?.theme ?? (dbProfile?.theme === 'dark' ? 'dark' : 'light'))
+
+  const [slugStatus, setSlugStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle')
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
+  const [copiedUrl, setCopiedUrl] = useState(false)
+
+  const slugTimer = useRef<number | null>(null)
+  const resolvedCategory =
+    businessCategory === 'Other' && customCategory.trim() ? customCategory.trim() : businessCategory
+
+  // Persist draft in sessionStorage
+  useEffect(() => {
+    if (step >= 9) return
+    try {
+      sessionStorage.setItem(
+        draftKey(qrNumber),
+        JSON.stringify({
+          step,
+          businessCategory,
+          customCategory,
+          businessName,
+          tagline,
+          contactPersonName,
+          profileImage,
+          avatarId,
+          publicSlug,
+          bio,
+          businessExperience,
+          location,
+          selectedPlatforms,
+          socialValues,
+          businessLinks,
+          contactPhone,
+          whatsappNumber,
+          contactEmail,
+          fullAddress,
+          googleMapsUrl,
+          workingHours,
+          visibility,
+          theme,
+        }),
+      )
+    } catch {
+      // ignore storage errors
+    }
+  }, [
+    qrNumber,
+    step,
+    businessCategory,
+    customCategory,
+    businessName,
+    tagline,
+    contactPersonName,
+    profileImage,
+    avatarId,
+    publicSlug,
+    bio,
+    businessExperience,
+    location,
+    selectedPlatforms,
+    socialValues,
+    businessLinks,
+    contactPhone,
+    whatsappNumber,
+    contactEmail,
+    fullAddress,
+    googleMapsUrl,
+    workingHours,
+    visibility,
+    theme,
+  ])
+
+  useEffect(() => {
+    const clean = normalizePublicSlug(publicSlug)
+    if (!clean) {
+      setSlugStatus('idle')
+      return
+    }
+    if (!isValidPublicSlug(clean)) {
+      setSlugStatus('invalid')
+      return
+    }
+    setSlugStatus('checking')
+    if (slugTimer.current) window.clearTimeout(slugTimer.current)
+    slugTimer.current = window.setTimeout(async () => {
+      const res = await checkPublicSlugAvailable(sessionToken, clean)
+      if (!res.checked) setSlugStatus('idle')
+      else setSlugStatus(res.available ? 'available' : res.reason === 'invalid_slug' ? 'invalid' : 'taken')
+    }, 350)
+    return () => {
+      if (slugTimer.current) window.clearTimeout(slugTimer.current)
+    }
+  }, [publicSlug, sessionToken])
+
+  useEffect(() => {
+    if (step !== 9) return
+    let cancelled = false
+    generateQrDataUrl(qrNumber).then((url) => {
+      if (!cancelled) setQrDataUrl(url)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [step, qrNumber])
+
+  const goToStep = useCallback((nextStep: number) => {
+    setError(null)
+    setStep(nextStep)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [])
+
+  function togglePlatform(id: SocialPlatform) {
+    setSelectedPlatforms((prev) => (prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]))
+  }
+
+  async function handleLogoUpload(file: File | null) {
+    if (!file) return
+    setError(null)
+    try {
+      const compressed = await compressProfileImage(file)
+      setProfileImage(compressed)
+      setAvatarId(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not process logo image.')
+    }
+  }
+
+  function applyBusinessTemplate(tplId: string) {
+    const tpl = BUSINESS_LINK_TEMPLATES.find((t) => t.id === tplId)
+    if (!tpl) return
+    setNewLinkPlatform(tpl.platform)
+    setNewLinkTitle(tpl.defaultTitle)
+    setNewLinkIcon(tpl.icon || 'link')
+    setNewLinkPlaceholder(tpl.placeholder)
+    setLinkErr(null)
+  }
+
+  function handleAddBusinessLink() {
+    setLinkErr(null)
+    const validation = validatePlatformLinkUrl(newLinkPlatform, newLinkUrl)
+    if (!validation.ok) {
+      setLinkErr(validation.error)
+      return
+    }
+    const cleanTitle = newLinkTitle.trim() || getPlatformMeta(newLinkPlatform).defaultTitle
+    if (cleanTitle.length > 80) {
+      setLinkErr('Link title must be 80 characters or fewer.')
+      return
+    }
+    const dup = businessLinks.some(
+      (l) =>
+        l.platform === newLinkPlatform &&
+        l.destination_url.toLowerCase() === validation.normalizedUrl.toLowerCase(),
+    )
+    if (dup) {
+      setLinkErr('You already added this exact link.')
+      return
+    }
+    setBusinessLinks((prev) => [
+      ...prev,
+      {
+        id: `biz-link-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        platform: newLinkPlatform,
+        link_title: cleanTitle,
+        destination_url: validation.normalizedUrl,
+        icon: newLinkPlatform === 'custom' ? newLinkIcon : null,
+        is_active: true,
+      },
+    ])
+    setNewLinkUrl('')
+  }
+
+  function moveBusinessLink(idx: number, delta: -1 | 1) {
+    const nextIdx = idx + delta
+    if (nextIdx < 0 || nextIdx >= businessLinks.length) return
+    setBusinessLinks((prev) => {
+      const copy = [...prev]
+      const [item] = copy.splice(idx, 1)
+      copy.splice(nextIdx, 0, item)
+      return copy
+    })
+  }
+
+  function handleDropLink(targetIdx: number) {
+    if (dragIdx === null || dragIdx === targetIdx) {
+      setDragIdx(null)
+      return
+    }
+    setBusinessLinks((prev) => {
+      const copy = [...prev]
+      const [moved] = copy.splice(dragIdx, 1)
+      copy.splice(targetIdx, 0, moved)
+      return copy
+    })
+    setDragIdx(null)
+  }
+
+  function buildCombinedLinks() {
+    const out: Array<{
+      platform: SocialPlatform
+      link_title: string
+      destination_url: string
+      icon: string | null
+      is_active: boolean
+    }> = []
+    const seen = new Set<string>()
+
+    for (const pid of selectedPlatforms) {
+      const raw = (socialValues[pid] || '').trim()
+      if (!raw) continue
+      const res = validatePlatformLinkUrl(pid, raw)
+      if (!res.ok) continue
+      const key = `${pid}|${res.normalizedUrl.toLowerCase()}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      out.push({
+        platform: pid,
+        link_title: getPlatformMeta(pid).defaultTitle,
+        destination_url: res.normalizedUrl,
+        icon: null,
+        is_active: true,
+      })
+    }
+
+    for (const l of businessLinks) {
+      const key = `${l.platform}|${l.destination_url.toLowerCase()}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      out.push({
+        platform: l.platform,
+        link_title: l.link_title,
+        destination_url: l.destination_url,
+        icon: l.icon,
+        is_active: l.is_active,
+      })
+    }
+
+    return out
+  }
+
+  function validateSocialStep(): boolean {
+    for (const pid of selectedPlatforms) {
+      const raw = (socialValues[pid] || '').trim()
+      if (!raw) continue // skippable!
+      const res = validatePlatformLinkUrl(pid, raw)
+      if (!res.ok) {
+        setError(`${getPlatformMeta(pid).label}: ${res.error}`)
+        return false
+      }
+    }
+    return true
+  }
+
+  function validateContactStep(): boolean {
+    setError(null)
+    if (contactPhone.trim() && !isValidContactPhone(contactPhone)) {
+      setError('Please enter a valid business phone number.')
+      return false
+    }
+    if (whatsappNumber.trim() && !isValidContactPhone(whatsappNumber)) {
+      setError('Please enter a valid WhatsApp number with country code.')
+      return false
+    }
+    if (contactEmail.trim() && !isValidContactEmail(contactEmail)) {
+      setError('Please enter a valid business email address.')
+      return false
+    }
+    const cleanMaps = googleMapsUrl.trim() ? normalizeDestinationUrl(googleMapsUrl) : ''
+    if (cleanMaps && !isValidDestinationUrl(cleanMaps)) {
+      setError('Please enter a valid https:// Google Maps link.')
+      return false
+    }
+    if (cleanMaps) setGoogleMapsUrl(cleanMaps)
+    return true
+  }
+
+  async function handlePublish() {
+    if (!businessName.trim()) {
+      setError('Business name is required.')
+      goToStep(2)
+      return
+    }
+    if (!validateContactStep()) return
+
+    const cleanMaps = googleMapsUrl.trim() ? normalizeDestinationUrl(googleMapsUrl) : null
+    const cleanSlug = normalizePublicSlug(publicSlug) || null
+
+    setSaving(true)
+    setSaveStatus('saving')
+    setError(null)
+
+    const res = await saveBusinessProfile({
+      sessionToken,
+      qrNumber,
+      previousSlug: dbProfile?.public_slug,
+      businessName: businessName.trim(),
+      businessCategory: resolvedCategory || null,
+      location: location.trim() || null,
+      tagline: tagline.trim() || null,
+      bio: bio.trim() || null,
+      profileImage,
+      avatarId: profileImage ? null : avatarId,
+      contactEmail: contactEmail.trim() || null,
+      contactPhone: contactPhone.trim() || null,
+      contactPersonName: contactPersonName.trim() || null,
+      businessExperience: businessExperience.trim() || null,
+      whatsappNumber: whatsappNumber.trim() || null,
+      fullAddress: fullAddress.trim() || null,
+      workingHours: workingHours.trim() || null,
+      googleMapsUrl: cleanMaps,
+      contactVisibility: visibility,
+      publicSlug: cleanSlug,
+      theme,
+      isPublished: true,
+      links: buildCombinedLinks(),
+    })
+
+    setSaving(false)
+    if (!res.ok) {
+      setSaveStatus('error')
+      setError(res.error || 'Could not publish your Business Profile.')
+      return
+    }
+
+    setSaveStatus('saved')
+    try {
+      sessionStorage.removeItem(draftKey(qrNumber))
+    } catch {
+      // ignore
+    }
+    await onRefresh()
+    goToStep(9)
+  }
+
+  const previewProfile: PublicProfileData = useMemo(
+    () => ({
+      profile_type: 'business',
+      profile_name: businessName.trim() || 'Elevate Realty',
+      business_category: resolvedCategory || 'Real Estate',
+      location: location.trim() || null,
+      business_experience: businessExperience.trim() || null,
+      contact_person_name: visibility.contact_person ? contactPersonName.trim() || null : null,
+      tagline: tagline.trim() || null,
+      bio: bio.trim() || null,
+      profile_image: profileImage,
+      avatar_id: profileImage ? null : avatarId,
+      contact_email: visibility.email ? contactEmail.trim() || null : null,
+      contact_phone: visibility.phone ? contactPhone.trim() || null : null,
+      whatsapp_number: visibility.whatsapp ? whatsappNumber.trim() || null : null,
+      full_address: visibility.address ? fullAddress.trim() || null : null,
+      google_maps_url: visibility.maps && googleMapsUrl.trim() ? normalizeDestinationUrl(googleMapsUrl) : null,
+      working_hours: visibility.hours ? workingHours.trim() || null : null,
+      public_slug: normalizePublicSlug(publicSlug) || null,
+      theme,
+    }),
+    [
+      businessName,
+      resolvedCategory,
+      location,
+      businessExperience,
+      visibility,
+      contactPersonName,
+      tagline,
+      bio,
+      profileImage,
+      avatarId,
+      contactEmail,
+      contactPhone,
+      whatsappNumber,
+      fullAddress,
+      googleMapsUrl,
+      workingHours,
+      publicSlug,
+      theme,
+    ],
+  )
+
+  const previewLinks: PublicLinkItem[] = useMemo(
+    () =>
+      buildCombinedLinks()
+        .filter((l) => l.is_active)
+        .map((l, idx) => ({
+          id: `prev-${idx}`,
+          platform: l.platform,
+          link_title: l.link_title,
+          destination_url: l.destination_url,
+          icon: l.icon,
+          display_order: idx,
+        })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedPlatforms, socialValues, businessLinks],
+  )
+
+  const liveProfileUrl = profilePublicUrl(normalizePublicSlug(publicSlug) || qrNumber)
+  const permanentQrUrl = qrPublicUrl(qrNumber)
+
+  return (
+    <OnboardingLayout
+      qrNumber={qrNumber}
+      currentStep={step}
+      totalSteps={9}
+      stepLabel={STEP_LABELS[step] ?? 'Business Setup'}
+      saveStatus={saveStatus}
+      onBack={step > 1 && step < 9 ? () => goToStep(step - 1) : undefined}
+      onLogout={onLogout}
+    >
+      {/* STEP 1: BUSINESS CATEGORY */}
+      {step === 1 && (
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-[26px] sm:text-[32px] font-bold tracking-[-0.025em] leading-[1.15] text-[#141413]">
+              What Type of Business Do You Have?
+            </h1>
+            <p className="mt-2 text-[15px] text-[#5C5B57]">
+              Select a category that best describes your business. This helps tailor your Business Profile layout.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {BUSINESS_CATEGORY_OPTIONS.map((cat) => {
+              const selected = businessCategory === cat.label
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setBusinessCategory(cat.label)}
+                  className={`relative flex items-start gap-3 rounded-2xl border p-4 text-left transition-all ${
+                    selected
+                      ? 'border-[#141413] bg-white ring-1 ring-[#141413] shadow-xs'
+                      : 'border-[#E6E4DF] bg-white/80 hover:border-[#CBC8C0] hover:bg-white'
+                  }`}
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F7F6F3] border border-[#E6E4DF]">
+                    <Briefcase className="h-4 w-4 text-[#141413]" />
+                  </span>
+                  <div className="pr-5">
+                    <p className="text-sm font-bold text-[#141413]">{cat.label}</p>
+                    <p className="mt-0.5 text-xs text-[#6F6E69]">{cat.examples}</p>
+                  </div>
+                  <span
+                    className={`absolute top-3.5 right-3.5 flex h-4 w-4 items-center justify-center rounded-full border ${
+                      selected ? 'border-[#141413] bg-[#141413] text-white' : 'border-[#D5D2CA] text-transparent'
+                    }`}
+                  >
+                    <Check className="h-2.5 w-2.5 stroke-[3]" />
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+
+          {businessCategory === 'Other' && (
+            <div className="rounded-2xl border border-[#E6E4DF] bg-white p-4">
+              <label className="mb-1.5 block text-xs font-semibold text-[#141413]">
+                Describe your business type (Optional)
+              </label>
+              <input
+                value={customCategory}
+                onChange={(e) => setCustomCategory(e.target.value)}
+                maxLength={60}
+                placeholder="e.g. Architecture Studio, Event Planner"
+                className="w-full rounded-xl border border-[#E6E4DF] px-3.5 py-2.5 text-sm text-[#141413] focus:border-[#141413] focus:outline-none"
+              />
+            </div>
+          )}
+
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => goToStep(2)}
+              className="inline-flex h-12 items-center gap-2 rounded-xl bg-[#141413] px-6 text-sm font-semibold text-white hover:bg-[#2A2A28]"
+            >
+              <span>Continue</span>
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 2: BUSINESS IDENTITY */}
+      {step === 2 && (
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-[26px] sm:text-[32px] font-bold tracking-[-0.025em] leading-[1.15] text-[#141413]">
+              Create Your Business Identity
+            </h1>
+            <p className="mt-2 text-[15px] text-[#5C5B57]">
+              This information forms the hero header of your public Business Profile.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-[#E6E4DF] bg-white p-5 sm:p-6 space-y-5">
+            <div>
+              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-[#141413]">
+                <Building2 className="h-4 w-4 text-[#5C5B57]" />
+                <span>Business Name *</span>
+              </label>
+              <input
+                value={businessName}
+                onChange={(e) => {
+                  setBusinessName(e.target.value)
+                  setError(null)
+                }}
+                maxLength={80}
+                placeholder="e.g. Elevate Realty"
+                className="w-full rounded-xl border border-[#E6E4DF] px-4 py-3 text-sm font-semibold text-[#141413] focus:border-[#141413] focus:outline-none"
+              />
+            </div>
+
+            <div className="space-y-2.5">
+              <label className="block text-xs font-semibold text-[#141413]">
+                Business Logo or Category Avatar (Optional)
+              </label>
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[#E6E4DF] bg-[#FAF9F7] px-3.5 py-2.5 text-xs font-semibold text-[#141413] hover:border-[#141413]">
+                  <ImagePlus className="h-4 w-4 text-[#5E4AE3]" />
+                  <span>{profileImage ? 'Change Uploaded Logo' : 'Upload Business Logo'}</span>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    className="hidden"
+                    onChange={(e) => handleLogoUpload(e.target.files?.[0] ?? null)}
+                  />
+                </label>
+                {profileImage && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProfileImage(null)
+                      setAvatarId(DEFAULT_AVATAR_ID)
+                    }}
+                    className="text-xs font-medium text-rose-600 hover:underline"
+                  >
+                    Use curated avatar instead
+                  </button>
+                )}
+              </div>
+              {!profileImage && (
+                <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                  {CURATED_AVATARS.slice(0, 10).map((av) => (
+                    <button
+                      key={av.id}
+                      type="button"
+                      onClick={() => setAvatarId(av.id)}
+                      className={`h-11 w-11 shrink-0 overflow-hidden rounded-xl border-2 transition-all ${
+                        avatarId === av.id ? 'border-[#141413] scale-105' : 'border-transparent opacity-70 hover:opacity-100'
+                      }`}
+                    >
+                      <img src={av.src} alt={av.label} className="h-full w-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-[#141413]">
+                  Tagline (Optional)
+                </label>
+                <input
+                  value={tagline}
+                  onChange={(e) => setTagline(e.target.value)}
+                  maxLength={80}
+                  placeholder="Premium Properties. Trusted Guidance."
+                  className="w-full rounded-xl border border-[#E6E4DF] px-3.5 py-2.5 text-sm text-[#141413] focus:border-[#141413] focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-[#141413]">
+                  <User className="h-3.5 w-3.5 text-[#5C5B57]" />
+                  <span>Contact Person Name (Optional)</span>
+                </label>
+                <input
+                  value={contactPersonName}
+                  onChange={(e) => setContactPersonName(e.target.value)}
+                  maxLength={80}
+                  placeholder="e.g. Aditya Sharma"
+                  className="w-full rounded-xl border border-[#E6E4DF] px-3.5 py-2.5 text-sm text-[#141413] focus:border-[#141413] focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-[#141413]">
+                Custom Profile URL Handle (Optional)
+              </label>
+              <div className="flex items-center rounded-xl border border-[#E6E4DF] bg-[#FAF9F7] px-3.5">
+                <span className="text-xs font-mono text-[#6F6E69] shrink-0">spreadnfc.in/p/</span>
+                <input
+                  value={publicSlug}
+                  onChange={(e) => setPublicSlug(normalizePublicSlug(e.target.value))}
+                  placeholder="elevate-realty"
+                  className="w-full bg-transparent px-1 py-2.5 text-sm font-mono text-[#141413] focus:outline-none"
+                />
+              </div>
+              {slugStatus === 'available' && <p className="mt-1 text-xs text-emerald-700 font-medium">Handle available.</p>}
+              {slugStatus === 'taken' && <p className="mt-1 text-xs text-rose-600 font-medium">Already taken.</p>}
+              {slugStatus === 'invalid' && (
+                <p className="mt-1 text-xs text-rose-600 font-medium">Use 3–40 lowercase letters, numbers, hyphens, or underscores.</p>
+              )}
+            </div>
+          </div>
+
+          {error && <p className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-medium text-rose-700">{error}</p>}
+
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                if (!businessName.trim()) {
+                  setError('Please enter your Business Name to continue.')
+                  return
+                }
+                if (slugStatus === 'taken' || slugStatus === 'invalid') {
+                  setError('Please fix or clear your custom handle.')
+                  return
+                }
+                goToStep(3)
+              }}
+              className="inline-flex h-12 items-center gap-2 rounded-xl bg-[#141413] px-6 text-sm font-semibold text-white hover:bg-[#2A2A28]"
+            >
+              <span>Continue</span>
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 3: BUSINESS ABOUT */}
+      {step === 3 && (
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-[26px] sm:text-[32px] font-bold tracking-[-0.025em] leading-[1.15] text-[#141413]">
+              Tell Customers About Your Business
+            </h1>
+            <p className="mt-2 text-[15px] text-[#5C5B57]">
+              All fields below are optional—share a crisp overview or skip straight ahead.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-[#E6E4DF] bg-white p-5 sm:p-6 space-y-5">
+            <div>
+              <div className="mb-1.5 flex items-center justify-between">
+                <label className="text-xs font-semibold text-[#141413]">About Your Business (Optional)</label>
+                <span className="font-mono text-[11px] text-[#6F6E69]">{bio.length}/280</span>
+              </div>
+              <textarea
+                rows={4}
+                maxLength={280}
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                placeholder="e.g. Elevate Realty helps individuals and investors discover quality residential and commercial properties with transparent guidance."
+                className="w-full rounded-xl border border-[#E6E4DF] px-4 py-3 text-sm text-[#141413] leading-relaxed focus:border-[#141413] focus:outline-none"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-[#141413]">
+                  <Award className="h-3.5 w-3.5 text-amber-600" />
+                  <span>Business Experience (Optional)</span>
+                </label>
+                <input
+                  value={businessExperience}
+                  onChange={(e) => setBusinessExperience(e.target.value)}
+                  maxLength={60}
+                  placeholder="e.g. 10+ Years Experience"
+                  className="w-full rounded-xl border border-[#E6E4DF] px-3.5 py-2.5 text-sm text-[#141413] focus:border-[#141413] focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-[#141413]">
+                  <MapPin className="h-3.5 w-3.5 text-emerald-600" />
+                  <span>City / Location (Optional)</span>
+                </label>
+                <input
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  maxLength={80}
+                  placeholder="e.g. Lucknow"
+                  className="w-full rounded-xl border border-[#E6E4DF] px-3.5 py-2.5 text-sm text-[#141413] focus:border-[#141413] focus:outline-none"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => goToStep(4)}
+              className="text-xs font-semibold text-[#6F6E69] hover:text-[#141413]"
+            >
+              Skip this step →
+            </button>
+            <button
+              type="button"
+              onClick={() => goToStep(4)}
+              className="inline-flex h-12 items-center gap-2 rounded-xl bg-[#141413] px-6 text-sm font-semibold text-white hover:bg-[#2A2A28]"
+            >
+              <span>Continue</span>
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 4: SELECT SOCIAL MEDIA PLATFORMS */}
+      {step === 4 && (
+        <PlatformSelector
+          selected={selectedPlatforms}
+          onToggle={togglePlatform}
+          onContinue={() => goToStep(selectedPlatforms.length > 0 ? 5 : 6)}
+          onSkip={() => goToStep(6)}
+        />
+      )}
+
+      {/* STEP 5: ADD SOCIAL MEDIA LINKS (ONLY SELECTED PLATFORMS) */}
+      {step === 5 && (
+        <div className="space-y-6">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h1 className="text-[26px] sm:text-[32px] font-bold tracking-[-0.025em] leading-[1.15] text-[#141413]">
+                Add Your Social Media Links
+              </h1>
+              <p className="mt-2 text-[15px] text-[#5C5B57]">
+                Enter handles, phone numbers, or URLs. You can skip or remove any platform anytime.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => goToStep(4)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-[#E6E4DF] bg-white px-3.5 py-2 text-xs font-semibold text-[#141413] hover:border-[#141413]"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Add / Change Platforms</span>
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {selectedPlatforms.map((pid) => {
+              const meta = getPlatformMeta(pid)
+              return (
+                <div key={pid} className="rounded-2xl border border-[#E6E4DF] bg-white p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="inline-flex items-center gap-2 text-xs font-bold text-[#141413]">
+                      <PlatformIcon platform={pid} size={18} />
+                      <span>{meta.label}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => togglePlatform(pid)}
+                      className="text-xs font-medium text-rose-600 hover:underline"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <div className="relative flex items-center">
+                    <span className="absolute left-3 pointer-events-none">
+                      <PlatformIcon platform={pid} size={16} />
+                    </span>
+                    <input
+                      value={socialValues[pid] ?? ''}
+                      onChange={(e) => {
+                        setSocialValues((prev) => ({ ...prev, [pid]: e.target.value }))
+                        setError(null)
+                      }}
+                      placeholder={meta.placeholder}
+                      className="w-full rounded-xl border border-[#E6E4DF] pl-10 pr-3.5 py-2.5 text-sm text-[#141413] focus:border-[#141413] focus:outline-none"
+                    />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {error && <p className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-medium text-rose-700">{error}</p>}
+
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                if (!validateSocialStep()) return
+                goToStep(6)
+              }}
+              className="inline-flex h-12 items-center gap-2 rounded-xl bg-[#141413] px-6 text-sm font-semibold text-white hover:bg-[#2A2A28]"
+            >
+              <span>Continue to Business Links</span>
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 6: ADD BUSINESS-SPECIFIC & CUSTOM LINKS */}
+      {step === 6 && (
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-[26px] sm:text-[32px] font-bold tracking-[-0.025em] leading-[1.15] text-[#141413]">
+              Add Your Business Links
+            </h1>
+            <p className="mt-2 text-[15px] text-[#5C5B57]">
+              Add Google Reviews, Google Maps, Website, Menu, Booking, Payment, or any Custom Links—and drag to reorder.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-[#E6E4DF] bg-white p-5 space-y-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#6F6E69]">
+              Quick Templates
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {BUSINESS_LINK_TEMPLATES.map((tpl) => (
+                <button
+                  key={tpl.id}
+                  type="button"
+                  onClick={() => applyBusinessTemplate(tpl.id)}
+                  className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-all ${
+                    newLinkTitle === tpl.defaultTitle
+                      ? 'border-[#141413] bg-[#141413] text-white'
+                      : 'border-[#E6E4DF] bg-[#FAF9F7] text-[#141413] hover:border-[#141413]/40'
+                  }`}
+                >
+                  <PlatformIcon platform={tpl.platform} customIcon={tpl.icon} size={14} />
+                  <span>{tpl.label}</span>
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => {
+                  setNewLinkPlatform('custom')
+                  setNewLinkTitle('')
+                  setNewLinkIcon('link')
+                  setNewLinkPlaceholder('https://example.com/your-link')
+                  setLinkErr(null)
+                }}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-[#141413]/40 bg-white px-3 py-2 text-xs font-semibold text-[#141413]"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>Custom Link</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-[#141413]">Link Title *</label>
+                <input
+                  value={newLinkTitle}
+                  onChange={(e) => setNewLinkTitle(e.target.value)}
+                  maxLength={80}
+                  placeholder="e.g. View Our Projects"
+                  className="w-full rounded-xl border border-[#E6E4DF] px-3 py-2.5 text-xs text-[#141413] focus:border-[#141413] focus:outline-none"
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-xs font-semibold text-[#141413]">Destination URL *</label>
+                <div className="flex gap-2">
+                  <input
+                    value={newLinkUrl}
+                    onChange={(e) => {
+                      setNewLinkUrl(e.target.value)
+                      setLinkErr(null)
+                    }}
+                    placeholder={newLinkPlaceholder}
+                    className="flex-1 rounded-xl border border-[#E6E4DF] px-3 py-2.5 text-xs font-mono text-[#141413] focus:border-[#141413] focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddBusinessLink}
+                    className="inline-flex items-center gap-1 rounded-xl bg-[#5E4AE3] px-4 py-2.5 text-xs font-bold text-white hover:bg-[#4B38C9] shrink-0"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Add</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {newLinkPlatform === 'custom' && (
+              <div className="flex flex-wrap gap-1.5">
+                {CUSTOM_LINK_ICONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setNewLinkIcon(opt.id)}
+                    className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-medium ${
+                      newLinkIcon === opt.id
+                        ? 'border-[#141413] bg-[#F7F6F3] text-[#141413]'
+                        : 'border-[#E6E4DF] text-[#6F6E69]'
+                    }`}
+                  >
+                    <PlatformIcon platform="custom" customIcon={opt.id} size={13} />
+                    <span>{opt.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {linkErr && <p className="text-xs font-medium text-rose-600">{linkErr}</p>}
+          </div>
+
+          <div className="rounded-2xl border border-[#E6E4DF] bg-white p-5 space-y-2.5">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#6F6E69]">
+              Added Business &amp; Custom Links ({businessLinks.length})
+            </p>
+            {businessLinks.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-[#E6E4DF] p-5 text-center text-xs text-[#6F6E69]">
+                No business links added yet. Use the templates above or skip to continue.
+              </p>
+            ) : (
+              businessLinks.map((item, idx) => (
+                <div
+                  key={item.id}
+                  draggable
+                  onDragStart={() => setDragIdx(idx)}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => handleDropLink(idx)}
+                  className="flex items-center justify-between gap-2 rounded-xl border border-[#E6E4DF] bg-[#FAF9F7] px-3 py-2.5"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <GripVertical className="h-4 w-4 text-[#9E9C96] cursor-grab shrink-0" />
+                    <PlatformIcon platform={item.platform} customIcon={item.icon} size={18} />
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-[#141413] truncate">{item.link_title}</p>
+                      <p className="text-[11px] font-mono text-[#6F6E69] truncate">{item.destination_url}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => moveBusinessLink(idx, -1)}
+                      disabled={idx === 0}
+                      className="rounded-lg p-1.5 text-[#5C5B57] hover:bg-white disabled:opacity-30"
+                    >
+                      <ArrowUp className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveBusinessLink(idx, 1)}
+                      disabled={idx === businessLinks.length - 1}
+                      className="rounded-lg p-1.5 text-[#5C5B57] hover:bg-white disabled:opacity-30"
+                    >
+                      <ArrowDown className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBusinessLinks((prev) => prev.filter((l) => l.id !== item.id))}
+                      className="rounded-lg p-1.5 text-rose-600 hover:bg-rose-50"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="flex items-center justify-between">
+            <button type="button" onClick={() => goToStep(7)} className="text-xs font-semibold text-[#6F6E69] hover:text-[#141413]">
+              Skip this step →
+            </button>
+            <button
+              type="button"
+              onClick={() => goToStep(7)}
+              className="inline-flex h-12 items-center gap-2 rounded-xl bg-[#141413] px-6 text-sm font-semibold text-white hover:bg-[#2A2A28]"
+            >
+              <span>Continue to Contact Details</span>
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 7: BUSINESS CONTACT DETAILS & PUBLIC VISIBILITY */}
+      {step === 7 && (
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-[26px] sm:text-[32px] font-bold tracking-[-0.025em] leading-[1.15] text-[#141413]">
+              How Can Customers Contact You?
+            </h1>
+            <p className="mt-2 text-[15px] text-[#5C5B57]">
+              Every field is optional, and you can toggle whether each detail appears publicly on your profile.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-[#E6E4DF] bg-white p-5 sm:p-6 space-y-4">
+            <ContactFieldRow
+              icon={Phone}
+              label="Phone Number"
+              value={contactPhone}
+              onChange={setContactPhone}
+              placeholder="+91 98765 43210"
+              visible={visibility.phone}
+              onToggle={() => setVisibility((v) => ({ ...v, phone: !v.phone }))}
+            />
+            <ContactFieldRow
+              icon={Phone}
+              label="WhatsApp Number"
+              value={whatsappNumber}
+              onChange={setWhatsappNumber}
+              placeholder="+91 98765 43210"
+              visible={visibility.whatsapp}
+              onToggle={() => setVisibility((v) => ({ ...v, whatsapp: !v.whatsapp }))}
+            />
+            <ContactFieldRow
+              icon={Mail}
+              label="Business Email"
+              value={contactEmail}
+              onChange={setContactEmail}
+              placeholder="hello@yourbusiness.com"
+              visible={visibility.email}
+              onToggle={() => setVisibility((v) => ({ ...v, email: !v.email }))}
+            />
+            <ContactFieldRow
+              icon={MapPin}
+              label="Full Business Address"
+              value={fullAddress}
+              onChange={setFullAddress}
+              placeholder="Suite 402, Gomti Nagar, Lucknow"
+              visible={visibility.address}
+              onToggle={() => setVisibility((v) => ({ ...v, address: !v.address }))}
+            />
+            <ContactFieldRow
+              icon={MapPin}
+              label="Google Maps Location URL"
+              value={googleMapsUrl}
+              onChange={setGoogleMapsUrl}
+              placeholder="https://maps.app.goo.gl/..."
+              visible={visibility.maps}
+              onToggle={() => setVisibility((v) => ({ ...v, maps: !v.maps }))}
+            />
+            <ContactFieldRow
+              icon={Clock}
+              label="Working Hours"
+              value={workingHours}
+              onChange={setWorkingHours}
+              placeholder="Mon–Sat: 10:00 AM – 7:00 PM"
+              visible={visibility.hours}
+              onToggle={() => setVisibility((v) => ({ ...v, hours: !v.hours }))}
+            />
+          </div>
+
+          {error && <p className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-medium text-rose-700">{error}</p>}
+
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                if (!validateContactStep()) return
+                goToStep(8)
+              }}
+              className="inline-flex h-12 items-center gap-2 rounded-xl bg-[#141413] px-6 text-sm font-semibold text-white hover:bg-[#2A2A28]"
+            >
+              <span>Preview Business Profile</span>
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 8: LIVE BUSINESS PROFILE PREVIEW */}
+      {step === 8 && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h1 className="text-[26px] sm:text-[32px] font-bold tracking-[-0.025em] leading-[1.15] text-[#141413]">
+                Preview Your Business Profile
+              </h1>
+              <p className="mt-1 text-sm text-[#5C5B57]">
+                This is your actual public profile. Publish to make <span className="font-mono font-semibold">{qrNumber}</span> live.
+              </p>
+            </div>
+            <div className="inline-flex rounded-xl border border-[#E6E4DF] bg-white p-1 self-start">
+              <button
+                type="button"
+                onClick={() => setTheme('light')}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                  theme === 'light' ? 'bg-[#141413] text-white' : 'text-[#5C5B57]'
+                }`}
+              >
+                <Sun className="h-3.5 w-3.5" /> Light
+              </button>
+              <button
+                type="button"
+                onClick={() => setTheme('dark')}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                  theme === 'dark' ? 'bg-[#141413] text-white' : 'text-[#5C5B57]'
+                }`}
+              >
+                <Moon className="h-3.5 w-3.5" /> Dark
+              </button>
+            </div>
+          </div>
+
+          <div className="mx-auto max-w-[390px] rounded-[34px] border-[6px] border-[#141413] bg-[#141413] p-1 shadow-2xl overflow-hidden">
+            <div className="h-[560px] overflow-y-auto rounded-[28px]">
+              <PublicProfileView
+                profile={previewProfile}
+                links={previewLinks}
+                qrNumber={qrNumber}
+                previewMode
+                onThemeChange={setTheme}
+              />
+            </div>
+          </div>
+
+          {error && <p className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-medium text-rose-700">{error}</p>}
+
+          <div className="flex justify-center">
+            <button
+              type="button"
+              disabled={saving}
+              onClick={handlePublish}
+              className="inline-flex h-12 min-w-[250px] items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 text-sm font-bold text-white hover:bg-emerald-700 shadow-lg disabled:opacity-60"
+            >
+              {saving && <Spinner size={16} />}
+              <span>{saving ? 'Publishing…' : 'Publish Business Profile'}</span>
+              {!saving && <ArrowRight className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 9: PUBLISH CONFIRMATION */}
+      {step === 9 && (
+        <div className="rounded-3xl border border-[#E6E4DF] bg-white p-6 sm:p-8 text-center space-y-6 shadow-sm">
+          <div className="space-y-2">
+            <span className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700">
+              <CheckCircle2 className="h-6 w-6" />
+            </span>
+            <h1 className="text-[28px] font-bold tracking-tight text-[#141413]">
+              Your Business Profile Is Ready!
+            </h1>
+            <p className="mx-auto max-w-md text-sm text-[#5C5B57]">
+              Scanning QR <span className="font-mono font-bold text-[#141413]">{qrNumber}</span> now opens your published Business Profile.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-[#E6E4DF] bg-[#FAF9F7] p-4 space-y-3">
+            <p className="text-[11px] font-mono uppercase tracking-wider text-[#6F6E69]">
+              Public Profile URL
+            </p>
+            <p className="font-mono text-xs font-semibold text-[#141413] break-all">{liveProfileUrl}</p>
+            <div className="flex flex-wrap justify-center gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  await navigator.clipboard.writeText(liveProfileUrl)
+                  setCopiedUrl(true)
+                  setTimeout(() => setCopiedUrl(false), 1500)
+                }}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-[#E6E4DF] bg-white px-3.5 py-2 text-xs font-semibold text-[#141413]"
+              >
+                {copiedUrl ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                <span>{copiedUrl ? 'Copied' : 'Copy Profile Link'}</span>
+              </button>
+              <a
+                href={liveProfileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-[#E6E4DF] bg-white px-3.5 py-2 text-xs font-semibold text-[#141413]"
+              >
+                <span>Open Profile</span>
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+              <a
+                href={permanentQrUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[#141413] px-4 py-2 text-xs font-semibold text-white"
+              >
+                <span>Test QR</span>
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-5 border-t border-[#E6E4DF] pt-5">
+            <div className="h-32 w-32 rounded-2xl border border-[#E6E4DF] bg-white p-2 flex items-center justify-center">
+              {qrDataUrl ? <img src={qrDataUrl} alt={`QR ${qrNumber}`} className="h-full w-full object-contain" /> : <Spinner size={22} />}
+            </div>
+            <div className="space-y-2 text-center sm:text-left">
+              <p className="font-mono text-sm font-bold text-[#141413]">{qrNumber}</p>
+              <div className="flex flex-wrap justify-center sm:justify-start gap-2">
+                <button
+                  type="button"
+                  onClick={() => downloadSingleQr(qrNumber, 'png')}
+                  className="inline-flex items-center gap-1 rounded-xl border border-[#E6E4DF] bg-[#FAF9F7] px-3 py-1.5 text-xs font-semibold text-[#141413]"
+                >
+                  <Download className="h-3.5 w-3.5" /> PNG
+                </button>
+                <button
+                  type="button"
+                  onClick={() => downloadSingleQr(qrNumber, 'svg')}
+                  className="inline-flex items-center gap-1 rounded-xl border border-[#E6E4DF] bg-[#FAF9F7] px-3 py-1.5 text-xs font-semibold text-[#141413]"
+                >
+                  <Download className="h-3.5 w-3.5" /> SVG
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onCompleteToEditor}
+            className="inline-flex items-center gap-2 rounded-xl bg-electric px-6 py-3 text-sm font-bold text-white hover:bg-electric-hover shadow-md"
+          >
+            <Pencil className="h-4 w-4" />
+            <span>Open Business Profile Editor</span>
+          </button>
+        </div>
+      )}
+    </OnboardingLayout>
+  )
+}
+
+function ContactFieldRow({
+  icon: Icon,
+  label,
+  value,
+  onChange,
+  placeholder,
+  visible,
+  onToggle,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  value: string
+  onChange: (val: string) => void
+  placeholder: string
+  visible: boolean
+  onToggle: () => void
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#141413]">
+          <Icon className="h-3.5 w-3.5 text-[#5C5B57]" />
+          <span>{label}</span>
+        </label>
+        <button
+          type="button"
+          onClick={onToggle}
+          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold border transition-colors ${
+            visible
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+              : 'border-zinc-200 bg-zinc-100 text-zinc-600'
+          }`}
+        >
+          {visible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+          <span>{visible ? 'Public' : 'Hidden'}</span>
+        </button>
+      </div>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full rounded-xl border border-[#E6E4DF] px-3.5 py-2.5 text-sm text-[#141413] focus:border-[#141413] focus:outline-none"
+      />
+    </div>
+  )
+}

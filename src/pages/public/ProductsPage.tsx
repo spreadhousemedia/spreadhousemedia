@@ -60,11 +60,9 @@ export function ProductsPage() {
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selectedProduct) return
-    const generatedOrderNum = `ORD-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`
-    
-    // Save to Database / Backend
-    await ecommerceDb.createOrder({
-      orderNumber: generatedOrderNum,
+
+    const created = await ecommerceDb.createOrder({
+      orderNumber: '',
       customerName: cardholderName,
       customerEmail: customerEmail,
       customerPhone: customerPhone,
@@ -78,11 +76,11 @@ export function ProductsPage() {
       companyName: companyTitle,
       destinationUrl: destinationUrl,
       customFinish: selectedColor || selectedProduct.colors[0]?.name || 'Standard Finish',
-      paymentStatus: 'paid',
+      paymentStatus: 'pending',
       orderStatus: 'pending_verification',
     })
 
-    setOrderRef(generatedOrderNum)
+    setOrderRef(created.orderNumber)
     setOrderSubmitted(true)
   }
 

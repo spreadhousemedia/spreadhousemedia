@@ -271,6 +271,10 @@ export function EditQrModal({ row, onClose, onSaved }: EditQrModalProps) {
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold bg-indigo-100 text-indigo-800 text-[11px]">
                 <User className="h-3 w-3" /> Personal Profile
               </span>
+            ) : usageType === 'business_profile' ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold bg-violet-100 text-violet-800 text-[11px]">
+                <Building2 className="h-3 w-3" /> Business Profile
+              </span>
             ) : usageType === 'business' ? (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold bg-sky-100 text-sky-800 text-[11px]">
                 <Building2 className="h-3 w-3" /> Business Direct Redirect
@@ -282,7 +286,7 @@ export function EditQrModal({ row, onClose, onSaved }: EditQrModalProps) {
             )}
           </div>
 
-          {usageType === 'personal' && row.qr_profiles && (
+          {(usageType === 'personal' || usageType === 'business_profile') && row.qr_profiles && (
             <div className="pt-2 border-t theme-border flex items-center justify-between gap-2 text-[11px]">
               <div className="theme-text-muted">
                 <strong className="theme-text-main">{row.qr_profiles.profile_name || row.qr_number}</strong>{' '}
@@ -305,7 +309,7 @@ export function EditQrModal({ row, onClose, onSaved }: EditQrModalProps) {
 
           <div className="pt-1 flex flex-wrap items-center gap-1.5">
             <span className="text-[11px] theme-text-muted mr-1">Support Mode Switch:</span>
-            {usageType !== 'personal' && (
+            {usageType !== 'personal' && usageType !== 'business_profile' && (
               <button
                 type="button"
                 onClick={() => setPendingModeSwitch('personal')}
@@ -320,7 +324,16 @@ export function EditQrModal({ row, onClose, onSaved }: EditQrModalProps) {
                 onClick={() => setPendingModeSwitch('business')}
                 className="rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-700 hover:bg-sky-100"
               >
-                Switch to Business
+                Switch to Direct Link
+              </button>
+            )}
+            {usageType !== 'business_profile' && (
+              <button
+                type="button"
+                onClick={() => setPendingModeSwitch('business_profile')}
+                className="rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-700 hover:bg-violet-100"
+              >
+                Switch to Business Profile
               </button>
             )}
             {usageType !== null && (
@@ -409,7 +422,7 @@ export function EditQrModal({ row, onClose, onSaved }: EditQrModalProps) {
             </div>
           )}
 
-          {usageType !== 'personal' && (
+          {usageType !== 'personal' && usageType !== 'business_profile' && (
             <div>
               <label className="theme-text-main mb-1 block text-xs font-semibold uppercase tracking-wider">
                 Destination Link

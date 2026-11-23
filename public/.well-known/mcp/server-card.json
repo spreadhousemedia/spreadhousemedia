@@ -1,0 +1,76 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schemas/server-card/v1",
+  "protocolVersion": "2025-06-18",
+  "serverInfo": {
+    "name": "spreadnfc-mcp",
+    "version": "1.0.0",
+    "title": "Spread NFC Public & QR Discovery Server"
+  },
+  "name": "spreadnfc-mcp",
+  "version": "1.0.0",
+  "title": "Spread NFC Public & QR Discovery Server",
+  "description": "Machine-readable public catalog, support ticket tracking, and dynamic QR status discovery for Spread NFC (spreadnfc.in).",
+  "homepage": "https://spreadnfc.in",
+  "endpoint": "https://spreadnfc.in/api/mcp",
+  "transport": {
+    "type": "streamable-http",
+    "url": "https://spreadnfc.in/api/mcp"
+  },
+  "capabilities": {
+    "tools": {
+      "listChanged": false
+    },
+    "resources": {
+      "subscribe": false,
+      "listChanged": false
+    }
+  },
+  "tools": [
+    {
+      "name": "list_nfc_products",
+      "description": "List available Spread NFC smart cards, standees, and epoxy tags with pricing and specifications.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": "string",
+            "enum": ["all", "cards", "standees", "tags"]
+          }
+        }
+      }
+    },
+    {
+      "name": "lookup_qr_status",
+      "description": "Check whether a Spread NFC QR serial number exists and is active or claimed (returns no private data).",
+      "inputSchema": {
+        "type": "object",
+        "required": ["qr_number"],
+        "properties": {
+          "qr_number": {
+            "type": "string",
+            "description": "Printed QR serial number such as TF-1001"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_public_profile",
+      "description": "Fetch a published Spread NFC Personal or Business Profile by handle or QR number.",
+      "inputSchema": {
+        "type": "object",
+        "required": ["identifier"],
+        "properties": {
+          "identifier": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  ],
+  "contact": {
+    "email": "contact@spreadnfc.in",
+    "telephone": "+91 93510 42276",
+    "url": "https://spreadnfc.in/contact"
+  }
+}
+

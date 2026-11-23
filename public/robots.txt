@@ -1,8 +1,15 @@
 User-agent: *
+Content-Signal: search=yes, ai-train=no
 Allow: /
+Allow: /about
 Allow: /products
 Allow: /support
 Allow: /contact
 Allow: /update
+Allow: /privacy
+Allow: /terms
+Allow: /llms.txt
+Allow: /.well-known/mcp/server-card.json
+Disallow: /q/
 
 Sitemap: https://spreadnfc.in/sitemap.xml

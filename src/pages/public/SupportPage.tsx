@@ -40,13 +40,9 @@ export function SupportPage() {
   const handleSubmitTicket = async (e: React.FormEvent) => {
     e.preventDefault()
     setSubmitting(true)
-    const ticketId = `TKT-${Math.floor(10000 + Math.random() * 90000)}`
-    
-    // Save to Database
-    // Map TypeScript 'normal' priority to DB-valid 'medium' for the CHECK constraint
     const dbPriority = priority === 'normal' ? 'normal' : priority
     const newTicket = await ecommerceDb.createTicket({
-      ticketNumber: ticketId,
+      ticketNumber: '',
       customerName: name,
       customerEmail: email,
       customerPhone: phone,
@@ -57,7 +53,7 @@ export function SupportPage() {
       description,
       status: 'open',
       priority: dbPriority,
-      resolutionNotes: 'Assigned to Spread NFC Hardware & Redirection Support Desk. Estimated turnaround: 2-4 hours.',
+      resolutionNotes: 'Assigned to Spread NFC Hardware & Redirection Support Desk.',
     })
 
     setCreatedTicket(newTicket)

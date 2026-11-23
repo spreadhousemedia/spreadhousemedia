@@ -242,6 +242,135 @@ try {
   assert.equal(mockDb.adminSetUsageType({ p_qr_id: bizQrRecord.id, p_usage_type: 'personal' }).data.ok, true)
   assert.equal(mockDb.getQrs().find((q) => q.qr_number === 'BIZ-900').destination_url, 'https://spreadcafe.in')
 
+  console.log('6. Testing Google Reviews / Maps Validation & Private Host SSRF Blocking...')
+  assert.equal(validation.validatePlatformLinkUrl('google_reviews', 'https://g.page/r/elevate/review').ok, true)
+  assert.equal(validation.validatePlatformLinkUrl('google_reviews', 'https://evil.com/phish').ok, false)
+  assert.equal(validation.validatePlatformLinkUrl('google_maps', 'https://maps.app.goo.gl/xyz123').ok, true)
+  assert.equal(validation.validatePlatformLinkUrl('custom', 'http://127.0.0.1:8080/admin').ok, false)
+  assert.equal(validation.validatePlatformLinkUrl('custom', 'http://172.16.0.10/internal').ok, false)
+  assert.equal(validation.validatePlatformLinkUrl('custom', 'http://169.254.169.254/latest/meta-data').ok, false)
+
+  console.log('7. Testing Business Profile (B2) Lifecycle, Mode Lock & Draft Privacy (BP-200)...')
+  assert.equal(
+    mockDb.createSingleQr({
+      p_qr_number: 'BP-200',
+      p_qr_name: 'Elevate Realty Card',
+      p_password: 'TF-BP20',
+    }).data.ok,
+    true,
+  )
+  const bpClaim = mockDb.claimQr({
+    p_qr_number: 'BP-200',
+    p_setup_code: 'TF-BP20',
+    p_new_password: 'realtypass1',
+  })
+  assert.equal(bpClaim.data.ok, true)
+  const bpToken = bpClaim.data.session_token
+
+  assert.equal(mockDb.selectUsageMode({ p_session_token: bpToken, p_usage_type: 'business_profile' }).data.ok, true)
+  // Mode lock check: cannot switch to personal or business direct link
+  assert.equal(mockDb.selectUsageMode({ p_session_token: bpToken, p_usage_type: 'business' }).data.error, 'mode_locked')
+  assert.equal(mockDb.selectUsageMode({ p_session_token: bpToken, p_usage_type: 'personal' }).data.error, 'mode_locked')
+
+  // Reject invalid email or phone
+  assert.equal(
+    mockDb.saveBusinessProfile({
+      p_session_token: bpToken,
+      p_business_name: 'Elevate Realty',
+      p_contact_email: 'not-an-email',
+      p_links: [],
+    }).data.error,
+    'invalid_contact_email',
+  )
+
+  // Save draft Business Profile -> must NOT leak links publicly
+  const bpDraft = mockDb.saveBusinessProfile({
+    p_session_token: bpToken,
+    p_business_name: 'Elevate Realty',
+    p_business_category: 'Real Estate',
+    p_location: 'Lucknow',
+    p_tagline: 'Premium properties. Trusted guidance.',
+    p_bio: 'Residential and commercial advisory.',
+    p_contact_email: 'hello@elevaterealty.in',
+    p_contact_phone: '+91 98765 43210',
+    p_public_slug: 'elevate-realty',
+    p_theme: 'light',
+    p_is_published: false,
+    p_links: [
+      { platform: 'google_reviews', link_title: 'Google Reviews', destination_url: 'https://g.page/r/elevate/review', is_active: true },
+    ],
+  })
+  assert.equal(bpDraft.data.ok, true)
+  const bpDraftPub = mockDb.getPublicProfile({ p_identifier: 'elevate-realty' })
+  assert.equal(bpDraftPub.data.is_published, false)
+  assert.equal(bpDraftPub.data.links, undefined)
+
+  // Publish Business Profile -> resolves by slug and QR number, returns business fields + links in order
+  // Also tests contact_visibility privacy toggle (email hidden while phone/whatsapp/address/maps/hours remain public)
+  const bpPublish = mockDb.saveBusinessProfile({
+    p_session_token: bpToken,
+    p_business_name: 'Elevate Realty',
+    p_business_category: 'Real Estate',
+    p_location: 'Lucknow',
+    p_tagline: 'Premium properties. Trusted guidance.',
+    p_bio: 'Residential and commercial advisory.',
+    p_contact_person_name: 'Aditya Sharma',
+    p_business_experience: '10+ Years',
+    p_contact_email: 'private@elevaterealty.in',
+    p_contact_phone: '+91 98765 43210',
+    p_whatsapp_number: '+91 98765 43210',
+    p_full_address: 'Gomti Nagar, Lucknow',
+    p_working_hours: 'Mon-Sat 10AM-7PM',
+    p_google_maps_url: 'https://maps.app.goo.gl/elevate',
+    p_contact_visibility: {
+      phone: true,
+      whatsapp: true,
+      email: false,
+      address: true,
+      maps: true,
+      hours: true,
+      contact_person: true,
+    },
+    p_public_slug: 'elevate-realty',
+    p_theme: 'dark',
+    p_is_published: true,
+    p_links: [
+      { platform: 'google_reviews', link_title: 'Leave a Google Review', destination_url: 'https://g.page/r/elevate/review', is_active: true },
+      { platform: 'google_maps', link_title: 'Visit Our Office', destination_url: 'https://maps.app.goo.gl/elevate', is_active: true },
+      { platform: 'whatsapp', link_title: 'WhatsApp Us', destination_url: 'https://wa.me/919876543210', is_active: true },
+    ],
+  })
+  assert.equal(bpPublish.data.ok, true)
+
+  const bpPublic = mockDb.getPublicProfile({ p_identifier: 'elevate-realty' })
+  assert.equal(bpPublic.data.ok, true)
+  assert.equal(bpPublic.data.is_published, true)
+  assert.equal(bpPublic.data.profile.profile_type, 'business')
+  assert.equal(bpPublic.data.profile.business_category, 'Real Estate')
+  assert.equal(bpPublic.data.profile.location, 'Lucknow')
+  assert.equal(bpPublic.data.profile.business_experience, '10+ Years')
+  assert.equal(bpPublic.data.profile.contact_person_name, 'Aditya Sharma')
+  assert.equal(bpPublic.data.profile.contact_email, null)
+  assert.equal(bpPublic.data.profile.contact_phone, '+91 98765 43210')
+  assert.equal(bpPublic.data.profile.whatsapp_number, '+91 98765 43210')
+  assert.equal(bpPublic.data.profile.full_address, 'Gomti Nagar, Lucknow')
+  assert.equal(bpPublic.data.links.length, 3)
+  assert.equal(validation.BUSINESS_CATEGORY_OPTIONS.length, 10)
+  assert.equal(validation.BUSINESS_LINK_TEMPLATES.length, 10)
+
+  const bpRedirect = mockDb.getQrRedirect({ p_qr_number: 'BP-200' })
+  assert.equal(bpRedirect.data[0].usage_type, 'business_profile')
+  assert.equal(bpRedirect.data[0].public_slug, 'elevate-realty')
+
+  console.log('8. Testing Multi-QR Secure Summary & Forged Token Rejection...')
+  const multiSummary = mockDb.getMultiQrSummary({
+    p_session_tokens: [personalToken, bpToken, 'forged-invalid-token-123'],
+  })
+  assert.equal(multiSummary.data.ok, true)
+  assert.equal(multiSummary.data.items.length, 2)
+  assert.equal(multiSummary.data.items.some((i) => i.qr_number === 'Z103'), true)
+  assert.equal(multiSummary.data.items.some((i) => i.qr_number === 'BP-200'), true)
+
   console.log('\n✅ ALL MULTI-LINK & SECURITY VERIFICATION TESTS PASSED!')
 } finally {
   rmSync(tmpDir, { recursive: true, force: true })

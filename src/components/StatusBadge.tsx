@@ -22,7 +22,7 @@ export function StatusBadge({
     )
   }
 
-  if (usageType === 'personal') {
+  if (usageType === 'personal' || usageType === 'business_profile') {
     if (!isPublished) {
       return (
         <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold border bg-amber-50 text-amber-700 border-amber-200/80">
