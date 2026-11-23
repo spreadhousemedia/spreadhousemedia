@@ -193,7 +193,7 @@ export function ModeSelector({ qrNumber, submitting, error, onSelect }: ModeSele
       <div className="mt-5 rounded-xl border border-surface-border bg-ghost px-3.5 py-2.5 flex items-start gap-2 text-xs text-ink-secondary">
         <Lock className="h-4 w-4 shrink-0 text-lavender-deep mt-0.5" />
         <span>
-          Your selected mode is locked after setup to protect your QR behavior. Only authorized support can switch modes later.
+          You can switch between Personal Profile, Business Profile, or Direct Link — or reset your QR — anytime from Account Settings.
         </span>
       </div>
 
