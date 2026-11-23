@@ -1,9 +1,11 @@
+import type { PersonalThemeConfig } from '../../lib/profileThemes'
 import type { PublicLinkItem } from '../../types'
 import { SocialIconTile } from './SocialIconTile'
 
 interface SocialIconGridProps {
   links: PublicLinkItem[]
   isDark: boolean
+  theme?: PersonalThemeConfig
 }
 
 function getGridContainerClass(count: number): string {
@@ -14,7 +16,7 @@ function getGridContainerClass(count: number): string {
   return 'max-w-[280px] min-[400px]:max-w-[348px] sm:max-w-[366px]'
 }
 
-export function SocialIconGrid({ links, isDark }: SocialIconGridProps) {
+export function SocialIconGrid({ links, isDark, theme }: SocialIconGridProps) {
   if (links.length === 0) return null
 
   return (
@@ -25,7 +27,7 @@ export function SocialIconGrid({ links, isDark }: SocialIconGridProps) {
         )}`}
       >
         {links.map((link) => (
-          <SocialIconTile key={link.id} link={link} isDark={isDark} />
+          <SocialIconTile key={link.id} link={link} isDark={isDark} theme={theme} />
         ))}
       </div>
     </section>

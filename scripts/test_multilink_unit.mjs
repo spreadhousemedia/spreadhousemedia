@@ -371,6 +371,35 @@ try {
   assert.equal(multiSummary.data.items.some((i) => i.qr_number === 'Z103'), true)
   assert.equal(multiSummary.data.items.some((i) => i.qr_number === 'BP-200'), true)
 
+  console.log('9. Testing Self-Service Profile Mode Switch & Funky Personal Themes...')
+  const swToPersonal = mockDb.switchUsageMode({ p_session_token: bpToken, p_usage_type: 'personal' })
+  assert.equal(swToPersonal.data.ok, true)
+  assert.equal(swToPersonal.data.usage_type, 'personal')
+  const bpAfterPersonal = mockDb.getCustomerDashboard({ p_session_token: bpToken })
+  assert.equal(bpAfterPersonal.data.qr.usage_type, 'personal')
+  assert.equal(bpAfterPersonal.data.profile.profile_type, 'personal')
+  assert.equal(bpAfterPersonal.data.links.length, 3)
+
+  const swToDirect = mockDb.switchUsageMode({ p_session_token: bpToken, p_usage_type: 'business' })
+  assert.equal(swToDirect.data.ok, true)
+  assert.equal(mockDb.getCustomerDashboard({ p_session_token: bpToken }).data.qr.usage_type, 'business')
+
+  const swBackBiz = mockDb.switchUsageMode({ p_session_token: bpToken, p_usage_type: 'business_profile' })
+  assert.equal(swBackBiz.data.ok, true)
+  assert.equal(mockDb.getCustomerDashboard({ p_session_token: bpToken }).data.links.length, 3)
+
+  const funkySave = mockDb.savePersonalProfile({
+    p_session_token: personalToken,
+    p_profile_name: 'Aarav Creator',
+    p_theme: 'per_pop_yellow',
+    p_is_published: true,
+    p_links: [
+      { platform: 'instagram', link_title: 'Instagram', destination_url: 'https://instagram.com/aarav', is_active: true },
+    ],
+  })
+  assert.equal(funkySave.data.ok, true)
+  assert.equal(mockDb.getPublicProfile({ p_identifier: 'Z103' }).data.profile.theme, 'per_pop_yellow')
+
   console.log('\n✅ ALL MULTI-LINK & SECURITY VERIFICATION TESTS PASSED!')
 } finally {
   rmSync(tmpDir, { recursive: true, force: true })

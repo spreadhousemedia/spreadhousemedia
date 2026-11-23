@@ -19,7 +19,8 @@ BEGIN
     RETURN v_clean = ANY(ARRAY[
         'light', 'dark',
         'biz_ivory', 'biz_obsidian', 'biz_sage', 'biz_slate', 'biz_sand', 'biz_emerald_dark',
-        'per_paper', 'per_ink', 'per_terracotta', 'per_ocean', 'per_blush', 'per_moss'
+        'per_paper', 'per_ink', 'per_terracotta', 'per_ocean', 'per_blush', 'per_moss',
+        'per_pop_yellow', 'per_arcade_mint', 'per_sunset_coral', 'per_cobalt_vibe'
     ]);
 END;
 $$;
@@ -489,4 +490,76 @@ $$;
 GRANT EXECUTE ON FUNCTION public.is_valid_profile_theme(TEXT) TO anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.customer_save_personal_profile(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, BOOLEAN, JSONB, TEXT, TEXT) TO anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.customer_save_business_profile(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, BOOLEAN, JSONB, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, JSONB) TO anon, authenticated, service_role;
+
+-- 5. Self-Service Customer Profile Mode Switcher (Preserves existing links, profile & URL data)
+CREATE OR REPLACE FUNCTION public.customer_switch_usage_mode(
+    p_session_token TEXT,
+    p_usage_type TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions, pg_temp
+AS $$
+DECLARE
+    v_qr_id UUID;
+    v_qr RECORD;
+BEGIN
+    v_qr_id := public.verify_customer_session(p_session_token);
+    IF v_qr_id IS NULL THEN
+        RETURN jsonb_build_object('ok', false, 'error', 'unauthorized');
+    END IF;
+
+    IF p_usage_type IS NULL OR p_usage_type NOT IN ('personal', 'business', 'business_profile') THEN
+        RETURN jsonb_build_object('ok', false, 'error', 'invalid_usage_type');
+    END IF;
+
+    SELECT id, qr_number, qr_name, business_name
+    INTO v_qr
+    FROM public.qr_codes
+    WHERE id = v_qr_id
+    FOR UPDATE;
+
+    IF v_qr IS NULL THEN
+        RETURN jsonb_build_object('ok', false, 'error', 'not_found');
+    END IF;
+
+    UPDATE public.qr_codes
+    SET usage_type = p_usage_type,
+        updated_at = now()
+    WHERE id = v_qr_id;
+
+    IF p_usage_type = 'personal' THEN
+        INSERT INTO public.qr_profiles (qr_code_id, profile_type, profile_name, theme)
+        VALUES (
+            v_qr_id,
+            'personal',
+            COALESCE(NULLIF(v_qr.qr_name, ''), v_qr.qr_number),
+            'per_paper'
+        )
+        ON CONFLICT (qr_code_id) DO UPDATE SET
+            profile_type = 'personal',
+            updated_at = now();
+    ELSIF p_usage_type = 'business_profile' THEN
+        INSERT INTO public.qr_profiles (qr_code_id, profile_type, profile_name, theme)
+        VALUES (
+            v_qr_id,
+            'business',
+            COALESCE(NULLIF(v_qr.business_name, ''), NULLIF(v_qr.qr_name, ''), v_qr.qr_number),
+            'biz_ivory'
+        )
+        ON CONFLICT (qr_code_id) DO UPDATE SET
+            profile_type = 'business',
+            updated_at = now();
+    END IF;
+
+    RETURN jsonb_build_object(
+        'ok', true,
+        'qr_number', v_qr.qr_number,
+        'usage_type', p_usage_type
+    );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.customer_switch_usage_mode(TEXT, TEXT) TO anon, authenticated, service_role;
 

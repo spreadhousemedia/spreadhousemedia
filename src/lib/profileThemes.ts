@@ -27,6 +27,7 @@ export interface PersonalThemeConfig {
   id: PersonalThemeId
   name: string
   description: string
+  category: 'professional' | 'funky'
   isDark: boolean
   canvas: string
   card: string
@@ -35,6 +36,8 @@ export interface PersonalThemeConfig {
   muted: string
   accent: string
   subtleSurface: string
+  tactileShadow?: string
+  borderWidth?: number
   swatch: [string, string, string]
 }
 
@@ -145,6 +148,7 @@ export const PERSONAL_THEMES: PersonalThemeConfig[] = [
     id: 'per_paper',
     name: 'Minimal Paper',
     description: 'Crisp warm paper',
+    category: 'professional',
     isDark: false,
     canvas: '#F7F6F3',
     card: '#FFFFFF',
@@ -159,6 +163,7 @@ export const PERSONAL_THEMES: PersonalThemeConfig[] = [
     id: 'per_ink',
     name: 'Noir Studio',
     description: 'Low-glare matte charcoal',
+    category: 'professional',
     isDark: true,
     canvas: '#0E0E10',
     card: '#18181B',
@@ -173,6 +178,7 @@ export const PERSONAL_THEMES: PersonalThemeConfig[] = [
     id: 'per_terracotta',
     name: 'Warm Clay',
     description: 'Sunlit earth & terracotta',
+    category: 'professional',
     isDark: false,
     canvas: '#FBF5F0',
     card: '#FFFFFF',
@@ -187,6 +193,7 @@ export const PERSONAL_THEMES: PersonalThemeConfig[] = [
     id: 'per_ocean',
     name: 'Coastal Mist',
     description: 'Airy slate blue',
+    category: 'professional',
     isDark: false,
     canvas: '#F2F7FA',
     card: '#FFFFFF',
@@ -201,6 +208,7 @@ export const PERSONAL_THEMES: PersonalThemeConfig[] = [
     id: 'per_blush',
     name: 'Soft Rose',
     description: 'Minimal editorial rose',
+    category: 'professional',
     isDark: false,
     canvas: '#FCF5F7',
     card: '#FFFFFF',
@@ -215,6 +223,7 @@ export const PERSONAL_THEMES: PersonalThemeConfig[] = [
     id: 'per_moss',
     name: 'Botanical Olive',
     description: 'Grounded natural sage',
+    category: 'professional',
     isDark: false,
     canvas: '#F4F6F0',
     card: '#FFFFFF',
@@ -224,6 +233,74 @@ export const PERSONAL_THEMES: PersonalThemeConfig[] = [
     accent: '#35503A',
     subtleSurface: '#E7ECE0',
     swatch: ['#F4F6F0', '#35503A', '#19241B'],
+  },
+  {
+    id: 'per_pop_yellow',
+    name: 'Citrus Pop',
+    description: 'Sunny yellow & bold ink',
+    category: 'funky',
+    isDark: false,
+    canvas: '#FFE566',
+    card: '#FFFDF4',
+    border: '#181816',
+    ink: '#181816',
+    muted: '#4A4637',
+    accent: '#181816',
+    subtleSurface: '#FFF3B0',
+    tactileShadow: '3px 3px 0 #181816',
+    borderWidth: 2,
+    swatch: ['#FFE566', '#FFFDF4', '#181816'],
+  },
+  {
+    id: 'per_arcade_mint',
+    name: 'Mint Arcade',
+    description: 'Fresh neon mint & pine',
+    category: 'funky',
+    isDark: false,
+    canvas: '#D6FCEB',
+    card: '#FFFFFF',
+    border: '#0E2920',
+    ink: '#0E2920',
+    muted: '#335E50',
+    accent: '#059669',
+    subtleSurface: '#B9F7DC',
+    tactileShadow: '3px 3px 0 #0E2920',
+    borderWidth: 2,
+    swatch: ['#D6FCEB', '#059669', '#0E2920'],
+  },
+  {
+    id: 'per_sunset_coral',
+    name: 'Sunset Coral',
+    description: 'Warm peach & punchy coral',
+    category: 'funky',
+    isDark: false,
+    canvas: '#FFE8DC',
+    card: '#FFFBF8',
+    border: '#2B140E',
+    ink: '#2B140E',
+    muted: '#734438',
+    accent: '#F95738',
+    subtleSurface: '#FFD7C2',
+    tactileShadow: '3px 3px 0 #2B140E',
+    borderWidth: 2,
+    swatch: ['#FFE8DC', '#F95738', '#2B140E'],
+  },
+  {
+    id: 'per_cobalt_vibe',
+    name: 'Cobalt Spark',
+    description: 'Electric blue & crisp ink',
+    category: 'funky',
+    isDark: false,
+    canvas: '#E5EEFF',
+    card: '#FFFFFF',
+    border: '#0F1B4C',
+    ink: '#0F1B4C',
+    muted: '#3B4C85',
+    accent: '#2563EB',
+    subtleSurface: '#D1E0FF',
+    tactileShadow: '3px 3px 0 #0F1B4C',
+    borderWidth: 2,
+    swatch: ['#E5EEFF', '#2563EB', '#0F1B4C'],
   },
 ]
 

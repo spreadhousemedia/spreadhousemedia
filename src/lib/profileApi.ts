@@ -279,3 +279,26 @@ export async function fetchPublicProfile(identifier: string): Promise<{
   return { data: data as GetPublicProfileRpcResult, error: false }
 }
 
+export async function switchCustomerUsageMode(
+  sessionToken: string,
+  qrNumber: string,
+  usageType: UsageType,
+): Promise<{ ok: boolean; error?: string; usageType?: UsageType }> {
+  const { data, error } = await supabase.rpc('customer_switch_usage_mode', {
+    p_session_token: sessionToken,
+    p_usage_type: usageType,
+  })
+
+  if (error || !data?.ok) {
+    return { ok: false, error: rpcErrorMessage(data?.error ?? error?.message) }
+  }
+
+  invalidateQrRedirectCache(qrNumber)
+  invalidateProfileCache(qrNumber)
+
+  return {
+    ok: true,
+    usageType: data.usage_type as UsageType,
+  }
+}
+

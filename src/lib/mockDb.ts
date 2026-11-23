@@ -838,6 +838,59 @@ export const mockDb = {
     return { data: { ok: true, usage_type: params.p_usage_type, qr_number: target.qr_number }, error: null }
   },
 
+  switchUsageMode(params: { p_session_token: string; p_usage_type: UsageType }) {
+    const qrId = verifySession(params.p_session_token)
+    if (!qrId) return { data: { ok: false, error: 'unauthorized' }, error: null }
+
+    if (
+      params.p_usage_type !== 'personal' &&
+      params.p_usage_type !== 'business' &&
+      params.p_usage_type !== 'business_profile'
+    ) {
+      return { data: { ok: false, error: 'invalid_usage_type' }, error: null }
+    }
+
+    const qrs = this.getQrs()
+    const target = qrs.find((q) => q.id === qrId)
+    if (!target) return { data: { ok: false, error: 'not_found' }, error: null }
+
+    target.usage_type = params.p_usage_type
+    target.updated_at = new Date().toISOString()
+    this.saveQrs(qrs)
+
+    if (params.p_usage_type === 'personal' || params.p_usage_type === 'business_profile') {
+      const profiles = this.getProfiles()
+      const existing = profiles.find((p) => p.qr_code_id === qrId)
+      const nextProfileType = params.p_usage_type === 'business_profile' ? 'business' : 'personal'
+      if (!existing) {
+        profiles.push({
+          id: 'prof-' + Date.now(),
+          qr_code_id: qrId,
+          profile_type: nextProfileType,
+          profile_name:
+            params.p_usage_type === 'business_profile'
+              ? target.business_name || target.qr_name || target.qr_number
+              : target.qr_name || target.qr_number,
+          profile_image: null,
+          bio: null,
+          contact_email: null,
+          contact_phone: null,
+          public_slug: null,
+          theme: params.p_usage_type === 'business_profile' ? 'biz_ivory' : 'per_paper',
+          is_published: false,
+        })
+      } else {
+        existing.profile_type = nextProfileType
+      }
+      this.saveProfiles(profiles)
+    }
+
+    return {
+      data: { ok: true, usage_type: params.p_usage_type, qr_number: target.qr_number },
+      error: null,
+    }
+  },
+
   savePersonalProfile(params: {
     p_session_token: string
     p_profile_name: string

@@ -309,7 +309,7 @@ export function EditQrModal({ row, onClose, onSaved }: EditQrModalProps) {
 
           <div className="pt-1 flex flex-wrap items-center gap-1.5">
             <span className="text-[11px] theme-text-muted mr-1">Support Mode Switch:</span>
-            {usageType !== 'personal' && usageType !== 'business_profile' && (
+            {usageType !== 'personal' && (
               <button
                 type="button"
                 onClick={() => setPendingModeSwitch('personal')}

@@ -179,7 +179,12 @@ export function BusinessDashboard({
       </div>
 
       {activeTab === 'account' ? (
-        <CustomerAccountSettings qrNumber={qrNumber} sessionToken={sessionToken} />
+        <CustomerAccountSettings
+          qrNumber={qrNumber}
+          sessionToken={sessionToken}
+          currentUsageType={dashboard.qr.usage_type}
+          onModeSwitched={onRefresh}
+        />
       ) : (
         <form onSubmit={handleSave} className="rounded-2xl border border-surface-border bg-white p-5 sm:p-7 shadow-xs space-y-6">
           <div>

@@ -475,6 +475,8 @@ export const supabase = {
           return mockDb.getCustomerDashboard(params)
         case 'customer_select_usage_mode':
           return mockDb.selectUsageMode(params)
+        case 'customer_switch_usage_mode':
+          return mockDb.switchUsageMode(params)
         case 'customer_save_personal_profile':
           return mockDb.savePersonalProfile(params)
         case 'customer_save_business_profile':

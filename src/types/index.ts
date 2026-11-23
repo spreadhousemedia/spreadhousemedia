@@ -23,6 +23,10 @@ export type PersonalThemeId =
   | 'per_ocean'
   | 'per_blush'
   | 'per_moss'
+  | 'per_pop_yellow'
+  | 'per_arcade_mint'
+  | 'per_sunset_coral'
+  | 'per_cobalt_vibe'
 
 export type ProfileTheme = 'light' | 'dark' | BusinessThemeId | PersonalThemeId
 

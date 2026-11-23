@@ -467,7 +467,12 @@ export function PersonalDashboard({
       </div>
 
       {activeTab === 'account' ? (
-        <CustomerAccountSettings qrNumber={qrNumber} sessionToken={sessionToken} />
+        <CustomerAccountSettings
+          qrNumber={qrNumber}
+          sessionToken={sessionToken}
+          currentUsageType={dashboard.qr.usage_type}
+          onModeSwitched={onRefresh}
+        />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* LEFT COLUMN: Editor */}

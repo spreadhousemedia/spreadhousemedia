@@ -80,9 +80,8 @@ export function PublicProfileView({
 
   return (
     <div
-      className={`${
-        previewMode ? 'min-h-full rounded-[28px]' : 'min-h-screen'
-      } flex flex-col justify-between transition-colors duration-200`}
+      className={`${previewMode ? 'min-h-full rounded-[28px]' : 'min-h-screen'
+        } flex flex-col justify-between transition-colors duration-200`}
       style={{ backgroundColor: personalTheme.canvas, color: personalTheme.ink }}
     >
       <div className={`mx-auto w-full max-w-[440px] ${previewMode ? 'px-5 pt-5 pb-6' : 'px-5 pt-5 sm:pt-8 pb-8'}`}>
@@ -123,9 +122,9 @@ export function PublicProfileView({
 
           <ProfileAbout bio={profile.bio} isDark={isDark} />
 
-          <SocialIconGrid links={socialLinks} isDark={isDark} />
+          <SocialIconGrid links={socialLinks} isDark={isDark} theme={personalTheme} />
 
-          <CustomLinkList links={featuredLinks} isDark={isDark} />
+          <CustomLinkList links={featuredLinks} isDark={isDark} theme={personalTheme} />
         </main>
       </div>
 

@@ -1104,7 +1104,12 @@ export function BusinessProfileDashboard({
                 </div>
               </div>
 
-              <CustomerAccountSettings qrNumber={qrNumber} sessionToken={sessionToken} />
+              <CustomerAccountSettings
+                qrNumber={qrNumber}
+                sessionToken={sessionToken}
+                currentUsageType={dashboard.qr.usage_type}
+                onModeSwitched={onRefresh}
+              />
             </div>
           )}
         </div>
