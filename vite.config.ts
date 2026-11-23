@@ -3,6 +3,12 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  server: {
+    proxy: {
+      '/api': 'http://localhost:3000',
+      '/q': 'http://localhost:3000',
+    },
+  },
   build: {
     target: 'esnext',
     minify: 'terser',
@@ -14,4 +20,3 @@ export default defineConfig({
     },
   },
 })
-

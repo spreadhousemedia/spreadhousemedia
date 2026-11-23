@@ -6,7 +6,7 @@
 > **Stack Alignment:** React (Vite) + Tailwind CSS + Supabase (PostgreSQL / RLS / Storage) + Payment Gateways (Razorpay / Stripe)  
 > **Status:** Approved for Implementation Planning (No Source Code Changes Applied)
 
----
+
 
 ## 1. Executive Summary & Business Architecture
 
