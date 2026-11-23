@@ -24,17 +24,20 @@ export function ModeSelector({ qrNumber, submitting, error, onSelect }: ModeSele
   const isBusinessGroup = selected === 'business' || selected === 'business_profile'
 
   return (
-    <div className="w-full max-w-3xl rounded-2xl border border-surface-border bg-white p-6 sm:p-9 shadow-xl relative z-10">
+    <div className="w-full max-w-3xl rounded-2xl border border-surface-border bg-white p-6 sm:p-9 shadow-editorial relative z-10">
       <div className="text-center">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-electric/10 border border-electric/20 px-3 py-1 text-[11px] font-mono font-bold uppercase tracking-wider text-electric">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-lavender-subtle border border-lavender-soft px-3 py-1 text-[11px] font-mono font-bold uppercase tracking-wider text-lavender-deep">
           <Sparkles className="h-3.5 w-3.5" />
           Step 2 · Choose Your QR Mode
         </span>
 
         <h1 className="mt-3 text-2xl sm:text-3xl font-extrabold text-ink tracking-tight">
-          Select Your QR Experience
+          Select Your{' '}
+          <span className="font-editorial italic font-normal text-lavender-deep">
+            QR Experience
+          </span>
         </h1>
-        <p className="mt-2 text-xs sm:text-sm text-ink-muted max-w-lg mx-auto leading-relaxed">
+        <p className="mt-2 text-xs sm:text-sm text-ink-secondary max-w-lg mx-auto leading-relaxed">
           Choose how <span className="font-mono font-bold text-ink">{qrNumber}</span> behaves when scanned or tapped via NFC.
         </p>
       </div>
@@ -46,33 +49,33 @@ export function ModeSelector({ qrNumber, submitting, error, onSelect }: ModeSele
           onClick={() => setSelected('personal')}
           className={`group text-left rounded-2xl border-2 p-5 transition-all flex flex-col justify-between ${
             selected === 'personal'
-              ? 'border-emerald-600 bg-emerald-50/40 shadow-sm'
-              : 'border-surface-border bg-white hover:border-zinc-300'
+              ? 'border-cetacean bg-lavender-subtle/45 shadow-sm'
+              : 'border-surface-border bg-white hover:border-lavender-deep/45'
           }`}
         >
           <div>
             <div className="flex items-start justify-between gap-2">
               <span
-                className={`flex h-11 w-11 items-center justify-center rounded-xl ${
+                className={`flex h-11 w-11 items-center justify-center rounded-xl transition-colors ${
                   selected === 'personal'
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-zinc-100 text-zinc-700 group-hover:bg-zinc-200'
+                    ? 'bg-cetacean text-white'
+                    : 'bg-ghost text-ink-secondary group-hover:bg-lavender-subtle'
                 }`}
               >
                 <User className="h-5 w-5" />
               </span>
               {selected === 'personal' && (
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-white">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-cetacean text-white">
                   <Check className="h-3.5 w-3.5" />
                 </span>
               )}
             </div>
 
-            <p className="mt-4 text-xs font-mono font-bold uppercase tracking-wider text-emerald-700">
+            <p className="mt-4 text-xs font-mono font-bold uppercase tracking-wider text-lavender-deep">
               A · Personal Profile
             </p>
             <h2 className="mt-1 text-lg font-bold text-ink">Share All Your Links in One Place</h2>
-            <p className="mt-1.5 text-xs text-ink-muted leading-relaxed">
+            <p className="mt-1.5 text-xs text-ink-secondary leading-relaxed">
               Build a personal digital identity with your curated avatar, social icons, custom links, and light/dark themes.
             </p>
             <ul className="mt-4 space-y-1.5 text-[11px] text-ink-secondary">
@@ -82,7 +85,7 @@ export function ModeSelector({ qrNumber, submitting, error, onSelect }: ModeSele
             </ul>
           </div>
 
-          <div className="mt-5 pt-3 border-t border-emerald-200/70 text-[11px] font-semibold text-emerald-800">
+          <div className="mt-5 pt-3 border-t border-surface-border text-[11px] font-semibold text-cetacean">
             QR opens your Personal Profile (/p/…)
           </div>
         </button>
@@ -91,20 +94,20 @@ export function ModeSelector({ qrNumber, submitting, error, onSelect }: ModeSele
         <div
           className={`rounded-2xl border-2 p-5 transition-all space-y-3 ${
             isBusinessGroup
-              ? 'border-electric bg-electric/[0.03] shadow-sm'
+              ? 'border-cetacean bg-lavender-subtle/40 shadow-sm'
               : 'border-surface-border bg-white'
           }`}
         >
           <div className="flex items-center gap-3">
             <span
-              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
-                isBusinessGroup ? 'bg-electric text-white' : 'bg-zinc-100 text-zinc-700'
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors ${
+                isBusinessGroup ? 'bg-cetacean text-white' : 'bg-ghost text-ink-secondary'
               }`}
             >
               <Building2 className="h-5 w-5" />
             </span>
             <div>
-              <p className="text-xs font-mono font-bold uppercase tracking-wider text-electric">
+              <p className="text-xs font-mono font-bold uppercase tracking-wider text-lavender-deep">
                 B · Business
               </p>
               <h2 className="text-base font-bold text-ink leading-tight">
@@ -119,15 +122,15 @@ export function ModeSelector({ qrNumber, submitting, error, onSelect }: ModeSele
             onClick={() => setSelected('business')}
             className={`w-full text-left rounded-xl border-2 p-3.5 transition-all ${
               selected === 'business'
-                ? 'border-sky-600 bg-sky-50/70'
-                : 'border-zinc-200 bg-white hover:border-zinc-300'
+                ? 'border-cetacean bg-white shadow-xs'
+                : 'border-surface-border bg-white hover:border-lavender-deep/45'
             }`}
           >
             <div className="flex items-start justify-between gap-2">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <span
                   className={`flex h-8 w-8 items-center justify-center rounded-lg ${
-                    selected === 'business' ? 'bg-sky-600 text-white' : 'bg-sky-50 text-sky-700'
+                    selected === 'business' ? 'bg-cetacean text-white' : 'bg-ghost text-lavender-deep'
                   }`}
                 >
                   <Zap className="h-4 w-4" />
@@ -138,7 +141,7 @@ export function ModeSelector({ qrNumber, submitting, error, onSelect }: ModeSele
                 </div>
               </div>
               {selected === 'business' && (
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-sky-600 text-white">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cetacean text-white">
                   <Check className="h-3 w-3" />
                 </span>
               )}
@@ -154,41 +157,41 @@ export function ModeSelector({ qrNumber, submitting, error, onSelect }: ModeSele
             onClick={() => setSelected('business_profile')}
             className={`w-full text-left rounded-xl border-2 p-3.5 transition-all ${
               selected === 'business_profile'
-                ? 'border-electric bg-electric/10'
-                : 'border-zinc-200 bg-white hover:border-zinc-300'
+                ? 'border-cetacean bg-white shadow-xs'
+                : 'border-surface-border bg-white hover:border-lavender-deep/45'
             }`}
           >
             <div className="flex items-start justify-between gap-2">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <span
                   className={`flex h-8 w-8 items-center justify-center rounded-lg ${
                     selected === 'business_profile'
-                      ? 'bg-electric text-white'
-                      : 'bg-indigo-50 text-indigo-700'
+                      ? 'bg-cetacean text-white'
+                      : 'bg-lavender-subtle text-lavender-deep'
                   }`}
                 >
                   <Briefcase className="h-4 w-4" />
                 </span>
                 <div>
-                  <p className="text-xs font-bold text-ink">B2. Business Profile (Multi-Link)</p>
-                  <p className="text-[11px] text-ink-muted">Show all your business links &amp; details</p>
+                  <p className="text-xs font-bold text-ink">B2. Business Profile (Storefront)</p>
+                  <p className="text-[11px] text-ink-muted">Executive multi-link storefront for your brand</p>
                 </div>
               </div>
               {selected === 'business_profile' && (
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-electric text-white">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cetacean text-white">
                   <Check className="h-3 w-3" />
                 </span>
               )}
             </div>
             <p className="mt-2 text-[11px] text-ink-secondary">
-              Includes Business Name, Category, Location, Google Reviews &amp; Maps, WhatsApp, Instagram, and Website.
+              Includes Brand Logo, Timings, Google Reviews &amp; Maps, WhatsApp, Call, Instagram, and Website.
             </p>
           </button>
         </div>
       </div>
 
-      <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50/70 px-3.5 py-2.5 flex items-start gap-2 text-xs text-amber-900">
-        <Lock className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+      <div className="mt-5 rounded-xl border border-surface-border bg-ghost px-3.5 py-2.5 flex items-start gap-2 text-xs text-ink-secondary">
+        <Lock className="h-4 w-4 shrink-0 text-lavender-deep mt-0.5" />
         <span>
           Your selected mode is locked after setup to protect your QR behavior. Only authorized support can switch modes later.
         </span>
@@ -205,7 +208,7 @@ export function ModeSelector({ qrNumber, submitting, error, onSelect }: ModeSele
           type="button"
           disabled={submitting}
           onClick={() => onSelect(selected)}
-          className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-electric px-6 py-3 text-sm font-bold text-white hover:bg-electric-hover shadow-md transition-all disabled:opacity-60"
+          className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-cetacean px-6 py-3 text-sm font-bold text-white hover:bg-cetacean-mid shadow-md transition-all disabled:opacity-60"
         >
           {submitting && <Spinner size={16} />}
           <span>

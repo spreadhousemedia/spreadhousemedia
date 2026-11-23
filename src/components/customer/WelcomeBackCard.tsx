@@ -37,16 +37,18 @@ export function WelcomeBackCard({
   const activeLinks = links.filter((l) => l.is_active)
 
   const avatarSrc = resolveProfileAvatarSrc(profile?.avatar_id, profile?.profile_image)
+  const isCustomBusinessLogo =
+    Boolean(profile?.profile_image) && !/\/avatars\/avatar-\d+/i.test(profile?.profile_image || '')
   const publicUrl =
     mode === 'personal' || mode === 'business_profile'
       ? profilePublicUrl(profile?.public_slug || qr.qr_number)
       : qrPublicUrl(qr.qr_number)
 
   return (
-    <div className="w-full max-w-2xl rounded-2xl border border-surface-border bg-white p-6 sm:p-8 shadow-xl relative z-10 space-y-6">
+    <div className="w-full max-w-2xl rounded-2xl border border-surface-border bg-white p-6 sm:p-8 shadow-editorial relative z-10 space-y-6">
       {/* Header */}
       <div className="text-center space-y-2">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-[11px] font-mono font-bold uppercase tracking-wider text-emerald-700">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-lavender-subtle border border-lavender-soft px-3 py-1 text-[11px] font-mono font-bold uppercase tracking-wider text-lavender-deep">
           <Sparkles className="h-3.5 w-3.5" />
           Welcome Back · {qr.qr_number}
         </span>
@@ -206,22 +208,22 @@ export function WelcomeBackCard({
 
       {/* Case 3: Business Profile */}
       {mode === 'business_profile' && (
-        <div className="rounded-2xl border border-indigo-200 bg-indigo-50/40 p-5 space-y-4">
+        <div className="rounded-2xl border border-lavender-soft bg-lavender-subtle/40 p-5 space-y-4">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
-              {avatarSrc ? (
+              {isCustomBusinessLogo && avatarSrc ? (
                 <img
                   src={avatarSrc}
                   alt={profile?.profile_name || qr.business_name || qr.qr_number}
-                  className="h-14 w-14 rounded-2xl object-cover border border-indigo-200 bg-white"
+                  className="h-14 w-14 rounded-2xl object-cover border border-lavender-soft bg-white"
                 />
               ) : (
-                <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-electric text-white">
+                <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#271466] via-[#1E1050] to-[#150A35] text-white">
                   <Briefcase className="h-6 w-6" />
                 </span>
               )}
               <div>
-                <p className="text-[11px] font-mono font-bold uppercase tracking-wider text-electric">
+                <p className="text-[11px] font-mono font-bold uppercase tracking-wider text-lavender-deep">
                   Detected · Business Profile
                 </p>
                 <h2 className="text-lg font-bold text-ink">
@@ -250,14 +252,14 @@ export function WelcomeBackCard({
               {activeLinks.slice(0, 6).map((l) => (
                 <span
                   key={l.id}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-white border border-indigo-200/80 shadow-2xs"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-white border border-lavender-soft shadow-2xs"
                   title={l.link_title}
                 >
                   <PlatformIcon platform={l.platform} customIcon={l.icon} size={16} />
                 </span>
               ))}
               {activeLinks.length > 6 && (
-                <span className="text-xs font-semibold text-electric">
+                <span className="text-xs font-semibold text-lavender-deep">
                   +{activeLinks.length - 6} more
                 </span>
               )}
@@ -266,19 +268,19 @@ export function WelcomeBackCard({
 
           <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs text-ink-secondary">
             <li className="flex items-center gap-1.5">
-              <Check className="h-3.5 w-3.5 text-electric shrink-0" />
+              <Check className="h-3.5 w-3.5 text-lavender-deep shrink-0" />
               <span>Update business details &amp; logo</span>
             </li>
             <li className="flex items-center gap-1.5">
-              <Check className="h-3.5 w-3.5 text-electric shrink-0" />
+              <Check className="h-3.5 w-3.5 text-lavender-deep shrink-0" />
               <span>Manage Google Reviews &amp; Maps</span>
             </li>
             <li className="flex items-center gap-1.5">
-              <Check className="h-3.5 w-3.5 text-electric shrink-0" />
+              <Check className="h-3.5 w-3.5 text-lavender-deep shrink-0" />
               <span>Add &amp; reorder multiple links</span>
             </li>
             <li className="flex items-center gap-1.5">
-              <Check className="h-3.5 w-3.5 text-electric shrink-0" />
+              <Check className="h-3.5 w-3.5 text-lavender-deep shrink-0" />
               <span>Preview &amp; save changes</span>
             </li>
           </ul>
@@ -290,7 +292,7 @@ export function WelcomeBackCard({
         <button
           type="button"
           onClick={onProceedToEditor}
-          className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-ink px-5 py-3.5 text-sm font-bold text-white hover:bg-zinc-800 shadow-md transition-all"
+          className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-cetacean px-5 py-3.5 text-sm font-bold text-white hover:bg-cetacean-mid shadow-md transition-all"
         >
           <span>
             {mode === 'personal'

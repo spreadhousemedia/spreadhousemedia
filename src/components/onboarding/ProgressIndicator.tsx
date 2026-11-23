@@ -14,20 +14,20 @@ export function ProgressIndicator({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between text-[12px]">
-        <span className="font-semibold text-[#141413]">{stepLabel}</span>
-        <span className="font-mono text-[#6F6E69]">
+        <span className="font-semibold text-ink">{stepLabel}</span>
+        <span className="font-mono text-ink-muted">
           Step {currentStep} of {totalSteps}
         </span>
       </div>
       <div
-        className="h-1.5 w-full overflow-hidden rounded-full bg-[#E6E4DF]"
+        className="h-1.5 w-full overflow-hidden rounded-full bg-[#E2E6F0]"
         role="progressbar"
         aria-valuenow={currentStep}
         aria-valuemin={1}
         aria-valuemax={totalSteps}
       >
         <div
-          className="h-full rounded-full bg-[#141413] transition-all duration-300 ease-out"
+          className="h-full rounded-full bg-gradient-to-r from-[#7040F0] to-[#A577FF] transition-all duration-300 ease-out"
           style={{ width: `${pct}%` }}
         />
       </div>

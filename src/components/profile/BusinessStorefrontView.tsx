@@ -121,34 +121,34 @@ export function BusinessStorefrontView({
   )
   const featuredCustomLinks = dedupedLinks.filter((l) => l.platform === 'custom')
 
-  const hasQuickActions = Boolean(safePhone || primaryWhatsappUrl || safeEmail || primaryMapsUrl)
+  const quickActionCount =
+    (safePhone ? 1 : 0) +
+    (primaryWhatsappUrl ? 1 : 0) +
+    (safeEmail ? 1 : 0) +
+    (primaryMapsUrl ? 1 : 0)
+
+  const actionTileClass = isDark
+    ? 'border-[#A577FF]/20 bg-[#1E1050] text-[#F5F7FC] hover:border-[#A577FF]/50 hover:bg-[#271466]'
+    : 'border-[#E2E6F0] bg-[#F5F7FC] text-[#150A35] hover:border-[#7040F0]/50 hover:bg-[#F5F0FF]'
+
+  const sectionCardClass = isDark
+    ? 'border-[#A577FF]/20 bg-[#150A35]/95 text-[#F5F7FC] shadow-card-dark'
+    : 'border-[#E2E6F0] bg-white text-[#150A35] shadow-editorial'
 
   return (
     <div
       className={`relative overflow-hidden transition-colors duration-300 ${
         previewMode ? 'min-h-full rounded-[28px]' : 'min-h-screen'
       } flex flex-col justify-between ${
-        isDark
-          ? 'bg-[#060913] text-slate-100'
-          : 'bg-gradient-to-b from-[#EEF3FF] via-[#F7F9FF] to-[#EEF2FF] text-slate-900'
+        isDark ? 'bg-[#0D0620] text-[#F5F7FC]' : 'bg-[#F5F7FC] text-[#150A35]'
       }`}
     >
-      {/* Glowing Ambient Business Aura */}
+      {/* Single Restrained Top Ambient Wash (Cetacean + Lavender Brand Identity) */}
       <div
-        className={`pointer-events-none absolute -top-28 left-1/2 -translate-x-1/2 h-72 w-72 rounded-full blur-3xl ${
-          isDark ? 'bg-indigo-500/25' : 'bg-indigo-400/25'
-        }`}
-        aria-hidden="true"
-      />
-      <div
-        className={`pointer-events-none absolute top-40 -right-24 h-64 w-64 rounded-full blur-3xl ${
-          isDark ? 'bg-cyan-500/15' : 'bg-sky-300/25'
-        }`}
-        aria-hidden="true"
-      />
-      <div
-        className={`pointer-events-none absolute bottom-12 -left-24 h-64 w-64 rounded-full blur-3xl ${
-          isDark ? 'bg-emerald-500/10' : 'bg-violet-300/20'
+        className={`pointer-events-none absolute inset-x-0 top-0 h-80 ${
+          isDark
+            ? 'bg-[radial-gradient(ellipse_80%_45%_at_50%_-8%,rgba(165,119,255,0.22),transparent_70%)]'
+            : 'bg-[radial-gradient(ellipse_75%_45%_at_50%_-10%,rgba(165,119,255,0.11),transparent_70%)]'
         }`}
         aria-hidden="true"
       />
@@ -161,93 +161,86 @@ export function BusinessStorefrontView({
         {/* Top Storefront Bar */}
         <div className="flex items-center justify-between mb-4">
           <span
-            className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-mono tracking-tight border backdrop-blur-md ${
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-mono tracking-tight border ${
               isDark
-                ? 'border-indigo-400/25 bg-[#0E1629]/85 text-indigo-200 shadow-[0_0_20px_-6px_rgba(99,102,241,0.5)]'
-                : 'border-indigo-200 bg-white/85 text-indigo-900 shadow-[0_4px_16px_-6px_rgba(79,70,229,0.22)]'
+                ? 'border-[#A577FF]/25 bg-[#150A35]/90 text-[#C4A3FF]'
+                : 'border-[#E2E6F0] bg-white text-[#4E4668] shadow-2xs'
             }`}
           >
-            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
-            <ShieldCheck className="h-3.5 w-3.5 text-indigo-400" aria-hidden="true" />
-            <span>OFFICIAL BUSINESS · {qrNumber}</span>
+            <ShieldCheck
+              className={`h-3.5 w-3.5 ${isDark ? 'text-[#A577FF]' : 'text-[#7040F0]'}`}
+              aria-hidden="true"
+            />
+            <span>BUSINESS · {qrNumber}</span>
           </span>
 
           <ThemeToggle theme={activeTheme} onToggle={onToggleTheme} />
         </div>
 
         <main className="space-y-4">
-          {/* Glowing Business Storefront Hero Card */}
+          {/* Executive Business Hero Card */}
           <section
-            className={`relative overflow-hidden rounded-3xl border p-5 sm:p-6 backdrop-blur-xl transition-all ${
-              isDark
-                ? 'border-indigo-400/25 bg-gradient-to-b from-[#111A30]/95 via-[#0B1222]/95 to-[#090F1D]/95 shadow-[0_0_48px_-14px_rgba(99,102,241,0.48),inset_0_1px_0_rgba(255,255,255,0.08)]'
-                : 'border-indigo-200/80 bg-white/90 shadow-[0_14px_45px_-14px_rgba(79,70,229,0.28),inset_0_1px_0_rgba(255,255,255,0.9)]'
-            }`}
+            className={`relative overflow-hidden rounded-3xl border p-5 sm:p-6 transition-all ${sectionCardClass}`}
           >
-            {/* Subtle luminous top highlight line */}
             <div
-              className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-indigo-400 to-cyan-400 opacity-80"
+              className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#A577FF]/70 to-transparent"
               aria-hidden="true"
             />
 
             <div className="flex flex-col items-center text-center">
-              {/* Brand Logo or Executive Monogram Emblem */}
-              <div className="relative">
-                <div
-                  className={`absolute -inset-2 rounded-[26px] blur-lg opacity-70 ${
-                    isDark
-                      ? 'bg-gradient-to-tr from-indigo-500/45 via-violet-500/35 to-cyan-400/40'
-                      : 'bg-gradient-to-tr from-indigo-400/35 via-sky-400/30 to-violet-400/35'
-                  }`}
-                  aria-hidden="true"
-                />
-                <div
-                  className={`relative flex h-20 w-20 sm:h-24 sm:w-24 items-center justify-center overflow-hidden rounded-[22px] border ${
-                    isDark
-                      ? 'border-indigo-300/30 bg-[#0D1528] shadow-[0_8px_30px_-8px_rgba(99,102,241,0.6)]'
-                      : 'border-indigo-200 bg-white shadow-[0_8px_28px_-8px_rgba(79,70,229,0.3)]'
-                  }`}
-                >
-                  {brandLogo ? (
-                    <img
-                      src={brandLogo}
-                      alt={`${displayName} logo`}
-                      width={96}
-                      height={96}
-                      className="h-full w-full object-cover"
+              {/* Brand Logo or Cetacean-Lavender Monogram */}
+              <div
+                className={`relative flex h-20 w-20 sm:h-22 sm:w-22 items-center justify-center overflow-hidden rounded-2xl border ${
+                  isDark
+                    ? 'border-[#A577FF]/35 bg-[#1E1050] shadow-glow-lavender'
+                    : 'border-[#E2E6F0] bg-white shadow-editorial'
+                }`}
+              >
+                {brandLogo ? (
+                  <img
+                    src={brandLogo}
+                    alt={`${displayName} logo`}
+                    width={88}
+                    height={88}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="relative flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-[#271466] via-[#1E1050] to-[#150A35] text-[#F5F7FC]">
+                    <span className="text-2xl font-extrabold tracking-tight leading-none">
+                      {initials}
+                    </span>
+                    <Building2
+                      className="mt-1 h-3.5 w-3.5 text-[#C4A3FF]/80"
+                      aria-hidden="true"
                     />
-                  ) : (
-                    <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-indigo-600 via-violet-600 to-cyan-500 text-white">
-                      <span className="text-2xl sm:text-[28px] font-extrabold tracking-tight leading-none">
-                        {initials}
-                      </span>
-                      <Building2 className="mt-1 h-3.5 w-3.5 opacity-80" aria-hidden="true" />
-                    </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
 
-              {/* Category, City, Experience Metadata */}
+              {/* Category, City & Experience Chips */}
               {(safeCategory || safeLocation || safeExperience) && (
                 <div className="mt-4 flex flex-wrap items-center justify-center gap-1.5">
                   {(safeCategory || safeLocation) && (
                     <span
                       className={`inline-flex flex-wrap items-center justify-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-semibold ${
                         isDark
-                          ? 'border-indigo-400/25 bg-indigo-500/10 text-indigo-200'
-                          : 'border-indigo-200 bg-indigo-50 text-indigo-900'
+                          ? 'border-[#A577FF]/25 bg-[#1E1050] text-[#E8DEFF]'
+                          : 'border-[#E8DEFF] bg-[#F5F0FF] text-[#150A35]'
                       }`}
                     >
                       {safeCategory && (
                         <span className="inline-flex items-center gap-1">
-                          <Building2 className="h-3 w-3 text-indigo-400" aria-hidden="true" />
+                          <Building2
+                            className={`h-3 w-3 ${isDark ? 'text-[#A577FF]' : 'text-[#7040F0]'}`}
+                            aria-hidden="true"
+                          />
                           <span>{safeCategory}</span>
                         </span>
                       )}
                       {safeCategory && safeLocation && <span aria-hidden="true">·</span>}
                       {safeLocation && (
                         <span className="inline-flex items-center gap-1">
-                          <MapPin className="h-3 w-3 text-emerald-400" aria-hidden="true" />
+                          <MapPin className="h-3 w-3 text-emerald-500" aria-hidden="true" />
                           <span>{safeLocation}</span>
                         </span>
                       )}
@@ -262,7 +255,7 @@ export function BusinessStorefrontView({
                           : 'border-amber-200 bg-amber-50 text-amber-900'
                       }`}
                     >
-                      <Award className="h-3 w-3 text-amber-400" aria-hidden="true" />
+                      <Award className="h-3 w-3 text-amber-500" aria-hidden="true" />
                       <span>{safeExperience}</span>
                     </span>
                   )}
@@ -270,8 +263,8 @@ export function BusinessStorefrontView({
               )}
 
               <h1
-                className={`mt-3 max-w-full break-words text-[26px] sm:text-[32px] font-extrabold tracking-[-0.025em] leading-[1.12] ${
-                  isDark ? 'text-white' : 'text-slate-900'
+                className={`mt-3 max-w-full break-words text-[26px] sm:text-[31px] font-extrabold tracking-[-0.025em] leading-[1.12] ${
+                  isDark ? 'text-[#F5F7FC]' : 'text-[#150A35]'
                 }`}
               >
                 {displayName}
@@ -280,7 +273,7 @@ export function BusinessStorefrontView({
               {safeTagline && (
                 <p
                   className={`mt-1.5 max-w-[36ch] break-words text-[14px] font-medium leading-snug ${
-                    isDark ? 'text-indigo-200/80' : 'text-slate-600'
+                    isDark ? 'text-[#C4A3FF]/85' : 'text-[#4E4668]'
                   }`}
                 >
                   {safeTagline}
@@ -291,27 +284,30 @@ export function BusinessStorefrontView({
                 <div
                   className={`mt-3 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-medium ${
                     isDark
-                      ? 'border-emerald-400/25 bg-emerald-500/10 text-emerald-200'
-                      : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                      ? 'border-[#A577FF]/20 bg-[#1E1050]/80 text-[#E8DEFF]'
+                      : 'border-[#E2E6F0] bg-[#F5F7FC] text-[#4E4668]'
                   }`}
                 >
-                  <Clock className="h-3 w-3 shrink-0" aria-hidden="true" />
+                  <Clock
+                    className={`h-3 w-3 shrink-0 ${isDark ? 'text-[#A577FF]' : 'text-[#7040F0]'}`}
+                    aria-hidden="true"
+                  />
                   <span>{safeHours}</span>
                 </div>
               )}
             </div>
 
-            {/* Deduplicated Primary Contact Actions */}
-            {hasQuickActions && (
-              <div className="mt-5 grid grid-cols-2 gap-2.5">
+            {/* Deduplicated Quick Action Bar */}
+            {quickActionCount > 0 && (
+              <div
+                className={`mt-5 grid gap-2.5 ${
+                  quickActionCount === 1 ? 'grid-cols-1' : 'grid-cols-2'
+                }`}
+              >
                 {safePhone && (
                   <a
                     href={`tel:${safePhone.replace(/[^\d+]/g, '')}`}
-                    className={`group flex items-center justify-center gap-2 rounded-2xl border px-3.5 py-3 text-xs font-bold transition-all ${
-                      isDark
-                        ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20 hover:shadow-[0_0_24px_-6px_rgba(16,185,129,0.65)]'
-                        : 'border-emerald-200 bg-emerald-50/90 text-emerald-900 hover:bg-emerald-100 shadow-xs'
-                    }`}
+                    className={`flex items-center justify-center gap-2 rounded-2xl border px-3.5 py-3 text-xs font-bold transition-all ${actionTileClass}`}
                   >
                     <Phone className="h-4 w-4 text-emerald-500" aria-hidden="true" />
                     <span>Call Business</span>
@@ -323,11 +319,7 @@ export function BusinessStorefrontView({
                     href={primaryWhatsappUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`group flex items-center justify-center gap-2 rounded-2xl border px-3.5 py-3 text-xs font-bold transition-all ${
-                      isDark
-                        ? 'border-[#25D366]/35 bg-[#25D366]/12 text-[#86EFAC] hover:bg-[#25D366]/22 hover:shadow-[0_0_24px_-6px_rgba(37,211,102,0.7)]'
-                        : 'border-emerald-200 bg-white text-emerald-900 hover:border-[#25D366] shadow-[0_4px_14px_-6px_rgba(37,211,102,0.35)]'
-                    }`}
+                    className={`flex items-center justify-center gap-2 rounded-2xl border px-3.5 py-3 text-xs font-bold transition-all ${actionTileClass}`}
                   >
                     <MessageCircle className="h-4 w-4 text-[#25D366]" aria-hidden="true" />
                     <span>WhatsApp</span>
@@ -337,13 +329,12 @@ export function BusinessStorefrontView({
                 {safeEmail && (
                   <a
                     href={`mailto:${safeEmail}`}
-                    className={`group flex items-center justify-center gap-2 rounded-2xl border px-3.5 py-3 text-xs font-bold transition-all ${
-                      isDark
-                        ? 'border-indigo-400/25 bg-indigo-500/10 text-indigo-200 hover:bg-indigo-500/20 hover:shadow-[0_0_24px_-6px_rgba(99,102,241,0.65)]'
-                        : 'border-indigo-200 bg-indigo-50/70 text-indigo-900 hover:bg-indigo-100'
-                    }`}
+                    className={`flex items-center justify-center gap-2 rounded-2xl border px-3.5 py-3 text-xs font-bold transition-all ${actionTileClass}`}
                   >
-                    <Mail className="h-4 w-4 text-indigo-400" aria-hidden="true" />
+                    <Mail
+                      className={`h-4 w-4 ${isDark ? 'text-[#A577FF]' : 'text-[#7040F0]'}`}
+                      aria-hidden="true"
+                    />
                     <span>Email Us</span>
                   </a>
                 )}
@@ -353,13 +344,9 @@ export function BusinessStorefrontView({
                     href={primaryMapsUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`group flex items-center justify-center gap-2 rounded-2xl border px-3.5 py-3 text-xs font-bold transition-all ${
-                      isDark
-                        ? 'border-sky-400/25 bg-sky-500/10 text-sky-200 hover:bg-sky-500/20 hover:shadow-[0_0_24px_-6px_rgba(56,189,248,0.6)]'
-                        : 'border-sky-200 bg-sky-50/80 text-sky-900 hover:bg-sky-100'
-                    }`}
+                    className={`flex items-center justify-center gap-2 rounded-2xl border px-3.5 py-3 text-xs font-bold transition-all ${actionTileClass}`}
                   >
-                    <Navigation className="h-4 w-4 text-sky-400" aria-hidden="true" />
+                    <Navigation className="h-4 w-4 text-sky-500" aria-hidden="true" />
                     <span>Directions</span>
                   </a>
                 )}
@@ -367,7 +354,7 @@ export function BusinessStorefrontView({
             )}
           </section>
 
-          {/* Featured Google Reviews Banner */}
+          {/* Google Reviews Highlight Banner */}
           {reviewLinks.map((rev) => (
             <a
               key={rev.id}
@@ -376,74 +363,84 @@ export function BusinessStorefrontView({
               rel="noopener noreferrer"
               className={`group flex items-center justify-between gap-3 rounded-2xl border p-4 transition-all ${
                 isDark
-                  ? 'border-amber-400/35 bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-yellow-500/15 text-amber-100 shadow-[0_0_32px_-12px_rgba(251,191,36,0.55)] hover:border-amber-300/60'
-                  : 'border-amber-300 bg-gradient-to-r from-amber-50 via-yellow-50 to-orange-50 text-amber-950 shadow-[0_10px_28px_-12px_rgba(245,158,11,0.45)] hover:border-amber-400'
+                  ? 'border-amber-400/30 bg-[#150A35] text-[#F5F7FC] shadow-card-dark hover:border-amber-400/55'
+                  : 'border-amber-200 bg-amber-50/50 text-[#150A35] shadow-editorial hover:border-amber-300'
               }`}
             >
               <div className="flex items-center gap-3 min-w-0">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-400/20 text-amber-400">
-                  <Star className="h-5 w-5 fill-amber-400" aria-hidden="true" />
+                <span
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                    isDark ? 'bg-amber-400/15 text-amber-400' : 'bg-amber-100 text-amber-500'
+                  }`}
+                >
+                  <Star className="h-5 w-5 fill-amber-400 text-amber-400" aria-hidden="true" />
                 </span>
                 <div className="min-w-0">
                   <p className="text-sm font-bold truncate">{rev.link_title}</p>
-                  <p className={`text-[11px] ${isDark ? 'text-amber-200/75' : 'text-amber-800/80'}`}>
-                    Tap to share your experience on Google
+                  <p className={`text-[11px] ${isDark ? 'text-[#C4A3FF]/75' : 'text-[#6B6480]'}`}>
+                    Tap to share your review on Google
                   </p>
                 </div>
               </div>
-              <ArrowUpRight className="h-4 w-4 shrink-0 opacity-75 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+              <ArrowUpRight className="h-4 w-4 shrink-0 opacity-70 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
             </a>
           ))}
 
-          {/* About The Business Card */}
+          {/* About Our Business Card */}
           {(safeBio || safeContactPerson) && (
-            <section
-              className={`rounded-2xl border p-4 sm:p-5 backdrop-blur-md space-y-2.5 ${
-                isDark
-                  ? 'border-white/10 bg-[#0D1426]/85 text-slate-200'
-                  : 'border-indigo-100 bg-white/90 text-slate-700 shadow-xs'
-              }`}
-            >
+            <section className={`rounded-2xl border p-4 sm:p-5 space-y-2.5 ${sectionCardClass}`}>
               <h2
-                className={`text-[11px] font-mono font-bold uppercase tracking-widest ${
-                  isDark ? 'text-indigo-300' : 'text-indigo-600'
+                className={`text-[11px] font-mono font-bold uppercase tracking-[0.14em] ${
+                  isDark ? 'text-[#C4A3FF]' : 'text-[#7040F0]'
                 }`}
               >
                 About Our Business
               </h2>
-              {safeBio && <p className="text-[14px] leading-relaxed whitespace-pre-line">{safeBio}</p>}
-              {safeContactPerson && (
-                <div
-                  className={`pt-2 border-t flex items-center gap-2 text-xs font-medium ${
-                    isDark ? 'border-white/10 text-slate-300' : 'border-slate-100 text-slate-600'
+              {safeBio && (
+                <p
+                  className={`text-[14px] leading-relaxed whitespace-pre-line ${
+                    isDark ? 'text-[#EEF1F8]' : 'text-[#4E4668]'
                   }`}
                 >
-                  <User className="h-3.5 w-3.5 text-indigo-400 shrink-0" aria-hidden="true" />
+                  {safeBio}
+                </p>
+              )}
+              {safeContactPerson && (
+                <div
+                  className={`pt-2.5 border-t flex items-center gap-2 text-xs font-medium ${
+                    isDark
+                      ? 'border-[#A577FF]/15 text-[#C4A3FF]'
+                      : 'border-[#E2E6F0] text-[#6B6480]'
+                  }`}
+                >
+                  <User
+                    className={`h-3.5 w-3.5 shrink-0 ${isDark ? 'text-[#A577FF]' : 'text-[#7040F0]'}`}
+                    aria-hidden="true"
+                  />
                   <span>Contact Person: {safeContactPerson}</span>
                 </div>
               )}
             </section>
           )}
 
-          {/* Business Social Media & Website Channels (With Labels) */}
+          {/* Business Social Media & Website Channels (Labeled Tiles) */}
           {socialLinks.length > 0 && (
             <section
-              className={`rounded-2xl border p-4 sm:p-5 backdrop-blur-md space-y-3 ${
-                isDark
-                  ? 'border-white/10 bg-[#0D1426]/85'
-                  : 'border-indigo-100 bg-white/90 shadow-xs'
-              }`}
+              className={`rounded-2xl border p-4 sm:p-5 space-y-3 ${sectionCardClass}`}
               aria-label="Business Social Media Channels"
             >
               <div className="flex items-center justify-between">
                 <h2
-                  className={`text-[11px] font-mono font-bold uppercase tracking-widest ${
-                    isDark ? 'text-cyan-300' : 'text-indigo-600'
+                  className={`text-[11px] font-mono font-bold uppercase tracking-[0.14em] ${
+                    isDark ? 'text-[#C4A3FF]' : 'text-[#7040F0]'
                   }`}
                 >
                   Connect With Us
                 </h2>
-                <Globe className={`h-3.5 w-3.5 ${isDark ? 'text-slate-400' : 'text-slate-400'}`} aria-hidden="true" />
+                <Globe
+                  className={`h-3.5 w-3.5 ${isDark ? 'text-[#A577FF]/70' : 'text-[#6B6480]'}`}
+                  aria-hidden="true"
+                />
               </div>
               <div className="grid grid-cols-2 gap-2.5">
                 {socialLinks.map((link) => {
@@ -454,11 +451,7 @@ export function BusinessStorefrontView({
                       href={link.destination_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className={`group flex items-center justify-between gap-2 rounded-xl border px-3 py-2.5 transition-all ${
-                        isDark
-                          ? 'border-white/10 bg-white/[0.03] text-slate-100 hover:border-indigo-400/45 hover:bg-indigo-500/10 hover:shadow-[0_0_20px_-8px_rgba(99,102,241,0.55)]'
-                          : 'border-slate-200 bg-slate-50/70 text-slate-900 hover:border-indigo-300 hover:bg-white shadow-2xs'
-                      }`}
+                      className={`group flex items-center justify-between gap-2 rounded-xl border px-3 py-2.5 transition-all ${actionTileClass}`}
                     >
                       <span className="flex items-center gap-2.5 min-w-0">
                         <PlatformIcon platform={link.platform} size={18} />
@@ -483,14 +476,14 @@ export function BusinessStorefrontView({
                   rel="noopener noreferrer"
                   className={`group flex min-h-[54px] w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3.5 transition-all ${
                     isDark
-                      ? 'border-indigo-400/20 bg-[#0E1629]/90 text-white hover:border-indigo-400/55 hover:shadow-[0_0_28px_-10px_rgba(99,102,241,0.65)]'
-                      : 'border-indigo-100 bg-white/95 text-slate-900 shadow-xs hover:border-indigo-300 hover:shadow-[0_10px_28px_-12px_rgba(79,70,229,0.28)]'
+                      ? 'border-[#A577FF]/20 bg-[#150A35] text-[#F5F7FC] shadow-card-dark hover:border-[#A577FF]/50 hover:bg-[#1E1050]'
+                      : 'border-[#E2E6F0] bg-white text-[#150A35] shadow-editorial hover:border-[#7040F0]/45 hover:bg-[#FAFBFD]'
                   }`}
                 >
                   <div className="flex min-w-0 items-center gap-3">
                     <span
                       className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
-                        isDark ? 'bg-indigo-500/15 text-indigo-300' : 'bg-indigo-50 text-indigo-600'
+                        isDark ? 'bg-[#1E1050] text-[#C4A3FF]' : 'bg-[#F5F0FF] text-[#7040F0]'
                       }`}
                     >
                       <PlatformIcon platform="custom" customIcon={link.icon} size={18} />
@@ -506,30 +499,33 @@ export function BusinessStorefrontView({
           {/* Visit & Business Timings Card */}
           {(safeAddress || safeHours) && (
             <section
-              className={`rounded-2xl border p-4 sm:p-5 backdrop-blur-md space-y-3 text-xs ${
-                isDark
-                  ? 'border-white/10 bg-[#0D1426]/85 text-slate-300'
-                  : 'border-indigo-100 bg-white/90 text-slate-700 shadow-xs'
-              }`}
+              className={`rounded-2xl border p-4 sm:p-5 space-y-3 text-xs ${sectionCardClass}`}
               aria-label="Business Location and Timings"
             >
               <h2
-                className={`text-[11px] font-mono font-bold uppercase tracking-widest ${
-                  isDark ? 'text-emerald-300' : 'text-emerald-700'
+                className={`text-[11px] font-mono font-bold uppercase tracking-[0.14em] ${
+                  isDark ? 'text-[#C4A3FF]' : 'text-[#7040F0]'
                 }`}
               >
                 Visit &amp; Business Timings
               </h2>
               {safeAddress && (
                 <div className="flex items-start gap-2.5">
-                  <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-emerald-400" aria-hidden="true" />
-                  <span className="leading-relaxed">{safeAddress}</span>
+                  <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-emerald-500" aria-hidden="true" />
+                  <span className={`leading-relaxed ${isDark ? 'text-[#EEF1F8]' : 'text-[#4E4668]'}`}>
+                    {safeAddress}
+                  </span>
                 </div>
               )}
               {safeHours && (
                 <div className="flex items-start gap-2.5">
-                  <Clock className="h-4 w-4 mt-0.5 shrink-0 text-indigo-400" aria-hidden="true" />
-                  <span className="leading-relaxed font-medium">{safeHours}</span>
+                  <Clock
+                    className={`h-4 w-4 mt-0.5 shrink-0 ${isDark ? 'text-[#A577FF]' : 'text-[#7040F0]'}`}
+                    aria-hidden="true"
+                  />
+                  <span className={`leading-relaxed font-medium ${isDark ? 'text-[#F5F7FC]' : 'text-[#150A35]'}`}>
+                    {safeHours}
+                  </span>
                 </div>
               )}
             </section>
@@ -543,4 +539,3 @@ export function BusinessStorefrontView({
     </div>
   )
 }
-

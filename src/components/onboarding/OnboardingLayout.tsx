@@ -11,6 +11,7 @@ interface OnboardingLayoutProps {
   totalSteps: number
   stepLabel: string
   saveStatus: SaveStatus
+  wide?: boolean
   onBack?: () => void
   onLogout: () => void
   children: ReactNode
@@ -22,21 +23,24 @@ export function OnboardingLayout({
   totalSteps,
   stepLabel,
   saveStatus,
+  wide = false,
   onBack,
   onLogout,
   children,
 }: OnboardingLayoutProps) {
+  const containerWidth = wide ? 'max-w-5xl' : 'max-w-2xl'
+
   return (
-    <div className="min-h-screen bg-[#F7F6F3] text-[#141413] flex flex-col">
+    <div className="min-h-screen bg-atmospheric-light text-ink flex flex-col">
       {/* Top Header */}
-      <header className="sticky top-0 z-30 border-b border-[#E6E4DF] bg-[#F7F6F3]/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-2xl items-center justify-between px-4 py-3 sm:px-6">
+      <header className="sticky top-0 z-30 border-b border-surface-border bg-white/85 backdrop-blur-md">
+        <div className={`mx-auto flex ${containerWidth} items-center justify-between px-4 py-3 sm:px-6`}>
           <div className="flex items-center gap-2.5">
             <Link to="/" className="flex items-center" title="SpreadNFC">
               <img src="/logo.png" alt="SpreadNFC" className="h-6 w-auto object-contain" />
             </Link>
-            <span className="h-3.5 w-px bg-[#DCD9D2]" aria-hidden="true" />
-            <span className="rounded-md bg-white border border-[#E6E4DF] px-2 py-0.5 font-mono text-[11px] font-semibold text-[#42413D]">
+            <span className="h-3.5 w-px bg-surface-border" aria-hidden="true" />
+            <span className="rounded-md bg-lavender-subtle border border-lavender-soft px-2 py-0.5 font-mono text-[11px] font-semibold text-cetacean">
               {qrNumber}
             </span>
           </div>
@@ -44,7 +48,7 @@ export function OnboardingLayout({
           <div className="flex items-center gap-3">
             {/* Autosave indicator */}
             {saveStatus === 'saving' && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#6F6E69]">
+              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-ink-muted">
                 <Loader2 className="h-3 w-3 animate-spin" />
                 <span>Saving</span>
               </span>
@@ -65,7 +69,7 @@ export function OnboardingLayout({
             <button
               type="button"
               onClick={onLogout}
-              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[12px] font-medium text-[#5C5B57] hover:bg-white hover:text-[#141413] transition-colors"
+              className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[12px] font-medium text-ink-secondary hover:bg-ghost hover:text-ink transition-colors"
               title="Sign out"
             >
               <LogOut className="h-3.5 w-3.5" />
@@ -74,7 +78,7 @@ export function OnboardingLayout({
           </div>
         </div>
 
-        <div className="mx-auto max-w-2xl px-4 pb-3 sm:px-6">
+        <div className={`mx-auto ${containerWidth} px-4 pb-3 sm:px-6`}>
           <ProgressIndicator
             currentStep={currentStep}
             totalSteps={totalSteps}
@@ -84,12 +88,12 @@ export function OnboardingLayout({
       </header>
 
       {/* Main Content */}
-      <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6 sm:px-6 sm:py-10">
+      <main className={`mx-auto w-full ${containerWidth} flex-1 px-4 py-6 sm:px-6 sm:py-8`}>
         {onBack && (
           <button
             type="button"
             onClick={onBack}
-            className="mb-4 inline-flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-[13px] font-medium text-[#5C5B57] hover:text-[#141413] transition-colors"
+            className="mb-4 inline-flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-[13px] font-medium text-ink-secondary hover:text-ink transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
             <span>Back</span>

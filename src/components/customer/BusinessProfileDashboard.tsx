@@ -1,11 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowDown,
   ArrowUp,
-  Briefcase,
   Check,
   CheckCircle2,
   Copy,
+  Download,
   ExternalLink,
   Eye,
   EyeOff,
@@ -17,6 +17,7 @@ import {
   Moon,
   Pencil,
   Plus,
+  QrCode,
   Save,
   Smartphone,
   Sun,
@@ -25,6 +26,7 @@ import {
 } from 'lucide-react'
 import { profilePublicUrl } from '../../lib/config'
 import { saveBusinessProfile } from '../../lib/profileApi'
+import { downloadSingleQr, generateQrDataUrl } from '../../lib/qr'
 import {
   BUSINESS_CATEGORIES,
   BUSINESS_LINK_TEMPLATES,
@@ -62,16 +64,7 @@ interface BusinessProfileDashboardProps {
   onLogout: () => void
 }
 
-type EditorSection =
-  | 'overview'
-  | 'identity'
-  | 'about'
-  | 'social'
-  | 'business_links'
-  | 'custom_links'
-  | 'contact'
-  | 'appearance'
-  | 'account'
+type EditorSection = 'profile' | 'contact' | 'links' | 'account'
 
 type DraftLink = {
   id: string
@@ -93,16 +86,30 @@ const DEFAULT_VISIBILITY: ContactVisibility = {
 }
 
 const SECTIONS: Array<{ id: EditorSection; label: string }> = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'identity', label: 'Business Identity' },
-  { id: 'about', label: 'About' },
-  { id: 'social', label: 'Social Links' },
-  { id: 'business_links', label: 'Business Links' },
-  { id: 'custom_links', label: 'Custom Links' },
-  { id: 'contact', label: 'Contact Details' },
-  { id: 'appearance', label: 'Appearance' },
-  { id: 'account', label: 'Account & QR' },
+  { id: 'profile', label: 'Brand & Profile' },
+  { id: 'contact', label: 'Contact & Hours' },
+  { id: 'links', label: 'Links & Social' },
+  { id: 'account', label: 'Share, QR & Security' },
 ]
+
+const TIMING_PRESETS = [
+  'Mon–Sat: 10:00 AM – 7:00 PM',
+  'Mon–Fri: 9:30 AM – 6:30 PM',
+  'All Days: 10:00 AM – 9:00 PM',
+  'Open 24 Hours',
+]
+
+const BUSINESS_SOCIAL_PLATFORMS = SOCIAL_PLATFORMS.filter(
+  (p) =>
+    p.id !== 'custom' &&
+    p.id !== 'whatsapp' &&
+    p.id !== 'google_reviews' &&
+    p.id !== 'google_maps',
+)
+
+const EDITOR_BUSINESS_TEMPLATES = BUSINESS_LINK_TEMPLATES.filter(
+  (t) => t.id !== 'google_maps',
+)
 
 export function BusinessProfileDashboard({
   dashboard,
@@ -114,7 +121,7 @@ export function BusinessProfileDashboard({
 }: BusinessProfileDashboardProps) {
   const qrNumber = dashboard.qr.qr_number
 
-  const [section, setSection] = useState<EditorSection>('overview')
+  const [section, setSection] = useState<EditorSection>('profile')
   const [mobileView, setMobileView] = useState<'edit' | 'preview'>('edit')
 
   // Profile fields
@@ -152,7 +159,6 @@ export function BusinessProfileDashboard({
   const [profileImage, setProfileImage] = useState<string | null>(
     dashboard.profile?.profile_image || null,
   )
-  const [avatarId, setAvatarId] = useState<string | null>(null)
 
   const [links, setLinks] = useState<DraftLink[]>(
     (dashboard.links ?? []).map((l: QrLink) => ({
@@ -182,6 +188,18 @@ export function BusinessProfileDashboard({
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null)
   const [copiedPublicUrl, setCopiedPublicUrl] = useState(false)
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (section !== 'account') return
+    let cancelled = false
+    generateQrDataUrl(qrNumber).then((url) => {
+      if (!cancelled) setQrDataUrl(url)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [section, qrNumber])
 
   const markDirty = () => {
     setHasUnsavedChanges(true)
@@ -190,6 +208,7 @@ export function BusinessProfileDashboard({
 
   const activeIdentifier = publicSlug.trim() ? normalizePublicSlug(publicSlug) : qrNumber
   const publicShareUrl = profilePublicUrl(activeIdentifier)
+  const brandInitials = (businessName.trim().slice(0, 2) || 'BN').toUpperCase()
 
   const socialLinks = links.filter(
     (l) => l.platform !== 'custom' && l.platform !== 'google_reviews' && l.platform !== 'google_maps',
@@ -239,7 +258,7 @@ export function BusinessProfileDashboard({
         l.destination_url.toLowerCase() === validation.normalizedUrl.toLowerCase(),
     )
     if (dup) {
-      setLinkError('You already added this exact platform and URL.')
+      setLinkError('This exact link already exists on your profile.')
       return
     }
 
@@ -262,7 +281,7 @@ export function BusinessProfileDashboard({
       setLinks((prev) => [
         ...prev,
         {
-          id: `link-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          id: `biz-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           platform: draftPlatform,
           link_title: cleanTitle,
           destination_url: validation.normalizedUrl,
@@ -278,12 +297,13 @@ export function BusinessProfileDashboard({
 
   function moveLinkById(id: string, delta: -1 | 1) {
     const idx = links.findIndex((l) => l.id === id)
+    if (idx === -1) return
     const nextIdx = idx + delta
-    if (idx === -1 || nextIdx < 0 || nextIdx >= links.length) return
+    if (nextIdx < 0 || nextIdx >= links.length) return
     setLinks((prev) => {
       const copy = [...prev]
-      const [item] = copy.splice(idx, 1)
-      copy.splice(nextIdx, 0, item)
+      const [moved] = copy.splice(idx, 1)
+      copy.splice(nextIdx, 0, moved)
       return copy
     })
     markDirty()
@@ -312,7 +332,6 @@ export function BusinessProfileDashboard({
     try {
       const compressed = await compressProfileImage(file)
       setProfileImage(compressed)
-      setAvatarId(null)
       markDirty()
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Could not process image.')
@@ -363,7 +382,7 @@ export function BusinessProfileDashboard({
       tagline: tagline.trim() || null,
       bio: bio.trim() || null,
       profileImage,
-      avatarId: profileImage ? null : avatarId,
+      avatarId: null,
       contactEmail: contactEmail.trim() || null,
       contactPhone: contactPhone.trim() || null,
       contactPersonName: contactPersonName.trim() || null,
@@ -393,7 +412,7 @@ export function BusinessProfileDashboard({
 
     setIsPublished(nextPublished)
     setHasUnsavedChanges(false)
-    setSaveSuccess('Your profile has been updated successfully.')
+    setSaveSuccess('Your business storefront has been updated.')
     await onRefresh()
   }
 
@@ -408,7 +427,7 @@ export function BusinessProfileDashboard({
       tagline: tagline.trim() || null,
       bio: bio.trim() || null,
       profile_image: profileImage,
-      avatar_id: profileImage ? null : avatarId,
+      avatar_id: null,
       contact_email: visibility.email ? contactEmail.trim() || null : null,
       contact_phone: visibility.phone ? contactPhone.trim() || null : null,
       whatsapp_number: visibility.whatsapp ? whatsappNumber.trim() || null : null,
@@ -428,7 +447,6 @@ export function BusinessProfileDashboard({
       tagline,
       bio,
       profileImage,
-      avatarId,
       contactEmail,
       contactPhone,
       whatsappNumber,
@@ -455,18 +473,28 @@ export function BusinessProfileDashboard({
     [links],
   )
 
+  const selectableModalPlatforms = SOCIAL_PLATFORMS.filter(
+    (p) => p.id !== 'whatsapp' || draftPlatform === 'whatsapp',
+  )
+
   return (
-    <div className="w-full max-w-6xl mx-auto space-y-5 relative z-10">
-      {/* Top Bar */}
-      <div className="rounded-2xl border border-surface-border bg-white p-4 sm:p-5 shadow-sm flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div className="flex items-start sm:items-center gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-electric/10 text-electric border border-electric/20">
-            <Briefcase className="h-5 w-5" />
+    <div className="w-full max-w-6xl mx-auto space-y-5 relative z-10 pb-20">
+      {/* Slim Studio Header Bar */}
+      <div className="rounded-2xl border border-surface-border bg-white p-4 sm:p-5 shadow-editorial flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div className="flex items-start sm:items-center gap-3.5">
+          <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-lavender-soft bg-gradient-to-br from-[#271466] via-[#1E1050] to-[#150A35] text-white">
+            {profileImage ? (
+              <img src={profileImage} alt="Business logo" className="h-full w-full object-cover bg-white" />
+            ) : (
+              <span className="text-sm font-extrabold tracking-tight">{brandInitials}</span>
+            )}
           </div>
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-bold text-base text-ink">{businessName || qrNumber}</span>
-              <span className="font-mono text-xs text-ink-muted">({qrNumber})</span>
+              <span className="rounded-md bg-lavender-subtle border border-lavender-soft px-2 py-0.5 font-mono text-[11px] font-semibold text-cetacean">
+                {qrNumber}
+              </span>
               <span
                 className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold border ${
                   isPublished
@@ -476,19 +504,14 @@ export function BusinessProfileDashboard({
               >
                 {isPublished ? 'Published' : 'Draft'}
               </span>
-              {hasUnsavedChanges && (
-                <span className="rounded-full bg-amber-100 text-amber-900 border border-amber-300 px-2.5 py-0.5 text-[11px] font-bold">
-                  Unsaved Changes
-                </span>
-              )}
             </div>
             <p className="mt-0.5 text-xs text-ink-muted">
-              Public Profile:{' '}
+              Storefront:{' '}
               <a
                 href={publicShareUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-mono font-medium text-electric hover:underline"
+                className="font-mono font-medium text-lavender-deep hover:underline"
               >
                 {publicShareUrl}
               </a>
@@ -501,9 +524,9 @@ export function BusinessProfileDashboard({
             href={publicShareUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-surface-border bg-zinc-50 px-3 py-2 text-xs font-semibold text-ink hover:bg-zinc-100"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-surface-border bg-ghost px-3 py-2 text-xs font-semibold text-ink hover:border-lavender-deep/50 transition-colors"
           >
-            <span>View Public Profile</span>
+            <span>View Live</span>
             <ExternalLink className="h-3.5 w-3.5" />
           </a>
 
@@ -511,9 +534,9 @@ export function BusinessProfileDashboard({
             <button
               type="button"
               onClick={onOpenMultiQr}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900 hover:bg-amber-100"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-lavender-soft bg-lavender-subtle px-3 py-2 text-xs font-bold text-cetacean hover:bg-lavender-soft/60 transition-colors"
             >
-              <Layers className="h-3.5 w-3.5" />
+              <Layers className="h-3.5 w-3.5 text-lavender-deep" />
               <span>Multi-QR{multiQrCount > 1 ? ` (${multiQrCount})` : ''}</span>
             </button>
           )}
@@ -522,7 +545,7 @@ export function BusinessProfileDashboard({
             type="button"
             disabled={saving}
             onClick={() => handleSaveAll(true)}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-electric px-4 py-2 text-xs font-bold text-white hover:bg-electric-hover shadow-sm disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-cetacean px-4 py-2 text-xs font-bold text-white hover:bg-cetacean-mid shadow-xs disabled:opacity-60 transition-colors"
           >
             {saving ? <Spinner size={13} /> : <Save className="h-3.5 w-3.5" />}
             <span>{saving ? 'Saving…' : 'Save Changes'}</span>
@@ -531,7 +554,7 @@ export function BusinessProfileDashboard({
           <button
             type="button"
             onClick={onLogout}
-            className="rounded-xl border border-surface-border px-3 py-2 text-xs font-semibold text-ink-muted hover:text-ink"
+            className="rounded-xl border border-surface-border px-3 py-2 text-xs font-semibold text-ink-secondary hover:text-ink transition-colors"
           >
             Sign Out
           </button>
@@ -545,7 +568,7 @@ export function BusinessProfileDashboard({
             type="button"
             onClick={() => setMobileView('edit')}
             className={`flex-1 rounded-lg py-2 text-xs font-bold ${
-              mobileView === 'edit' ? 'bg-ink text-white' : 'text-ink-muted'
+              mobileView === 'edit' ? 'bg-cetacean text-white' : 'text-ink-muted'
             }`}
           >
             Edit Sections
@@ -554,7 +577,7 @@ export function BusinessProfileDashboard({
             type="button"
             onClick={() => setMobileView('preview')}
             className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold ${
-              mobileView === 'preview' ? 'bg-ink text-white' : 'text-ink-muted'
+              mobileView === 'preview' ? 'bg-cetacean text-white' : 'text-ink-muted'
             }`}
           >
             <Smartphone className="h-3.5 w-3.5" /> Live Preview
@@ -562,8 +585,8 @@ export function BusinessProfileDashboard({
         </div>
       </div>
 
-      {/* Section Tabs */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+      {/* 4 Focused Studio Tabs */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1">
         {SECTIONS.map((sec) => (
           <button
             key={sec.id}
@@ -572,10 +595,10 @@ export function BusinessProfileDashboard({
               setSection(sec.id)
               setMobileView('edit')
             }}
-            className={`shrink-0 rounded-xl px-3.5 py-2 text-xs font-semibold border transition-colors ${
+            className={`shrink-0 rounded-xl px-4 py-2 text-xs font-semibold border transition-all ${
               section === sec.id
-                ? 'border-ink bg-ink text-white'
-                : 'border-surface-border bg-white text-ink-muted hover:text-ink'
+                ? 'border-cetacean bg-cetacean text-white shadow-xs'
+                : 'border-surface-border bg-white text-ink-secondary hover:border-lavender-deep/45 hover:text-ink'
             }`}
           >
             {sec.label}
@@ -595,75 +618,27 @@ export function BusinessProfileDashboard({
         </p>
       )}
 
-      {section === 'account' ? (
-        <CustomerAccountSettings qrNumber={qrNumber} sessionToken={sessionToken} />
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-          {/* Left: Editor Sections */}
-          <div className={`lg:col-span-7 space-y-5 ${mobileView === 'preview' ? 'hidden lg:block' : 'block'}`}>
-            {section === 'overview' && (
-              <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 space-y-4 shadow-xs">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-base font-bold text-ink">Profile Overview</h2>
-                  <span className="inline-flex items-center gap-1 text-xs font-mono text-ink-muted">
-                    <Lock className="h-3 w-3" /> {dashboard.qr.scan_count} total scans
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  <div className="rounded-xl border border-surface-border bg-zinc-50 p-3.5">
-                    <p className="text-ink-muted uppercase font-mono text-[10px]">Business Name</p>
-                    <p className="mt-1 font-bold text-ink text-sm">{businessName || 'Not set'}</p>
-                    <p className="text-ink-muted mt-0.5">{businessCategory}{location ? ` · ${location}` : ''}</p>
-                  </div>
-                  <div className="rounded-xl border border-surface-border bg-zinc-50 p-3.5">
-                    <p className="text-ink-muted uppercase font-mono text-[10px]">Links Summary</p>
-                    <p className="mt-1 font-bold text-ink text-sm">
-                      {links.filter((l) => l.is_active).length} active links ({socialLinks.length} social, {businessAndCustomLinks.length} business/custom)
-                    </p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await navigator.clipboard.writeText(publicShareUrl)
-                      setCopiedPublicUrl(true)
-                      setTimeout(() => setCopiedPublicUrl(false), 1500)
-                    }}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-surface-border bg-white px-3.5 py-2 text-xs font-semibold text-ink hover:bg-zinc-50"
-                  >
-                    {copiedPublicUrl ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
-                    <span>{copiedPublicUrl ? 'Copied Profile Link' : 'Copy Profile Link'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSaveAll(!isPublished)}
-                    disabled={saving}
-                    className="rounded-xl border border-surface-border bg-zinc-50 px-3.5 py-2 text-xs font-semibold text-ink hover:bg-zinc-100"
-                  >
-                    {isPublished ? 'Switch to Draft' : 'Publish Live Now'}
-                  </button>
-                </div>
-              </div>
-            )}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Studio Editor */}
+        <div className={`lg:col-span-7 space-y-5 ${mobileView === 'preview' ? 'hidden lg:block' : 'block'}`}>
+          {/* TAB 1: BRAND & PROFILE */}
+          {section === 'profile' && (
+            <div className="space-y-5">
+              <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 shadow-editorial space-y-5">
+                <h2 className="text-base font-bold text-ink">Brand Identity &amp; Theme</h2>
 
-            {section === 'identity' && (
-              <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 space-y-4 shadow-xs">
-                <h2 className="text-base font-bold text-ink">Business Identity</h2>
                 <div className="flex flex-wrap items-center gap-4">
-                  <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-600 via-violet-600 to-cyan-500 text-white shadow-[0_6px_22px_-6px_rgba(79,70,229,0.5)]">
+                  <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-lavender-soft bg-gradient-to-br from-[#271466] via-[#1E1050] to-[#150A35] text-white shadow-editorial">
                     {profileImage ? (
                       <img src={profileImage} alt="Business logo" className="h-full w-full object-cover bg-white" />
                     ) : (
-                      <span className="text-base font-extrabold tracking-tight">
-                        {(businessName.trim().slice(0, 2) || 'BN').toUpperCase()}
-                      </span>
+                      <span className="text-lg font-extrabold tracking-tight">{brandInitials}</span>
                     )}
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
-                    <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-surface-border bg-zinc-50 px-3 py-2 text-xs font-semibold text-ink hover:bg-zinc-100">
-                      <ImagePlus className="h-3.5 w-3.5 text-electric" />
-                      <span>{profileImage ? 'Replace Business Logo' : 'Upload Business Logo'}</span>
+                    <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-surface-border bg-ghost px-3.5 py-2 text-xs font-semibold text-ink hover:border-lavender-deep/50">
+                      <ImagePlus className="h-3.5 w-3.5 text-lavender-deep" />
+                      <span>{profileImage ? 'Replace Brand Logo' : 'Upload Brand Logo'}</span>
                       <input
                         type="file"
                         accept="image/png,image/jpeg,image/webp"
@@ -676,7 +651,6 @@ export function BusinessProfileDashboard({
                         type="button"
                         onClick={() => {
                           setProfileImage(null)
-                          setAvatarId(null)
                           markDirty()
                         }}
                         className="text-xs font-medium text-rose-600 hover:underline"
@@ -685,13 +659,13 @@ export function BusinessProfileDashboard({
                       </button>
                     ) : (
                       <span className="text-xs text-ink-muted">
-                        Using glowing Brand Monogram emblem.
+                        Using brand monogram emblem
                       </span>
                     )}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="sm:col-span-2">
                     <label className="mb-1 block text-xs font-semibold text-ink">Business Name *</label>
                     <input
@@ -701,18 +675,18 @@ export function BusinessProfileDashboard({
                         markDirty()
                       }}
                       maxLength={80}
-                      className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink focus:border-electric focus:outline-none"
+                      className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm font-semibold text-ink focus:border-lavender-deep focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-semibold text-ink">Business Category</label>
+                    <label className="mb-1 block text-xs font-semibold text-ink">Category</label>
                     <select
                       value={businessCategory}
                       onChange={(e) => {
                         setBusinessCategory(e.target.value)
                         markDirty()
                       }}
-                      className="w-full rounded-xl border border-surface-border bg-white px-3 py-2.5 text-sm text-ink focus:border-electric focus:outline-none"
+                      className="w-full rounded-xl border border-surface-border bg-white px-3.5 py-2.5 text-sm text-ink focus:border-lavender-deep focus:outline-none"
                     >
                       {BUSINESS_CATEGORIES.map((c) => (
                         <option key={c} value={c}>
@@ -722,15 +696,16 @@ export function BusinessProfileDashboard({
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1 block text-xs font-semibold text-ink">Contact Person Name</label>
+                    <label className="mb-1 block text-xs font-semibold text-ink">City / Area</label>
                     <input
-                      value={contactPersonName}
+                      value={location}
                       onChange={(e) => {
-                        setContactPersonName(e.target.value)
+                        setLocation(e.target.value)
                         markDirty()
                       }}
                       maxLength={80}
-                      className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink focus:border-electric focus:outline-none"
+                      placeholder="e.g. Lucknow"
+                      className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink focus:border-lavender-deep focus:outline-none"
                     />
                   </div>
                   <div className="sm:col-span-2">
@@ -742,7 +717,48 @@ export function BusinessProfileDashboard({
                         markDirty()
                       }}
                       maxLength={80}
-                      className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink focus:border-electric focus:outline-none"
+                      className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink focus:border-lavender-deep focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-ink">Experience / Highlight</label>
+                    <input
+                      value={businessExperience}
+                      onChange={(e) => {
+                        setBusinessExperience(e.target.value)
+                        markDirty()
+                      }}
+                      maxLength={60}
+                      placeholder="e.g. 10+ Years"
+                      className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink focus:border-lavender-deep focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-ink">Contact Person</label>
+                    <input
+                      value={contactPersonName}
+                      onChange={(e) => {
+                        setContactPersonName(e.target.value)
+                        markDirty()
+                      }}
+                      maxLength={80}
+                      className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink focus:border-lavender-deep focus:outline-none"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <div className="mb-1 flex items-center justify-between">
+                      <label className="text-xs font-semibold text-ink">About Your Business</label>
+                      <span className="font-mono text-[11px] text-ink-muted">{bio.length}/280</span>
+                    </div>
+                    <textarea
+                      rows={3}
+                      maxLength={280}
+                      value={bio}
+                      onChange={(e) => {
+                        setBio(e.target.value)
+                        markDirty()
+                      }}
+                      className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink focus:border-lavender-deep focus:outline-none"
                     />
                   </div>
                   <div className="sm:col-span-2">
@@ -753,77 +769,177 @@ export function BusinessProfileDashboard({
                         setPublicSlug(normalizePublicSlug(e.target.value))
                         markDirty()
                       }}
-                      className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-xs font-mono text-ink focus:border-electric focus:outline-none"
+                      className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-xs font-mono text-ink focus:border-lavender-deep focus:outline-none"
                     />
                   </div>
                 </div>
-              </div>
-            )}
 
-            {section === 'about' && (
-              <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 space-y-4 shadow-xs">
-                <h2 className="text-base font-bold text-ink">About Your Business</h2>
-                <div>
-                  <div className="mb-1 flex items-center justify-between">
-                    <label className="text-xs font-semibold text-ink">Short Description</label>
-                    <span className="font-mono text-[11px] text-ink-muted">{bio.length}/280</span>
+                {/* Storefront Theme Switcher */}
+                <div className="pt-4 border-t border-surface-border space-y-2">
+                  <label className="block text-xs font-semibold text-ink">Storefront Theme</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTheme('dark')
+                        markDirty()
+                      }}
+                      className={`flex items-center justify-center gap-2 rounded-xl border-2 p-3 text-xs font-bold transition-all ${
+                        theme === 'dark'
+                          ? 'border-cetacean bg-cetacean text-white'
+                          : 'border-surface-border bg-white text-ink-secondary hover:border-lavender-deep/45'
+                      }`}
+                    >
+                      <Moon className="h-4 w-4" /> Executive Dark
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTheme('light')
+                        markDirty()
+                      }}
+                      className={`flex items-center justify-center gap-2 rounded-xl border-2 p-3 text-xs font-bold transition-all ${
+                        theme === 'light'
+                          ? 'border-cetacean bg-lavender-subtle text-cetacean'
+                          : 'border-surface-border bg-white text-ink-secondary hover:border-lavender-deep/45'
+                      }`}
+                    >
+                      <Sun className="h-4 w-4" /> Editorial Light
+                    </button>
                   </div>
-                  <textarea
-                    rows={4}
-                    maxLength={280}
-                    value={bio}
-                    onChange={(e) => {
-                      setBio(e.target.value)
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: CONTACT & HOURS */}
+          {section === 'contact' && (
+            <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 shadow-editorial space-y-4">
+              <h2 className="text-base font-bold text-ink">Contact Details &amp; Business Timings</h2>
+              <div className="space-y-4">
+                <div className="space-y-2 rounded-xl border border-lavender-soft bg-lavender-subtle/40 p-3.5">
+                  <ToggleField
+                    label="Business Timings (Working Hours)"
+                    value={workingHours}
+                    onChange={(v) => {
+                      setWorkingHours(v)
                       markDirty()
                     }}
-                    className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink focus:border-electric focus:outline-none"
+                    visible={visibility.hours}
+                    onToggle={() => {
+                      setVisibility((v) => ({ ...v, hours: !v.hours }))
+                      markDirty()
+                    }}
                   />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div>
-                    <label className="mb-1 block text-xs font-semibold text-ink">Business Experience</label>
-                    <input
-                      value={businessExperience}
-                      onChange={(e) => {
-                        setBusinessExperience(e.target.value)
-                        markDirty()
-                      }}
-                      maxLength={60}
-                      placeholder="e.g. 10+ Years"
-                      className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink focus:border-electric focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-semibold text-ink">City / Location</label>
-                    <input
-                      value={location}
-                      onChange={(e) => {
-                        setLocation(e.target.value)
-                        markDirty()
-                      }}
-                      maxLength={80}
-                      placeholder="e.g. Lucknow"
-                      className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink focus:border-electric focus:outline-none"
-                    />
+                  <div className="flex flex-wrap gap-1.5">
+                    {TIMING_PRESETS.map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => {
+                          setWorkingHours(preset)
+                          markDirty()
+                        }}
+                        className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                          workingHours === preset
+                            ? 'border-cetacean bg-cetacean text-white'
+                            : 'border-surface-border bg-white text-ink-secondary hover:border-lavender-deep/45'
+                        }`}
+                      >
+                        {preset}
+                      </button>
+                    ))}
                   </div>
                 </div>
-              </div>
-            )}
 
-            {section === 'social' && (
-              <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 space-y-4 shadow-xs">
+                <ToggleField
+                  label="Phone Number"
+                  value={contactPhone}
+                  onChange={(v) => {
+                    setContactPhone(v)
+                    markDirty()
+                  }}
+                  visible={visibility.phone}
+                  onToggle={() => {
+                    setVisibility((v) => ({ ...v, phone: !v.phone }))
+                    markDirty()
+                  }}
+                />
+                <ToggleField
+                  label="WhatsApp Number"
+                  value={whatsappNumber}
+                  onChange={(v) => {
+                    setWhatsappNumber(v)
+                    markDirty()
+                  }}
+                  visible={visibility.whatsapp}
+                  onToggle={() => {
+                    setVisibility((v) => ({ ...v, whatsapp: !v.whatsapp }))
+                    markDirty()
+                  }}
+                />
+                <ToggleField
+                  label="Business Email"
+                  value={contactEmail}
+                  onChange={(v) => {
+                    setContactEmail(v)
+                    markDirty()
+                  }}
+                  visible={visibility.email}
+                  onToggle={() => {
+                    setVisibility((v) => ({ ...v, email: !v.email }))
+                    markDirty()
+                  }}
+                />
+                <ToggleField
+                  label="Full Business Address"
+                  value={fullAddress}
+                  onChange={(v) => {
+                    setFullAddress(v)
+                    markDirty()
+                  }}
+                  visible={visibility.address}
+                  onToggle={() => {
+                    setVisibility((v) => ({ ...v, address: !v.address }))
+                    markDirty()
+                  }}
+                />
+                <ToggleField
+                  label="Google Maps Location URL"
+                  value={googleMapsUrl}
+                  onChange={(v) => {
+                    setGoogleMapsUrl(v)
+                    markDirty()
+                  }}
+                  visible={visibility.maps}
+                  onToggle={() => {
+                    setVisibility((v) => ({ ...v, maps: !v.maps }))
+                    markDirty()
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: LINKS & SOCIAL (DEDUPED) */}
+          {section === 'links' && (
+            <div className="space-y-5">
+              <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 shadow-editorial space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="text-base font-bold text-ink">Social Media Links ({socialLinks.length})</h2>
+                  <h2 className="text-base font-bold text-ink">
+                    Social Channels ({socialLinks.length})
+                  </h2>
+                  <span className="text-[11px] text-ink-muted">
+                    WhatsApp &amp; Maps live in Contact &amp; Hours (no duplicates)
+                  </span>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {SOCIAL_PLATFORMS.filter(
-                    (p) => p.id !== 'custom' && p.id !== 'google_reviews' && p.id !== 'google_maps',
-                  ).map((p) => (
+                  {BUSINESS_SOCIAL_PLATFORMS.map((p) => (
                     <button
                       key={p.id}
                       type="button"
                       onClick={() => openNewLinkModal(p.id)}
-                      className="flex items-center gap-2 rounded-xl border border-surface-border bg-zinc-50 px-2.5 py-2 text-xs font-semibold text-ink hover:bg-zinc-100"
+                      className="flex items-center gap-2 rounded-xl border border-surface-border bg-ghost px-2.5 py-2 text-xs font-semibold text-ink hover:border-lavender-deep/50 hover:bg-lavender-subtle/40 transition-colors"
                     >
                       <PlatformIcon platform={p.id} size={15} />
                       <span className="truncate">{p.label}</span>
@@ -847,41 +963,35 @@ export function BusinessProfileDashboard({
                   }}
                 />
               </div>
-            )}
 
-            {(section === 'business_links' || section === 'custom_links') && (
-              <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 space-y-4 shadow-xs">
+              <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 shadow-editorial space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h2 className="text-base font-bold text-ink flex items-center gap-2">
-                    <Link2 className="h-4 w-4 text-electric" />
-                    <span>
-                      {section === 'business_links' ? 'Business Links (Reviews, Maps, Menu)' : 'Custom Links'} ({businessAndCustomLinks.length})
-                    </span>
+                    <Link2 className="h-4 w-4 text-lavender-deep" />
+                    <span>Business &amp; Custom Links ({businessAndCustomLinks.length})</span>
                   </h2>
                   <button
                     type="button"
                     onClick={() => openNewLinkModal('custom', 'Custom Link', 'link')}
-                    className="inline-flex items-center gap-1 rounded-xl bg-ink px-3 py-1.5 text-xs font-bold text-white"
+                    className="inline-flex items-center gap-1 rounded-xl bg-cetacean px-3 py-1.5 text-xs font-bold text-white hover:bg-cetacean-mid"
                   >
                     <Plus className="h-3.5 w-3.5" /> Add Custom Link
                   </button>
                 </div>
 
-                {section === 'business_links' && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {BUSINESS_LINK_TEMPLATES.map((tpl) => (
-                      <button
-                        key={tpl.id}
-                        type="button"
-                        onClick={() => openNewLinkModal(tpl.platform, tpl.defaultTitle, tpl.icon)}
-                        className="inline-flex items-center gap-1.5 rounded-xl border border-surface-border bg-zinc-50 px-3 py-1.5 text-xs font-semibold text-ink hover:bg-zinc-100"
-                      >
-                        <PlatformIcon platform={tpl.platform} customIcon={tpl.icon} size={14} />
-                        <span>+ {tpl.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
+                <div className="flex flex-wrap gap-1.5">
+                  {EDITOR_BUSINESS_TEMPLATES.map((tpl) => (
+                    <button
+                      key={tpl.id}
+                      type="button"
+                      onClick={() => openNewLinkModal(tpl.platform, tpl.defaultTitle, tpl.icon)}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-surface-border bg-ghost px-3 py-1.5 text-xs font-semibold text-ink hover:border-lavender-deep/50"
+                    >
+                      <PlatformIcon platform={tpl.platform} customIcon={tpl.icon} size={14} />
+                      <span>+ {tpl.label}</span>
+                    </button>
+                  ))}
+                </div>
 
                 <LinkListEditor
                   items={businessAndCustomLinks}
@@ -900,144 +1010,147 @@ export function BusinessProfileDashboard({
                   }}
                 />
               </div>
-            )}
+            </div>
+          )}
 
-            {section === 'contact' && (
-              <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 space-y-4 shadow-xs">
-                <h2 className="text-base font-bold text-ink">Contact Details &amp; Public Visibility</h2>
-                <div className="space-y-3.5">
-                  <ToggleField
-                    label="Phone Number"
-                    value={contactPhone}
-                    onChange={(v) => { setContactPhone(v); markDirty() }}
-                    visible={visibility.phone}
-                    onToggle={() => { setVisibility((v) => ({ ...v, phone: !v.phone })); markDirty() }}
-                  />
-                  <ToggleField
-                    label="WhatsApp Number"
-                    value={whatsappNumber}
-                    onChange={(v) => { setWhatsappNumber(v); markDirty() }}
-                    visible={visibility.whatsapp}
-                    onToggle={() => { setVisibility((v) => ({ ...v, whatsapp: !v.whatsapp })); markDirty() }}
-                  />
-                  <ToggleField
-                    label="Business Email"
-                    value={contactEmail}
-                    onChange={(v) => { setContactEmail(v); markDirty() }}
-                    visible={visibility.email}
-                    onToggle={() => { setVisibility((v) => ({ ...v, email: !v.email })); markDirty() }}
-                  />
-                  <ToggleField
-                    label="Full Business Address"
-                    value={fullAddress}
-                    onChange={(v) => { setFullAddress(v); markDirty() }}
-                    visible={visibility.address}
-                    onToggle={() => { setVisibility((v) => ({ ...v, address: !v.address })); markDirty() }}
-                  />
-                  <ToggleField
-                    label="Google Maps Location URL"
-                    value={googleMapsUrl}
-                    onChange={(v) => { setGoogleMapsUrl(v); markDirty() }}
-                    visible={visibility.maps}
-                    onToggle={() => { setVisibility((v) => ({ ...v, maps: !v.maps })); markDirty() }}
-                  />
-                  <ToggleField
-                    label="Business Timings (Working Hours)"
-                    value={workingHours}
-                    onChange={(v) => { setWorkingHours(v); markDirty() }}
-                    visible={visibility.hours}
-                    onToggle={() => { setVisibility((v) => ({ ...v, hours: !v.hours })); markDirty() }}
-                  />
-                  <div className="flex flex-wrap gap-1.5">
-                    {[
-                      'Mon–Sat: 10:00 AM – 7:00 PM',
-                      'Mon–Fri: 9:30 AM – 6:30 PM',
-                      'All Days: 10:00 AM – 9:00 PM',
-                      'Open 24 Hours',
-                    ].map((preset) => (
+          {/* TAB 4: SHARE, QR & SECURITY */}
+          {section === 'account' && (
+            <div className="space-y-5">
+              <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 shadow-editorial space-y-5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-base font-bold text-ink flex items-center gap-2">
+                    <QrCode className="h-4 w-4 text-lavender-deep" />
+                    <span>Share, QR Code &amp; Publishing</span>
+                  </h2>
+                  <span className="inline-flex items-center gap-1 text-xs font-mono text-ink-muted">
+                    <Lock className="h-3 w-3" /> {dashboard.qr.scan_count} total scans
+                  </span>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center gap-5 rounded-2xl border border-surface-border bg-ghost p-4">
+                  <div className="h-28 w-28 shrink-0 rounded-2xl border border-surface-border bg-white p-2 flex items-center justify-center">
+                    {qrDataUrl ? (
+                      <img src={qrDataUrl} alt={`QR ${qrNumber}`} className="h-full w-full object-contain" />
+                    ) : (
+                      <Spinner size={20} />
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-3 text-center sm:text-left min-w-0 w-full">
+                    <p className="font-mono text-xs text-ink break-all">{publicShareUrl}</p>
+                    <div className="flex flex-wrap justify-center sm:justify-start gap-2">
                       <button
-                        key={preset}
                         type="button"
-                        onClick={() => { setWorkingHours(preset); markDirty() }}
-                        className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                          workingHours === preset
-                            ? 'border-ink bg-ink text-white'
-                            : 'border-surface-border bg-zinc-50 text-ink-muted hover:text-ink'
-                        }`}
+                        onClick={async () => {
+                          await navigator.clipboard.writeText(publicShareUrl)
+                          setCopiedPublicUrl(true)
+                          setTimeout(() => setCopiedPublicUrl(false), 1500)
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-surface-border bg-white px-3 py-1.5 text-xs font-semibold text-ink hover:border-lavender-deep/50"
                       >
-                        {preset}
+                        {copiedPublicUrl ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                        <span>{copiedPublicUrl ? 'Copied' : 'Copy Link'}</span>
                       </button>
-                    ))}
+                      <button
+                        type="button"
+                        onClick={() => downloadSingleQr(qrNumber, 'png')}
+                        className="inline-flex items-center gap-1 rounded-xl border border-surface-border bg-white px-3 py-1.5 text-xs font-semibold text-ink hover:border-lavender-deep/50"
+                      >
+                        <Download className="h-3.5 w-3.5" /> PNG
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => downloadSingleQr(qrNumber, 'svg')}
+                        className="inline-flex items-center gap-1 rounded-xl border border-surface-border bg-white px-3 py-1.5 text-xs font-semibold text-ink hover:border-lavender-deep/50"
+                      >
+                        <Download className="h-3.5 w-3.5" /> SVG
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
 
-            {section === 'appearance' && (
-              <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 space-y-4 shadow-xs">
-                <h2 className="text-base font-bold text-ink">Profile Appearance</h2>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
                   <button
                     type="button"
-                    onClick={() => { setTheme('light'); markDirty() }}
-                    className={`flex items-center justify-center gap-2 rounded-2xl border-2 p-4 text-sm font-bold ${
-                      theme === 'light' ? 'border-ink bg-zinc-50 text-ink' : 'border-surface-border text-ink-muted'
-                    }`}
+                    onClick={() => handleSaveAll(!isPublished)}
+                    disabled={saving}
+                    className="rounded-xl border border-surface-border bg-white px-4 py-2 text-xs font-semibold text-ink hover:border-lavender-deep/50"
                   >
-                    <Sun className="h-4 w-4" /> Light Theme
+                    {isPublished ? 'Switch to Draft Mode' : 'Publish Live Now'}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => { setTheme('dark'); markDirty() }}
-                    className={`flex items-center justify-center gap-2 rounded-2xl border-2 p-4 text-sm font-bold ${
-                      theme === 'dark' ? 'border-ink bg-zinc-900 text-white' : 'border-surface-border text-ink-muted'
-                    }`}
-                  >
-                    <Moon className="h-4 w-4" /> Dark Theme
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
 
-          {/* Right: Live Profile Preview */}
-          <div className={`lg:col-span-5 ${mobileView === 'preview' ? 'block' : 'hidden lg:block'} lg:sticky lg:top-6`}>
-            <div className="rounded-2xl border border-surface-border bg-white p-4 shadow-xs space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-ink">Live Profile Preview</span>
-                <a
-                  href={publicShareUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-electric hover:underline"
-                >
-                  <span>Open Live</span>
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              </div>
-              <div className="mx-auto max-w-[360px] rounded-[30px] border-[5px] border-[#141413] bg-[#141413] p-1 overflow-hidden">
-                <div className="h-[560px] overflow-y-auto rounded-[24px]">
-                  <PublicProfileView
-                    profile={previewProfile}
-                    links={previewLinks}
-                    qrNumber={qrNumber}
-                    previewMode
-                    onThemeChange={(next) => {
-                      setTheme(next)
-                      markDirty()
-                    }}
-                  />
+                  {onOpenMultiQr && (
+                    <button
+                      type="button"
+                      onClick={onOpenMultiQr}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-lavender-soft bg-lavender-subtle px-4 py-2 text-xs font-bold text-cetacean hover:bg-lavender-soft/60"
+                    >
+                      <Layers className="h-3.5 w-3.5 text-lavender-deep" />
+                      <span>Open Multi-QR Workspace</span>
+                    </button>
+                  )}
                 </div>
+              </div>
+
+              <CustomerAccountSettings qrNumber={qrNumber} sessionToken={sessionToken} />
+            </div>
+          )}
+        </div>
+
+        {/* Right: Sticky Live Storefront Preview */}
+        <div className={`lg:col-span-5 ${mobileView === 'preview' ? 'block' : 'hidden lg:block'} lg:sticky lg:top-6`}>
+          <div className="rounded-2xl border border-surface-border bg-white p-4 shadow-editorial space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-ink">Live Storefront Preview</span>
+              <a
+                href={publicShareUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-lavender-deep hover:underline"
+              >
+                <span>Open Live</span>
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
+            <div className="mx-auto max-w-[360px] rounded-[30px] border-[5px] border-cetacean bg-cetacean p-1 shadow-xl overflow-hidden">
+              <div className="h-[560px] overflow-y-auto rounded-[24px]">
+                <PublicProfileView
+                  profile={previewProfile}
+                  links={previewLinks}
+                  qrNumber={qrNumber}
+                  previewMode
+                  onThemeChange={(next) => {
+                    setTheme(next)
+                    markDirty()
+                  }}
+                />
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Floating Unsaved Changes Save Bar */}
+      {hasUnsavedChanges && (
+        <div className="fixed bottom-4 inset-x-4 z-40 mx-auto max-w-2xl rounded-2xl border border-[#A577FF]/30 bg-cetacean text-white px-4 py-3 shadow-card-dark flex items-center justify-between gap-3">
+          <span className="text-xs sm:text-sm font-medium text-[#E8DEFF]">
+            You have unsaved storefront changes
+          </span>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => handleSaveAll(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-lavender-deep px-4 py-2 text-xs font-bold text-white hover:bg-lavender-hover shrink-0 disabled:opacity-60"
+          >
+            {saving ? <Spinner size={13} /> : <Save className="h-3.5 w-3.5" />}
+            <span>{saving ? 'Saving…' : 'Save Changes'}</span>
+          </button>
         </div>
       )}
 
       {/* Add / Edit Link Modal */}
       {linkModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-cetacean-deep/65 backdrop-blur-xs p-4"
           onClick={() => setLinkModalOpen(false)}
         >
           <div
@@ -1063,9 +1176,9 @@ export function BusinessProfileDashboard({
                     setDraftPlatform(next)
                     if (!editingLinkId) setDraftTitle(getPlatformMeta(next).defaultTitle)
                   }}
-                  className="w-full rounded-xl border border-surface-border bg-white px-3 py-2.5 text-xs font-semibold text-ink"
+                  className="w-full rounded-xl border border-surface-border bg-white px-3 py-2.5 text-xs font-semibold text-ink focus:border-lavender-deep focus:outline-none"
                 >
-                  {SOCIAL_PLATFORMS.map((p) => (
+                  {selectableModalPlatforms.map((p) => (
                     <option key={p.id} value={p.id}>{p.label}</option>
                   ))}
                 </select>
@@ -1076,16 +1189,19 @@ export function BusinessProfileDashboard({
                   value={draftTitle}
                   onChange={(e) => setDraftTitle(e.target.value)}
                   maxLength={80}
-                  className="w-full rounded-xl border border-surface-border px-3 py-2.5 text-xs text-ink focus:border-electric focus:outline-none"
+                  className="w-full rounded-xl border border-surface-border px-3 py-2.5 text-xs text-ink focus:border-lavender-deep focus:outline-none"
                 />
               </div>
               <div>
                 <label className="mb-1 block text-xs font-semibold text-ink">Destination URL / Handle *</label>
                 <input
                   value={draftUrl}
-                  onChange={(e) => { setDraftUrl(e.target.value); setLinkError(null) }}
+                  onChange={(e) => {
+                    setDraftUrl(e.target.value)
+                    setLinkError(null)
+                  }}
                   placeholder={getPlatformMeta(draftPlatform).placeholder}
-                  className="w-full rounded-xl border border-surface-border px-3 py-2.5 text-xs font-mono text-ink focus:border-electric focus:outline-none"
+                  className="w-full rounded-xl border border-surface-border px-3 py-2.5 text-xs font-mono text-ink focus:border-lavender-deep focus:outline-none"
                 />
               </div>
               {draftPlatform === 'custom' && (
@@ -1096,7 +1212,9 @@ export function BusinessProfileDashboard({
                       type="button"
                       onClick={() => setDraftIcon(opt.id)}
                       className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] ${
-                        draftIcon === opt.id ? 'border-ink bg-zinc-100 font-semibold' : 'border-surface-border text-ink-muted'
+                        draftIcon === opt.id
+                          ? 'border-cetacean bg-lavender-subtle text-cetacean font-semibold'
+                          : 'border-surface-border text-ink-muted'
                       }`}
                     >
                       <PlatformIcon platform="custom" customIcon={opt.id} size={13} />
@@ -1113,10 +1231,18 @@ export function BusinessProfileDashboard({
             </div>
 
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setLinkModalOpen(false)} className="rounded-xl border border-surface-border px-3.5 py-2 text-xs font-semibold text-ink">
+              <button
+                type="button"
+                onClick={() => setLinkModalOpen(false)}
+                className="rounded-xl border border-surface-border px-3.5 py-2 text-xs font-semibold text-ink hover:bg-ghost"
+              >
                 Cancel
               </button>
-              <button type="button" onClick={handleSaveLinkModal} className="rounded-xl bg-electric px-4 py-2 text-xs font-bold text-white hover:bg-electric-hover">
+              <button
+                type="button"
+                onClick={handleSaveLinkModal}
+                className="rounded-xl bg-lavender-deep px-4 py-2 text-xs font-bold text-white hover:bg-lavender-hover"
+              >
                 {editingLinkId ? 'Update Link' : 'Add Link'}
               </button>
             </div>
@@ -1148,7 +1274,9 @@ function ToggleField({
           type="button"
           onClick={onToggle}
           className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold border ${
-            visible ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-zinc-200 bg-zinc-100 text-zinc-600'
+            visible
+              ? 'border-lavender-soft bg-lavender-subtle text-cetacean'
+              : 'border-surface-border bg-ghost text-ink-muted'
           }`}
         >
           {visible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
@@ -1158,7 +1286,7 @@ function ToggleField({
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink focus:border-electric focus:outline-none"
+        className="w-full rounded-xl border border-surface-border bg-white px-3.5 py-2.5 text-sm text-ink focus:border-lavender-deep focus:outline-none"
       />
     </div>
   )
@@ -1185,8 +1313,8 @@ function LinkListEditor({
 }) {
   if (items.length === 0) {
     return (
-      <p className="rounded-xl border border-dashed border-zinc-300 p-6 text-center text-xs text-ink-muted">
-        No links in this section yet. Click a platform or template above to add one.
+      <p className="rounded-xl border border-dashed border-surface-border p-5 text-center text-xs text-ink-muted">
+        No links in this section yet. Click a channel or template above to add one.
       </p>
     )
   }
@@ -1202,11 +1330,13 @@ function LinkListEditor({
             onDragOver={(e) => e.preventDefault()}
             onDrop={() => onDrop(item.id)}
             className={`flex items-center justify-between gap-2.5 rounded-xl border px-3 py-2.5 ${
-              item.is_active ? 'border-surface-border bg-zinc-50/70' : 'border-dashed border-zinc-200 bg-zinc-50/30 opacity-60'
+              item.is_active
+                ? 'border-surface-border bg-ghost'
+                : 'border-dashed border-surface-border bg-ghost/40 opacity-60'
             }`}
           >
             <div className="flex items-center gap-2.5 min-w-0">
-              <GripVertical className="h-4 w-4 text-zinc-400 cursor-grab shrink-0" />
+              <GripVertical className="h-4 w-4 text-ink-muted cursor-grab shrink-0" />
               <PlatformIcon platform={item.platform} customIcon={item.icon} size={18} />
               <div className="min-w-0">
                 <p className="text-xs font-bold text-ink truncate">{item.link_title}</p>

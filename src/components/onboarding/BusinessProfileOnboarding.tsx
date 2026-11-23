@@ -4,7 +4,6 @@ import {
   ArrowRight,
   ArrowUp,
   Award,
-  Briefcase,
   Building2,
   Check,
   CheckCircle2,
@@ -18,6 +17,7 @@ import {
   ImagePlus,
   Mail,
   MapPin,
+  MessageCircle,
   Moon,
   Pencil,
   Phone,
@@ -40,6 +40,7 @@ import {
   isValidPublicSlug,
   normalizeDestinationUrl,
   normalizePublicSlug,
+  SOCIAL_PLATFORMS,
   validatePlatformLinkUrl,
 } from '../../lib/validation'
 import type {
@@ -54,7 +55,6 @@ import { Spinner } from '../Spinner'
 import { CUSTOM_LINK_ICONS, PlatformIcon } from '../profile/PlatformIcons'
 import { PublicProfileView } from '../profile/PublicProfileView'
 import { OnboardingLayout, type SaveStatus } from './OnboardingLayout'
-import { PlatformSelector } from './PlatformSelector'
 
 interface BusinessProfileOnboardingProps {
   dashboard: CustomerDashboardData
@@ -84,19 +84,34 @@ const DEFAULT_VISIBILITY: ContactVisibility = {
 }
 
 const STEP_LABELS: Record<number, string> = {
-  1: 'Business category',
-  2: 'Business identity',
-  3: 'About business',
-  4: 'Select platforms',
-  5: 'Social links',
-  6: 'Business & custom links',
-  7: 'Contact details',
-  8: 'Preview profile',
-  9: 'Published',
+  1: 'Brand & Story',
+  2: 'Contact & Timings',
+  3: 'Social & Business Links',
+  4: 'Review & Publish',
+  5: 'Published & Ready',
 }
 
+const TIMING_PRESETS = [
+  'Mon–Sat: 10:00 AM – 7:00 PM',
+  'Mon–Fri: 9:30 AM – 6:30 PM',
+  'All Days: 10:00 AM – 9:00 PM',
+  'Open 24 Hours',
+]
+
+const BUSINESS_SOCIAL_PLATFORMS = SOCIAL_PLATFORMS.filter(
+  (p) =>
+    p.id !== 'custom' &&
+    p.id !== 'whatsapp' &&
+    p.id !== 'google_reviews' &&
+    p.id !== 'google_maps',
+)
+
+const ONBOARDING_BUSINESS_TEMPLATES = BUSINESS_LINK_TEMPLATES.filter(
+  (t) => t.id !== 'google_maps',
+)
+
 function draftKey(qr: string) {
-  return `spreadnfc_biz_onboarding_draft_${qr.toUpperCase()}`
+  return `spreadnfc_biz_onboarding_v2_${qr.toUpperCase()}`
 }
 
 export function BusinessProfileOnboarding({
@@ -119,13 +134,14 @@ export function BusinessProfileOnboarding({
   }, [qrNumber])
 
   const initialSocialPlatforms = useMemo<SocialPlatform[]>(() => {
-    if (savedDraft?.selectedPlatforms) return savedDraft.selectedPlatforms
+    if (Array.isArray(savedDraft?.selectedPlatforms)) return savedDraft.selectedPlatforms
     const list: SocialPlatform[] = []
     for (const l of dashboard.links ?? []) {
       if (
         l.platform !== 'custom' &&
         l.platform !== 'google_reviews' &&
         l.platform !== 'google_maps' &&
+        l.platform !== 'whatsapp' &&
         !list.includes(l.platform)
       ) {
         list.push(l.platform)
@@ -138,7 +154,12 @@ export function BusinessProfileOnboarding({
     if (savedDraft?.socialValues) return savedDraft.socialValues
     const map: Partial<Record<SocialPlatform, string>> = {}
     for (const l of dashboard.links ?? []) {
-      if (l.platform !== 'custom' && l.platform !== 'google_reviews' && l.platform !== 'google_maps') {
+      if (
+        l.platform !== 'custom' &&
+        l.platform !== 'google_reviews' &&
+        l.platform !== 'google_maps' &&
+        l.platform !== 'whatsapp'
+      ) {
         if (!map[l.platform]) map[l.platform] = l.destination_url
       }
     }
@@ -146,9 +167,9 @@ export function BusinessProfileOnboarding({
   }, [dashboard.links, savedDraft])
 
   const initialBusinessLinks = useMemo<CustomBusinessLinkDraft[]>(() => {
-    if (savedDraft?.businessLinks) return savedDraft.businessLinks
+    if (Array.isArray(savedDraft?.businessLinks)) return savedDraft.businessLinks
     return (dashboard.links ?? [])
-      .filter((l) => l.platform === 'custom' || l.platform === 'google_reviews' || l.platform === 'google_maps')
+      .filter((l) => l.platform === 'custom' || l.platform === 'google_reviews')
       .map((l) => ({
         id: l.id,
         platform: l.platform,
@@ -159,7 +180,10 @@ export function BusinessProfileOnboarding({
       }))
   }, [dashboard.links, savedDraft])
 
-  const [step, setStep] = useState<number>(savedDraft?.step ?? 1)
+  const [step, setStep] = useState<number>(() => {
+    const raw = typeof savedDraft?.step === 'number' ? savedDraft.step : 1
+    return Math.min(4, Math.max(1, raw))
+  })
   const [businessCategory, setBusinessCategory] = useState<string>(
     savedDraft?.businessCategory ?? dbProfile?.business_category ?? 'Real Estate',
   )
@@ -174,7 +198,6 @@ export function BusinessProfileOnboarding({
   const [profileImage, setProfileImage] = useState<string | null>(
     savedDraft?.profileImage !== undefined ? savedDraft.profileImage : dbProfile?.profile_image ?? null,
   )
-  const [avatarId, setAvatarId] = useState<string | null>(null)
   const [publicSlug, setPublicSlug] = useState<string>(savedDraft?.publicSlug ?? dbProfile?.public_slug ?? '')
 
   // About
@@ -184,21 +207,7 @@ export function BusinessProfileOnboarding({
   )
   const [location, setLocation] = useState<string>(savedDraft?.location ?? dbProfile?.location ?? '')
 
-  // Social
-  const [selectedPlatforms, setSelectedPlatforms] = useState<SocialPlatform[]>(initialSocialPlatforms)
-  const [socialValues, setSocialValues] = useState<Partial<Record<SocialPlatform, string>>>(initialSocialValues)
-
-  // Business-specific & custom links
-  const [businessLinks, setBusinessLinks] = useState<CustomBusinessLinkDraft[]>(initialBusinessLinks)
-  const [newLinkPlatform, setNewLinkPlatform] = useState<SocialPlatform>('google_reviews')
-  const [newLinkTitle, setNewLinkTitle] = useState<string>(BUSINESS_LINK_TEMPLATES[0].defaultTitle)
-  const [newLinkUrl, setNewLinkUrl] = useState<string>('')
-  const [newLinkIcon, setNewLinkIcon] = useState<string>('link')
-  const [newLinkPlaceholder, setNewLinkPlaceholder] = useState<string>(BUSINESS_LINK_TEMPLATES[0].placeholder)
-  const [linkErr, setLinkErr] = useState<string | null>(null)
-  const [dragIdx, setDragIdx] = useState<number | null>(null)
-
-  // Contact details & visibility
+  // Contact & Timings
   const [contactPhone, setContactPhone] = useState<string>(savedDraft?.contactPhone ?? dbProfile?.contact_phone ?? '')
   const [whatsappNumber, setWhatsappNumber] = useState<string>(
     savedDraft?.whatsappNumber ?? dbProfile?.whatsapp_number ?? '',
@@ -212,6 +221,18 @@ export function BusinessProfileOnboarding({
   const [visibility, setVisibility] = useState<ContactVisibility>(
     savedDraft?.visibility ?? dbProfile?.contact_visibility ?? DEFAULT_VISIBILITY,
   )
+
+  // Social & Business Links
+  const [selectedPlatforms, setSelectedPlatforms] = useState<SocialPlatform[]>(initialSocialPlatforms)
+  const [socialValues, setSocialValues] = useState<Partial<Record<SocialPlatform, string>>>(initialSocialValues)
+  const [businessLinks, setBusinessLinks] = useState<CustomBusinessLinkDraft[]>(initialBusinessLinks)
+  const [newLinkPlatform, setNewLinkPlatform] = useState<SocialPlatform>('google_reviews')
+  const [newLinkTitle, setNewLinkTitle] = useState<string>(BUSINESS_LINK_TEMPLATES[0].defaultTitle)
+  const [newLinkUrl, setNewLinkUrl] = useState<string>('')
+  const [newLinkIcon, setNewLinkIcon] = useState<string>('link')
+  const [newLinkPlaceholder, setNewLinkPlaceholder] = useState<string>(BUSINESS_LINK_TEMPLATES[0].placeholder)
+  const [linkErr, setLinkErr] = useState<string | null>(null)
+  const [dragIdx, setDragIdx] = useState<number | null>(null)
 
   const [theme, setTheme] = useState<ProfileTheme>(
     savedDraft?.theme ?? (dbProfile?.theme ? (dbProfile.theme === 'dark' ? 'dark' : 'light') : 'dark'),
@@ -228,9 +249,8 @@ export function BusinessProfileOnboarding({
   const resolvedCategory =
     businessCategory === 'Other' && customCategory.trim() ? customCategory.trim() : businessCategory
 
-  // Persist draft in sessionStorage
   useEffect(() => {
-    if (step >= 9) return
+    if (step >= 5) return
     try {
       sessionStorage.setItem(
         draftKey(qrNumber),
@@ -242,7 +262,6 @@ export function BusinessProfileOnboarding({
           tagline,
           contactPersonName,
           profileImage,
-          avatarId,
           publicSlug,
           bio,
           businessExperience,
@@ -272,7 +291,6 @@ export function BusinessProfileOnboarding({
     tagline,
     contactPersonName,
     profileImage,
-    avatarId,
     publicSlug,
     bio,
     businessExperience,
@@ -313,7 +331,7 @@ export function BusinessProfileOnboarding({
   }, [publicSlug, sessionToken])
 
   useEffect(() => {
-    if (step !== 9) return
+    if (step !== 5) return
     let cancelled = false
     generateQrDataUrl(qrNumber).then((url) => {
       if (!cancelled) setQrDataUrl(url)
@@ -331,6 +349,7 @@ export function BusinessProfileOnboarding({
 
   function togglePlatform(id: SocialPlatform) {
     setSelectedPlatforms((prev) => (prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]))
+    setError(null)
   }
 
   async function handleLogoUpload(file: File | null) {
@@ -339,14 +358,13 @@ export function BusinessProfileOnboarding({
     try {
       const compressed = await compressProfileImage(file)
       setProfileImage(compressed)
-      setAvatarId(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not process logo image.')
     }
   }
 
   function applyBusinessTemplate(tplId: string) {
-    const tpl = BUSINESS_LINK_TEMPLATES.find((t) => t.id === tplId)
+    const tpl = ONBOARDING_BUSINESS_TEMPLATES.find((t) => t.id === tplId)
     if (!tpl) return
     setNewLinkPlatform(tpl.platform)
     setNewLinkTitle(tpl.defaultTitle)
@@ -458,20 +476,7 @@ export function BusinessProfileOnboarding({
     return out
   }
 
-  function validateSocialStep(): boolean {
-    for (const pid of selectedPlatforms) {
-      const raw = (socialValues[pid] || '').trim()
-      if (!raw) continue // skippable!
-      const res = validatePlatformLinkUrl(pid, raw)
-      if (!res.ok) {
-        setError(`${getPlatformMeta(pid).label}: ${res.error}`)
-        return false
-      }
-    }
-    return true
-  }
-
-  function validateContactStep(): boolean {
+  function validateStep2Contact(): boolean {
     setError(null)
     if (contactPhone.trim() && !isValidContactPhone(contactPhone)) {
       setError('Please enter a valid business phone number.')
@@ -494,13 +499,33 @@ export function BusinessProfileOnboarding({
     return true
   }
 
+  function validateStep3Social(): boolean {
+    for (const pid of selectedPlatforms) {
+      const raw = (socialValues[pid] || '').trim()
+      if (!raw) continue
+      const res = validatePlatformLinkUrl(pid, raw)
+      if (!res.ok) {
+        setError(`${getPlatformMeta(pid).label}: ${res.error}`)
+        return false
+      }
+    }
+    return true
+  }
+
   async function handlePublish() {
     if (!businessName.trim()) {
       setError('Business name is required.')
+      goToStep(1)
+      return
+    }
+    if (!validateStep2Contact()) {
       goToStep(2)
       return
     }
-    if (!validateContactStep()) return
+    if (slugStatus === 'taken' || slugStatus === 'invalid') {
+      setError('Please choose an available custom URL handle or clear it.')
+      return
+    }
 
     const cleanMaps = googleMapsUrl.trim() ? normalizeDestinationUrl(googleMapsUrl) : null
     const cleanSlug = normalizePublicSlug(publicSlug) || null
@@ -519,7 +544,7 @@ export function BusinessProfileOnboarding({
       tagline: tagline.trim() || null,
       bio: bio.trim() || null,
       profileImage,
-      avatarId: profileImage ? null : avatarId,
+      avatarId: null,
       contactEmail: contactEmail.trim() || null,
       contactPhone: contactPhone.trim() || null,
       contactPersonName: contactPersonName.trim() || null,
@@ -549,21 +574,21 @@ export function BusinessProfileOnboarding({
       // ignore
     }
     await onRefresh()
-    goToStep(9)
+    goToStep(5)
   }
 
   const previewProfile: PublicProfileData = useMemo(
     () => ({
       profile_type: 'business',
-      profile_name: businessName.trim() || 'Elevate Realty',
-      business_category: resolvedCategory || 'Real Estate',
+      profile_name: businessName.trim() || 'Your Business Name',
+      business_category: resolvedCategory || 'Business',
       location: location.trim() || null,
       business_experience: businessExperience.trim() || null,
       contact_person_name: visibility.contact_person ? contactPersonName.trim() || null : null,
       tagline: tagline.trim() || null,
       bio: bio.trim() || null,
       profile_image: profileImage,
-      avatar_id: profileImage ? null : avatarId,
+      avatar_id: null,
       contact_email: visibility.email ? contactEmail.trim() || null : null,
       contact_phone: visibility.phone ? contactPhone.trim() || null : null,
       whatsapp_number: visibility.whatsapp ? whatsappNumber.trim() || null : null,
@@ -583,7 +608,6 @@ export function BusinessProfileOnboarding({
       tagline,
       bio,
       profileImage,
-      avatarId,
       contactEmail,
       contactPhone,
       whatsappNumber,
@@ -613,728 +637,703 @@ export function BusinessProfileOnboarding({
 
   const liveProfileUrl = profilePublicUrl(normalizePublicSlug(publicSlug) || qrNumber)
   const permanentQrUrl = qrPublicUrl(qrNumber)
+  const brandInitials = (businessName.trim().slice(0, 2) || 'BN').toUpperCase()
+  const showSplitPreview = step >= 1 && step <= 3
 
   return (
     <OnboardingLayout
       qrNumber={qrNumber}
-      currentStep={step}
-      totalSteps={9}
+      currentStep={Math.min(step, 4)}
+      totalSteps={4}
       stepLabel={STEP_LABELS[step] ?? 'Business Setup'}
       saveStatus={saveStatus}
-      onBack={step > 1 && step < 9 ? () => goToStep(step - 1) : undefined}
+      wide={step <= 4}
+      onBack={step > 1 && step < 5 ? () => goToStep(step - 1) : undefined}
       onLogout={onLogout}
     >
-      {/* STEP 1: BUSINESS CATEGORY */}
-      {step === 1 && (
-        <div className="space-y-6">
-          <div>
-            <h1 className="text-[26px] sm:text-[32px] font-bold tracking-[-0.025em] leading-[1.15] text-[#141413]">
-              What Type of Business Do You Have?
-            </h1>
-            <p className="mt-2 text-[15px] text-[#5C5B57]">
-              Select a category that best describes your business. This helps tailor your Business Profile layout.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {BUSINESS_CATEGORY_OPTIONS.map((cat) => {
-              const selected = businessCategory === cat.label
-              return (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => setBusinessCategory(cat.label)}
-                  className={`relative flex items-start gap-3 rounded-2xl border p-4 text-left transition-all ${
-                    selected
-                      ? 'border-[#141413] bg-white ring-1 ring-[#141413] shadow-xs'
-                      : 'border-[#E6E4DF] bg-white/80 hover:border-[#CBC8C0] hover:bg-white'
-                  }`}
-                >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F7F6F3] border border-[#E6E4DF]">
-                    <Briefcase className="h-4 w-4 text-[#141413]" />
-                  </span>
-                  <div className="pr-5">
-                    <p className="text-sm font-bold text-[#141413]">{cat.label}</p>
-                    <p className="mt-0.5 text-xs text-[#6F6E69]">{cat.examples}</p>
-                  </div>
-                  <span
-                    className={`absolute top-3.5 right-3.5 flex h-4 w-4 items-center justify-center rounded-full border ${
-                      selected ? 'border-[#141413] bg-[#141413] text-white' : 'border-[#D5D2CA] text-transparent'
-                    }`}
-                  >
-                    <Check className="h-2.5 w-2.5 stroke-[3]" />
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-
-          {businessCategory === 'Other' && (
-            <div className="rounded-2xl border border-[#E6E4DF] bg-white p-4">
-              <label className="mb-1.5 block text-xs font-semibold text-[#141413]">
-                Describe your business type (Optional)
-              </label>
-              <input
-                value={customCategory}
-                onChange={(e) => setCustomCategory(e.target.value)}
-                maxLength={60}
-                placeholder="e.g. Architecture Studio, Event Planner"
-                className="w-full rounded-xl border border-[#E6E4DF] px-3.5 py-2.5 text-sm text-[#141413] focus:border-[#141413] focus:outline-none"
-              />
-            </div>
-          )}
-
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={() => goToStep(2)}
-              className="inline-flex h-12 items-center gap-2 rounded-xl bg-[#141413] px-6 text-sm font-semibold text-white hover:bg-[#2A2A28]"
-            >
-              <span>Continue</span>
-              <ArrowRight className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* STEP 2: BUSINESS IDENTITY */}
-      {step === 2 && (
-        <div className="space-y-6">
-          <div>
-            <h1 className="text-[26px] sm:text-[32px] font-bold tracking-[-0.025em] leading-[1.15] text-[#141413]">
-              Create Your Business Identity
-            </h1>
-            <p className="mt-2 text-[15px] text-[#5C5B57]">
-              This information forms the hero header of your public Business Profile.
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-[#E6E4DF] bg-white p-5 sm:p-6 space-y-5">
-            <div>
-              <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-[#141413]">
-                <Building2 className="h-4 w-4 text-[#5C5B57]" />
-                <span>Business Name *</span>
-              </label>
-              <input
-                value={businessName}
-                onChange={(e) => {
-                  setBusinessName(e.target.value)
-                  setError(null)
-                }}
-                maxLength={80}
-                placeholder="e.g. Elevate Realty"
-                className="w-full rounded-xl border border-[#E6E4DF] px-4 py-3 text-sm font-semibold text-[#141413] focus:border-[#141413] focus:outline-none"
-              />
-            </div>
-
-            <div className="space-y-3">
-              <label className="block text-xs font-semibold text-[#141413]">
-                Business Brand Logo (Optional)
-              </label>
-              <div className="flex flex-wrap items-center gap-4">
-                <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-600 via-violet-600 to-cyan-500 text-white shadow-[0_6px_22px_-6px_rgba(79,70,229,0.5)]">
-                  {profileImage ? (
-                    <img src={profileImage} alt="Business logo preview" className="h-full w-full object-cover bg-white" />
-                  ) : (
-                    <span className="text-lg font-extrabold tracking-tight">
-                      {(businessName.trim().slice(0, 2) || 'BN').toUpperCase()}
+      {/* STEPS 1–3: TWO-COLUMN DESIGNER STUDIO + LIVE PREVIEW */}
+      {showSplitPreview && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-7 items-start">
+          <div className="lg:col-span-7 space-y-5">
+            {/* STEP 1: BRAND & STORY */}
+            {step === 1 && (
+              <div className="space-y-5">
+                <div>
+                  <h1 className="text-2xl sm:text-[30px] font-extrabold tracking-tight text-ink leading-tight">
+                    Set Up Your{' '}
+                    <span className="font-editorial italic font-normal text-lavender-deep">
+                      Business Identity
                     </span>
+                  </h1>
+                  <p className="mt-1.5 text-sm text-ink-secondary">
+                    Add your brand name, logo, category, and a short introduction for customers.
+                  </p>
+                </div>
+
+                {/* Card 1: Brand & Category */}
+                <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 shadow-editorial space-y-5">
+                  <div className="flex flex-wrap items-center gap-4">
+                    <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-lavender-soft bg-gradient-to-br from-[#271466] via-[#1E1050] to-[#150A35] text-white shadow-editorial">
+                      {profileImage ? (
+                        <img
+                          src={profileImage}
+                          alt="Business logo"
+                          className="h-full w-full object-cover bg-white"
+                        />
+                      ) : (
+                        <span className="text-lg font-extrabold tracking-tight">{brandInitials}</span>
+                      )}
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-surface-border bg-ghost px-3.5 py-2 text-xs font-semibold text-ink hover:border-lavender-deep transition-colors">
+                          <ImagePlus className="h-4 w-4 text-lavender-deep" />
+                          <span>{profileImage ? 'Replace Logo' : 'Upload Brand Logo'}</span>
+                          <input
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp"
+                            className="hidden"
+                            onChange={(e) => handleLogoUpload(e.target.files?.[0] ?? null)}
+                          />
+                        </label>
+                        {profileImage && (
+                          <button
+                            type="button"
+                            onClick={() => setProfileImage(null)}
+                            className="text-xs font-medium text-rose-600 hover:underline"
+                          >
+                            Use Monogram
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-ink-muted">
+                        PNG, JPG, or WebP. Without a logo, your sleek brand monogram is shown.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-ink">
+                      <Building2 className="h-3.5 w-3.5 text-lavender-deep" />
+                      <span>Business Name *</span>
+                    </label>
+                    <input
+                      value={businessName}
+                      onChange={(e) => {
+                        setBusinessName(e.target.value)
+                        setError(null)
+                      }}
+                      maxLength={80}
+                      placeholder="e.g. Elevate Realty"
+                      className="w-full rounded-xl border border-surface-border bg-white px-4 py-3 text-sm font-semibold text-ink focus:border-lavender-deep focus:outline-none transition-colors"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-xs font-semibold text-ink">Business Category</label>
+                    <div className="flex flex-wrap gap-2">
+                      {BUSINESS_CATEGORY_OPTIONS.map((cat) => {
+                        const selected = businessCategory === cat.label
+                        return (
+                          <button
+                            key={cat.id}
+                            type="button"
+                            onClick={() => setBusinessCategory(cat.label)}
+                            className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-all ${
+                              selected
+                                ? 'border-cetacean bg-cetacean text-white shadow-xs'
+                                : 'border-surface-border bg-ghost text-ink-secondary hover:border-lavender-deep/50 hover:text-ink'
+                            }`}
+                          >
+                            {cat.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    {businessCategory === 'Other' && (
+                      <input
+                        value={customCategory}
+                        onChange={(e) => setCustomCategory(e.target.value)}
+                        maxLength={60}
+                        placeholder="Specify category (e.g. Architecture Studio)"
+                        className="mt-2 w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink focus:border-lavender-deep focus:outline-none"
+                      />
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-ink">
+                        <MapPin className="h-3.5 w-3.5 text-ink-muted" />
+                        <span>City / Area</span>
+                      </label>
+                      <input
+                        value={location}
+                        onChange={(e) => setLocation(e.target.value)}
+                        maxLength={80}
+                        placeholder="e.g. Gomti Nagar, Lucknow"
+                        className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink focus:border-lavender-deep focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-ink">
+                        <Award className="h-3.5 w-3.5 text-amber-500" />
+                        <span>Experience / Badge</span>
+                      </label>
+                      <input
+                        value={businessExperience}
+                        onChange={(e) => setBusinessExperience(e.target.value)}
+                        maxLength={60}
+                        placeholder="e.g. 10+ Years Experience"
+                        className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink focus:border-lavender-deep focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Card 2: Tagline & About Story */}
+                <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 shadow-editorial space-y-4">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold text-ink">Tagline (Optional)</label>
+                    <input
+                      value={tagline}
+                      onChange={(e) => setTagline(e.target.value)}
+                      maxLength={80}
+                      placeholder="e.g. Premium Properties. Transparent Guidance."
+                      className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink focus:border-lavender-deep focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <label className="text-xs font-semibold text-ink">About Your Business (Optional)</label>
+                      <span className="font-mono text-[11px] text-ink-muted">{bio.length}/280</span>
+                    </div>
+                    <textarea
+                      rows={3}
+                      maxLength={280}
+                      value={bio}
+                      onChange={(e) => setBio(e.target.value)}
+                      placeholder="Briefly describe what your business offers and why customers choose you."
+                      className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink leading-relaxed focus:border-lavender-deep focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-ink">
+                      <User className="h-3.5 w-3.5 text-ink-muted" />
+                      <span>Contact Person Name (Optional)</span>
+                    </label>
+                    <input
+                      value={contactPersonName}
+                      onChange={(e) => setContactPersonName(e.target.value)}
+                      maxLength={80}
+                      placeholder="e.g. Aditya Sharma"
+                      className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-sm text-ink focus:border-lavender-deep focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                {error && (
+                  <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-medium text-rose-700">
+                    {error}
+                  </p>
+                )}
+
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!businessName.trim()) {
+                        setError('Please enter your Business Name to continue.')
+                        return
+                      }
+                      goToStep(2)
+                    }}
+                    className="inline-flex h-12 items-center gap-2 rounded-xl bg-cetacean px-6 text-sm font-bold text-white hover:bg-cetacean-mid shadow-md transition-colors"
+                  >
+                    <span>Continue to Contact &amp; Timings</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 2: CONTACT & TIMINGS */}
+            {step === 2 && (
+              <div className="space-y-5">
+                <div>
+                  <h1 className="text-2xl sm:text-[30px] font-extrabold tracking-tight text-ink leading-tight">
+                    Contact &amp;{' '}
+                    <span className="font-editorial italic font-normal text-lavender-deep">
+                      Business Timings
+                    </span>
+                  </h1>
+                  <p className="mt-1.5 text-sm text-ink-secondary">
+                    Add your working hours, phone, WhatsApp, and location—every field is optional and toggleable.
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 shadow-editorial space-y-4">
+                  <div className="space-y-2.5 rounded-xl border border-lavender-soft bg-lavender-subtle/50 p-3.5">
+                    <ContactFieldRow
+                      icon={Clock}
+                      label="Business Timings (Working Hours)"
+                      value={workingHours}
+                      onChange={setWorkingHours}
+                      placeholder="Mon–Sat: 10:00 AM – 7:00 PM"
+                      visible={visibility.hours}
+                      onToggle={() => setVisibility((v) => ({ ...v, hours: !v.hours }))}
+                    />
+                    <div className="flex flex-wrap gap-1.5">
+                      {TIMING_PRESETS.map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => setWorkingHours(preset)}
+                          className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                            workingHours === preset
+                              ? 'border-cetacean bg-cetacean text-white'
+                              : 'border-surface-border bg-white text-ink-secondary hover:border-lavender-deep/50'
+                          }`}
+                        >
+                          {preset}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <ContactFieldRow
+                      icon={Phone}
+                      label="Phone Number"
+                      value={contactPhone}
+                      onChange={setContactPhone}
+                      placeholder="+91 98765 43210"
+                      visible={visibility.phone}
+                      onToggle={() => setVisibility((v) => ({ ...v, phone: !v.phone }))}
+                    />
+                    <ContactFieldRow
+                      icon={MessageCircle}
+                      label="WhatsApp Number"
+                      value={whatsappNumber}
+                      onChange={setWhatsappNumber}
+                      placeholder="+91 98765 43210"
+                      visible={visibility.whatsapp}
+                      onToggle={() => setVisibility((v) => ({ ...v, whatsapp: !v.whatsapp }))}
+                    />
+                  </div>
+
+                  <ContactFieldRow
+                    icon={Mail}
+                    label="Business Email"
+                    value={contactEmail}
+                    onChange={setContactEmail}
+                    placeholder="hello@yourbusiness.com"
+                    visible={visibility.email}
+                    onToggle={() => setVisibility((v) => ({ ...v, email: !v.email }))}
+                  />
+
+                  <ContactFieldRow
+                    icon={MapPin}
+                    label="Full Business Address"
+                    value={fullAddress}
+                    onChange={setFullAddress}
+                    placeholder="Suite 402, Gomti Nagar, Lucknow"
+                    visible={visibility.address}
+                    onToggle={() => setVisibility((v) => ({ ...v, address: !v.address }))}
+                  />
+
+                  <ContactFieldRow
+                    icon={MapPin}
+                    label="Google Maps Location URL"
+                    value={googleMapsUrl}
+                    onChange={setGoogleMapsUrl}
+                    placeholder="https://maps.app.goo.gl/..."
+                    visible={visibility.maps}
+                    onToggle={() => setVisibility((v) => ({ ...v, maps: !v.maps }))}
+                  />
+                </div>
+
+                {error && (
+                  <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-medium text-rose-700">
+                    {error}
+                  </p>
+                )}
+
+                <div className="flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() => goToStep(3)}
+                    className="text-xs font-semibold text-ink-muted hover:text-ink"
+                  >
+                    Skip for now →
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!validateStep2Contact()) return
+                      goToStep(3)
+                    }}
+                    className="inline-flex h-12 items-center gap-2 rounded-xl bg-cetacean px-6 text-sm font-bold text-white hover:bg-cetacean-mid shadow-md transition-colors"
+                  >
+                    <span>Continue to Links</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 3: SOCIAL & BUSINESS LINKS (UNIFIED) */}
+            {step === 3 && (
+              <div className="space-y-5">
+                <div>
+                  <h1 className="text-2xl sm:text-[30px] font-extrabold tracking-tight text-ink leading-tight">
+                    Social &amp;{' '}
+                    <span className="font-editorial italic font-normal text-lavender-deep">
+                      Business Links
+                    </span>
+                  </h1>
+                  <p className="mt-1.5 text-sm text-ink-secondary">
+                    Tap the channels you want to show, plus Google Reviews, digital menus, or custom URLs.
+                  </p>
+                </div>
+
+                {/* Card A: Social Media Channels */}
+                <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 shadow-editorial space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="text-sm font-bold text-ink">Social Media &amp; Website</h2>
+                    <span className="text-[11px] text-ink-muted">
+                      WhatsApp &amp; Maps are configured in Contact &amp; Timings
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {BUSINESS_SOCIAL_PLATFORMS.map((p) => {
+                      const active = selectedPlatforms.includes(p.id)
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => togglePlatform(p.id)}
+                          aria-pressed={active}
+                          className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-all ${
+                            active
+                              ? 'border-cetacean bg-lavender-subtle text-cetacean ring-1 ring-cetacean'
+                              : 'border-surface-border bg-ghost text-ink-secondary hover:border-lavender-deep/45 hover:text-ink'
+                          }`}
+                        >
+                          <PlatformIcon platform={p.id} size={15} />
+                          <span>{p.label}</span>
+                          {active && <Check className="h-3 w-3 text-lavender-deep" />}
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  {selectedPlatforms.length > 0 && (
+                    <div className="space-y-3 pt-2 border-t border-surface-border">
+                      {selectedPlatforms.map((pid) => {
+                        const meta = getPlatformMeta(pid)
+                        return (
+                          <div key={pid} className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink">
+                                <PlatformIcon platform={pid} size={15} />
+                                <span>{meta.label}</span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => togglePlatform(pid)}
+                                className="text-[11px] font-medium text-rose-600 hover:underline"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                            <input
+                              value={socialValues[pid] ?? ''}
+                              onChange={(e) => {
+                                setSocialValues((prev) => ({ ...prev, [pid]: e.target.value }))
+                                setError(null)
+                              }}
+                              placeholder={meta.placeholder}
+                              className="w-full rounded-xl border border-surface-border px-3.5 py-2.5 text-xs font-mono text-ink focus:border-lavender-deep focus:outline-none"
+                            />
+                          </div>
+                        )
+                      })}
+                    </div>
                   )}
                 </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-[#E6E4DF] bg-[#FAF9F7] px-3.5 py-2.5 text-xs font-semibold text-[#141413] hover:border-[#141413]">
-                    <ImagePlus className="h-4 w-4 text-[#5E4AE3]" />
-                    <span>{profileImage ? 'Change Business Logo' : 'Upload Business Logo'}</span>
-                    <input
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp"
-                      className="hidden"
-                      onChange={(e) => handleLogoUpload(e.target.files?.[0] ?? null)}
-                    />
-                  </label>
-                  {profileImage ? (
+
+                {/* Card B: Business & Custom Links */}
+                <div className="rounded-2xl border border-surface-border bg-white p-5 sm:p-6 shadow-editorial space-y-4">
+                  <h2 className="text-sm font-bold text-ink">Google Reviews, Catalog &amp; Custom Links</h2>
+
+                  <div className="flex flex-wrap gap-1.5">
+                    {ONBOARDING_BUSINESS_TEMPLATES.map((tpl) => (
+                      <button
+                        key={tpl.id}
+                        type="button"
+                        onClick={() => applyBusinessTemplate(tpl.id)}
+                        className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all ${
+                          newLinkTitle === tpl.defaultTitle
+                            ? 'border-cetacean bg-cetacean text-white'
+                            : 'border-surface-border bg-ghost text-ink-secondary hover:border-lavender-deep/45'
+                        }`}
+                      >
+                        <PlatformIcon platform={tpl.platform} customIcon={tpl.icon} size={14} />
+                        <span>{tpl.label}</span>
+                      </button>
+                    ))}
                     <button
                       type="button"
                       onClick={() => {
-                        setProfileImage(null)
-                        setAvatarId(null)
+                        setNewLinkPlatform('custom')
+                        setNewLinkTitle('')
+                        setNewLinkIcon('link')
+                        setNewLinkPlaceholder('https://example.com/your-link')
+                        setLinkErr(null)
                       }}
-                      className="text-xs font-medium text-rose-600 hover:underline"
+                      className="inline-flex items-center gap-1 rounded-xl border border-dashed border-lavender-deep/50 bg-white px-3 py-1.5 text-xs font-semibold text-cetacean hover:bg-lavender-subtle/40"
                     >
-                      Use Brand Monogram Instead
-                    </button>
-                  ) : (
-                    <p className="text-xs text-[#6F6E69]">
-                      No logo? We generate a glowing commercial brand emblem automatically.
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold text-[#141413]">
-                  Tagline (Optional)
-                </label>
-                <input
-                  value={tagline}
-                  onChange={(e) => setTagline(e.target.value)}
-                  maxLength={80}
-                  placeholder="Premium Properties. Trusted Guidance."
-                  className="w-full rounded-xl border border-[#E6E4DF] px-3.5 py-2.5 text-sm text-[#141413] focus:border-[#141413] focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-[#141413]">
-                  <User className="h-3.5 w-3.5 text-[#5C5B57]" />
-                  <span>Contact Person Name (Optional)</span>
-                </label>
-                <input
-                  value={contactPersonName}
-                  onChange={(e) => setContactPersonName(e.target.value)}
-                  maxLength={80}
-                  placeholder="e.g. Aditya Sharma"
-                  className="w-full rounded-xl border border-[#E6E4DF] px-3.5 py-2.5 text-sm text-[#141413] focus:border-[#141413] focus:outline-none"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold text-[#141413]">
-                Custom Profile URL Handle (Optional)
-              </label>
-              <div className="flex items-center rounded-xl border border-[#E6E4DF] bg-[#FAF9F7] px-3.5">
-                <span className="text-xs font-mono text-[#6F6E69] shrink-0">spreadnfc.in/p/</span>
-                <input
-                  value={publicSlug}
-                  onChange={(e) => setPublicSlug(normalizePublicSlug(e.target.value))}
-                  placeholder="elevate-realty"
-                  className="w-full bg-transparent px-1 py-2.5 text-sm font-mono text-[#141413] focus:outline-none"
-                />
-              </div>
-              {slugStatus === 'available' && <p className="mt-1 text-xs text-emerald-700 font-medium">Handle available.</p>}
-              {slugStatus === 'taken' && <p className="mt-1 text-xs text-rose-600 font-medium">Already taken.</p>}
-              {slugStatus === 'invalid' && (
-                <p className="mt-1 text-xs text-rose-600 font-medium">Use 3–40 lowercase letters, numbers, hyphens, or underscores.</p>
-              )}
-            </div>
-          </div>
-
-          {error && <p className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-medium text-rose-700">{error}</p>}
-
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={() => {
-                if (!businessName.trim()) {
-                  setError('Please enter your Business Name to continue.')
-                  return
-                }
-                if (slugStatus === 'taken' || slugStatus === 'invalid') {
-                  setError('Please fix or clear your custom handle.')
-                  return
-                }
-                goToStep(3)
-              }}
-              className="inline-flex h-12 items-center gap-2 rounded-xl bg-[#141413] px-6 text-sm font-semibold text-white hover:bg-[#2A2A28]"
-            >
-              <span>Continue</span>
-              <ArrowRight className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* STEP 3: BUSINESS ABOUT */}
-      {step === 3 && (
-        <div className="space-y-6">
-          <div>
-            <h1 className="text-[26px] sm:text-[32px] font-bold tracking-[-0.025em] leading-[1.15] text-[#141413]">
-              Tell Customers About Your Business
-            </h1>
-            <p className="mt-2 text-[15px] text-[#5C5B57]">
-              All fields below are optional—share a crisp overview or skip straight ahead.
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-[#E6E4DF] bg-white p-5 sm:p-6 space-y-5">
-            <div>
-              <div className="mb-1.5 flex items-center justify-between">
-                <label className="text-xs font-semibold text-[#141413]">About Your Business (Optional)</label>
-                <span className="font-mono text-[11px] text-[#6F6E69]">{bio.length}/280</span>
-              </div>
-              <textarea
-                rows={4}
-                maxLength={280}
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-                placeholder="e.g. Elevate Realty helps individuals and investors discover quality residential and commercial properties with transparent guidance."
-                className="w-full rounded-xl border border-[#E6E4DF] px-4 py-3 text-sm text-[#141413] leading-relaxed focus:border-[#141413] focus:outline-none"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-[#141413]">
-                  <Award className="h-3.5 w-3.5 text-amber-600" />
-                  <span>Business Experience (Optional)</span>
-                </label>
-                <input
-                  value={businessExperience}
-                  onChange={(e) => setBusinessExperience(e.target.value)}
-                  maxLength={60}
-                  placeholder="e.g. 10+ Years Experience"
-                  className="w-full rounded-xl border border-[#E6E4DF] px-3.5 py-2.5 text-sm text-[#141413] focus:border-[#141413] focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-[#141413]">
-                  <MapPin className="h-3.5 w-3.5 text-emerald-600" />
-                  <span>City / Location (Optional)</span>
-                </label>
-                <input
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  maxLength={80}
-                  placeholder="e.g. Lucknow"
-                  className="w-full rounded-xl border border-[#E6E4DF] px-3.5 py-2.5 text-sm text-[#141413] focus:border-[#141413] focus:outline-none"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={() => goToStep(4)}
-              className="text-xs font-semibold text-[#6F6E69] hover:text-[#141413]"
-            >
-              Skip this step →
-            </button>
-            <button
-              type="button"
-              onClick={() => goToStep(4)}
-              className="inline-flex h-12 items-center gap-2 rounded-xl bg-[#141413] px-6 text-sm font-semibold text-white hover:bg-[#2A2A28]"
-            >
-              <span>Continue</span>
-              <ArrowRight className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* STEP 4: SELECT SOCIAL MEDIA PLATFORMS */}
-      {step === 4 && (
-        <PlatformSelector
-          mode="business"
-          selected={selectedPlatforms}
-          onToggle={togglePlatform}
-          onContinue={() => goToStep(selectedPlatforms.length > 0 ? 5 : 6)}
-          onSkip={() => goToStep(6)}
-        />
-      )}
-
-      {/* STEP 5: ADD SOCIAL MEDIA LINKS (ONLY SELECTED PLATFORMS) */}
-      {step === 5 && (
-        <div className="space-y-6">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <h1 className="text-[26px] sm:text-[32px] font-bold tracking-[-0.025em] leading-[1.15] text-[#141413]">
-                Add Your Social Media Links
-              </h1>
-              <p className="mt-2 text-[15px] text-[#5C5B57]">
-                Enter handles, phone numbers, or URLs. You can skip or remove any platform anytime.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => goToStep(4)}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-[#E6E4DF] bg-white px-3.5 py-2 text-xs font-semibold text-[#141413] hover:border-[#141413]"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>Add / Change Platforms</span>
-            </button>
-          </div>
-
-          <div className="space-y-3">
-            {selectedPlatforms.map((pid) => {
-              const meta = getPlatformMeta(pid)
-              return (
-                <div key={pid} className="rounded-2xl border border-[#E6E4DF] bg-white p-4 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="inline-flex items-center gap-2 text-xs font-bold text-[#141413]">
-                      <PlatformIcon platform={pid} size={18} />
-                      <span>{meta.label}</span>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => togglePlatform(pid)}
-                      className="text-xs font-medium text-rose-600 hover:underline"
-                    >
-                      Remove
+                      <Plus className="h-3.5 w-3.5" />
+                      <span>Custom</span>
                     </button>
                   </div>
-                  <div className="relative flex items-center">
-                    <span className="absolute left-3 pointer-events-none">
-                      <PlatformIcon platform={pid} size={16} />
-                    </span>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                     <input
-                      value={socialValues[pid] ?? ''}
-                      onChange={(e) => {
-                        setSocialValues((prev) => ({ ...prev, [pid]: e.target.value }))
-                        setError(null)
-                      }}
-                      placeholder={meta.placeholder}
-                      className="w-full rounded-xl border border-[#E6E4DF] pl-10 pr-3.5 py-2.5 text-sm text-[#141413] focus:border-[#141413] focus:outline-none"
+                      value={newLinkTitle}
+                      onChange={(e) => setNewLinkTitle(e.target.value)}
+                      maxLength={80}
+                      placeholder="Button title"
+                      className="rounded-xl border border-surface-border px-3 py-2.5 text-xs text-ink focus:border-lavender-deep focus:outline-none"
                     />
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-
-          {error && <p className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-medium text-rose-700">{error}</p>}
-
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={() => {
-                if (!validateSocialStep()) return
-                goToStep(6)
-              }}
-              className="inline-flex h-12 items-center gap-2 rounded-xl bg-[#141413] px-6 text-sm font-semibold text-white hover:bg-[#2A2A28]"
-            >
-              <span>Continue to Business Links</span>
-              <ArrowRight className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* STEP 6: ADD BUSINESS-SPECIFIC & CUSTOM LINKS */}
-      {step === 6 && (
-        <div className="space-y-6">
-          <div>
-            <h1 className="text-[26px] sm:text-[32px] font-bold tracking-[-0.025em] leading-[1.15] text-[#141413]">
-              Add Your Business Links
-            </h1>
-            <p className="mt-2 text-[15px] text-[#5C5B57]">
-              Add Google Reviews, Google Maps, Website, Menu, Booking, Payment, or any Custom Links—and drag to reorder.
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-[#E6E4DF] bg-white p-5 space-y-4">
-            <p className="text-xs font-semibold uppercase tracking-wider text-[#6F6E69]">
-              Quick Templates
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {BUSINESS_LINK_TEMPLATES.map((tpl) => (
-                <button
-                  key={tpl.id}
-                  type="button"
-                  onClick={() => applyBusinessTemplate(tpl.id)}
-                  className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-all ${
-                    newLinkTitle === tpl.defaultTitle
-                      ? 'border-[#141413] bg-[#141413] text-white'
-                      : 'border-[#E6E4DF] bg-[#FAF9F7] text-[#141413] hover:border-[#141413]/40'
-                  }`}
-                >
-                  <PlatformIcon platform={tpl.platform} customIcon={tpl.icon} size={14} />
-                  <span>{tpl.label}</span>
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => {
-                  setNewLinkPlatform('custom')
-                  setNewLinkTitle('')
-                  setNewLinkIcon('link')
-                  setNewLinkPlaceholder('https://example.com/your-link')
-                  setLinkErr(null)
-                }}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-[#141413]/40 bg-white px-3 py-2 text-xs font-semibold text-[#141413]"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                <span>Custom Link</span>
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="mb-1 block text-xs font-semibold text-[#141413]">Link Title *</label>
-                <input
-                  value={newLinkTitle}
-                  onChange={(e) => setNewLinkTitle(e.target.value)}
-                  maxLength={80}
-                  placeholder="e.g. View Our Projects"
-                  className="w-full rounded-xl border border-[#E6E4DF] px-3 py-2.5 text-xs text-[#141413] focus:border-[#141413] focus:outline-none"
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="mb-1 block text-xs font-semibold text-[#141413]">Destination URL *</label>
-                <div className="flex gap-2">
-                  <input
-                    value={newLinkUrl}
-                    onChange={(e) => {
-                      setNewLinkUrl(e.target.value)
-                      setLinkErr(null)
-                    }}
-                    placeholder={newLinkPlaceholder}
-                    className="flex-1 rounded-xl border border-[#E6E4DF] px-3 py-2.5 text-xs font-mono text-[#141413] focus:border-[#141413] focus:outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddBusinessLink}
-                    className="inline-flex items-center gap-1 rounded-xl bg-[#5E4AE3] px-4 py-2.5 text-xs font-bold text-white hover:bg-[#4B38C9] shrink-0"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    <span>Add</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {newLinkPlatform === 'custom' && (
-              <div className="flex flex-wrap gap-1.5">
-                {CUSTOM_LINK_ICONS.map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => setNewLinkIcon(opt.id)}
-                    className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-medium ${
-                      newLinkIcon === opt.id
-                        ? 'border-[#141413] bg-[#F7F6F3] text-[#141413]'
-                        : 'border-[#E6E4DF] text-[#6F6E69]'
-                    }`}
-                  >
-                    <PlatformIcon platform="custom" customIcon={opt.id} size={13} />
-                    <span>{opt.label}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {linkErr && <p className="text-xs font-medium text-rose-600">{linkErr}</p>}
-          </div>
-
-          <div className="rounded-2xl border border-[#E6E4DF] bg-white p-5 space-y-2.5">
-            <p className="text-xs font-semibold uppercase tracking-wider text-[#6F6E69]">
-              Added Business &amp; Custom Links ({businessLinks.length})
-            </p>
-            {businessLinks.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-[#E6E4DF] p-5 text-center text-xs text-[#6F6E69]">
-                No business links added yet. Use the templates above or skip to continue.
-              </p>
-            ) : (
-              businessLinks.map((item, idx) => (
-                <div
-                  key={item.id}
-                  draggable
-                  onDragStart={() => setDragIdx(idx)}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={() => handleDropLink(idx)}
-                  className="flex items-center justify-between gap-2 rounded-xl border border-[#E6E4DF] bg-[#FAF9F7] px-3 py-2.5"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <GripVertical className="h-4 w-4 text-[#9E9C96] cursor-grab shrink-0" />
-                    <PlatformIcon platform={item.platform} customIcon={item.icon} size={18} />
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-[#141413] truncate">{item.link_title}</p>
-                      <p className="text-[11px] font-mono text-[#6F6E69] truncate">{item.destination_url}</p>
+                    <div className="sm:col-span-2 flex gap-2">
+                      <input
+                        value={newLinkUrl}
+                        onChange={(e) => {
+                          setNewLinkUrl(e.target.value)
+                          setLinkErr(null)
+                        }}
+                        placeholder={newLinkPlaceholder}
+                        className="flex-1 rounded-xl border border-surface-border px-3 py-2.5 text-xs font-mono text-ink focus:border-lavender-deep focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddBusinessLink}
+                        className="inline-flex items-center gap-1 rounded-xl bg-lavender-deep px-4 py-2.5 text-xs font-bold text-white hover:bg-lavender-hover shrink-0"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        <span>Add</span>
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => moveBusinessLink(idx, -1)}
-                      disabled={idx === 0}
-                      className="rounded-lg p-1.5 text-[#5C5B57] hover:bg-white disabled:opacity-30"
-                    >
-                      <ArrowUp className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => moveBusinessLink(idx, 1)}
-                      disabled={idx === businessLinks.length - 1}
-                      className="rounded-lg p-1.5 text-[#5C5B57] hover:bg-white disabled:opacity-30"
-                    >
-                      <ArrowDown className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setBusinessLinks((prev) => prev.filter((l) => l.id !== item.id))}
-                      className="rounded-lg p-1.5 text-rose-600 hover:bg-rose-50"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
+
+                  {newLinkPlatform === 'custom' && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {CUSTOM_LINK_ICONS.map((opt) => (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => setNewLinkIcon(opt.id)}
+                          className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-medium ${
+                            newLinkIcon === opt.id
+                              ? 'border-cetacean bg-lavender-subtle text-cetacean'
+                              : 'border-surface-border text-ink-muted'
+                          }`}
+                        >
+                          <PlatformIcon platform="custom" customIcon={opt.id} size={13} />
+                          <span>{opt.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {linkErr && <p className="text-xs font-medium text-rose-600">{linkErr}</p>}
+
+                  {businessLinks.length > 0 && (
+                    <div className="space-y-2 pt-2 border-t border-surface-border">
+                      {businessLinks.map((item, idx) => (
+                        <div
+                          key={item.id}
+                          draggable
+                          onDragStart={() => setDragIdx(idx)}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={() => handleDropLink(idx)}
+                          className="flex items-center justify-between gap-2 rounded-xl border border-surface-border bg-ghost px-3 py-2"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <GripVertical className="h-4 w-4 text-ink-muted cursor-grab shrink-0" />
+                            <PlatformIcon platform={item.platform} customIcon={item.icon} size={17} />
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-ink truncate">{item.link_title}</p>
+                              <p className="text-[11px] font-mono text-ink-muted truncate">{item.destination_url}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => moveBusinessLink(idx, -1)}
+                              disabled={idx === 0}
+                              className="rounded-lg p-1 text-ink-muted hover:bg-white disabled:opacity-30"
+                            >
+                              <ArrowUp className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => moveBusinessLink(idx, 1)}
+                              disabled={idx === businessLinks.length - 1}
+                              className="rounded-lg p-1 text-ink-muted hover:bg-white disabled:opacity-30"
+                            >
+                              <ArrowDown className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setBusinessLinks((prev) => prev.filter((l) => l.id !== item.id))}
+                              className="rounded-lg p-1 text-rose-600 hover:bg-rose-50"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              ))
+
+                {error && (
+                  <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-medium text-rose-700">
+                    {error}
+                  </p>
+                )}
+
+                <div className="flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() => goToStep(4)}
+                    className="text-xs font-semibold text-ink-muted hover:text-ink"
+                  >
+                    Skip to Preview →
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!validateStep3Social()) return
+                      goToStep(4)
+                    }}
+                    className="inline-flex h-12 items-center gap-2 rounded-xl bg-cetacean px-6 text-sm font-bold text-white hover:bg-cetacean-mid shadow-md transition-colors"
+                  >
+                    <span>Review &amp; Publish</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
             )}
           </div>
 
-          <div className="flex items-center justify-between">
-            <button type="button" onClick={() => goToStep(7)} className="text-xs font-semibold text-[#6F6E69] hover:text-[#141413]">
-              Skip this step →
-            </button>
-            <button
-              type="button"
-              onClick={() => goToStep(7)}
-              className="inline-flex h-12 items-center gap-2 rounded-xl bg-[#141413] px-6 text-sm font-semibold text-white hover:bg-[#2A2A28]"
-            >
-              <span>Continue to Contact Details</span>
-              <ArrowRight className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* STEP 7: BUSINESS CONTACT DETAILS, TIMINGS & PUBLIC VISIBILITY */}
-      {step === 7 && (
-        <div className="space-y-6">
-          <div>
-            <h1 className="text-[26px] sm:text-[32px] font-bold tracking-[-0.025em] leading-[1.15] text-[#141413]">
-              Contact Details &amp; Business Timings
-            </h1>
-            <p className="mt-2 text-[15px] text-[#5C5B57]">
-              Set your working hours, phone, WhatsApp, email, and address—all optional, with public visibility toggles.
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-[#E6E4DF] bg-white p-5 sm:p-6 space-y-4">
-            <div className="space-y-2 rounded-xl border border-indigo-100 bg-indigo-50/40 p-3.5">
-              <ContactFieldRow
-                icon={Clock}
-                label="Business Timings (Working Hours)"
-                value={workingHours}
-                onChange={setWorkingHours}
-                placeholder="Mon–Sat: 10:00 AM – 7:00 PM"
-                visible={visibility.hours}
-                onToggle={() => setVisibility((v) => ({ ...v, hours: !v.hours }))}
-              />
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {[
-                  'Mon–Sat: 10:00 AM – 7:00 PM',
-                  'Mon–Fri: 9:30 AM – 6:30 PM',
-                  'All Days: 10:00 AM – 9:00 PM',
-                  'Open 24 Hours',
-                ].map((preset) => (
+          {/* RIGHT: STICKY LIVE PHONE PREVIEW (DESKTOP) */}
+          <div className="hidden lg:block lg:col-span-5 lg:sticky lg:top-28">
+            <div className="rounded-2xl border border-surface-border bg-white p-4 shadow-editorial space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-ink">Live Storefront Preview</span>
+                <div className="inline-flex rounded-lg border border-surface-border bg-ghost p-0.5">
                   <button
-                    key={preset}
                     type="button"
-                    onClick={() => setWorkingHours(preset)}
-                    className={`rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                      workingHours === preset
-                        ? 'border-[#141413] bg-[#141413] text-white'
-                        : 'border-[#E6E4DF] bg-white text-[#5C5B57] hover:border-[#141413]/40'
+                    onClick={() => setTheme('dark')}
+                    className={`rounded-md px-2 py-1 text-[11px] font-semibold ${
+                      theme === 'dark' ? 'bg-cetacean text-white' : 'text-ink-muted'
                     }`}
                   >
-                    {preset}
+                    Dark
                   </button>
-                ))}
+                  <button
+                    type="button"
+                    onClick={() => setTheme('light')}
+                    className={`rounded-md px-2 py-1 text-[11px] font-semibold ${
+                      theme === 'light' ? 'bg-white text-ink shadow-2xs' : 'text-ink-muted'
+                    }`}
+                  >
+                    Light
+                  </button>
+                </div>
+              </div>
+              <div className="mx-auto max-w-[340px] rounded-[30px] border-[5px] border-cetacean bg-cetacean p-1 shadow-xl overflow-hidden">
+                <div className="h-[540px] overflow-y-auto rounded-[24px]">
+                  <PublicProfileView
+                    profile={previewProfile}
+                    links={previewLinks}
+                    qrNumber={qrNumber}
+                    previewMode
+                    onThemeChange={setTheme}
+                  />
+                </div>
               </div>
             </div>
-            <ContactFieldRow
-              icon={Phone}
-              label="Phone Number"
-              value={contactPhone}
-              onChange={setContactPhone}
-              placeholder="+91 98765 43210"
-              visible={visibility.phone}
-              onToggle={() => setVisibility((v) => ({ ...v, phone: !v.phone }))}
-            />
-            <ContactFieldRow
-              icon={Phone}
-              label="WhatsApp Number"
-              value={whatsappNumber}
-              onChange={setWhatsappNumber}
-              placeholder="+91 98765 43210"
-              visible={visibility.whatsapp}
-              onToggle={() => setVisibility((v) => ({ ...v, whatsapp: !v.whatsapp }))}
-            />
-            <ContactFieldRow
-              icon={Mail}
-              label="Business Email"
-              value={contactEmail}
-              onChange={setContactEmail}
-              placeholder="hello@yourbusiness.com"
-              visible={visibility.email}
-              onToggle={() => setVisibility((v) => ({ ...v, email: !v.email }))}
-            />
-            <ContactFieldRow
-              icon={MapPin}
-              label="Full Business Address"
-              value={fullAddress}
-              onChange={setFullAddress}
-              placeholder="Suite 402, Gomti Nagar, Lucknow"
-              visible={visibility.address}
-              onToggle={() => setVisibility((v) => ({ ...v, address: !v.address }))}
-            />
-            <ContactFieldRow
-              icon={MapPin}
-              label="Google Maps Location URL"
-              value={googleMapsUrl}
-              onChange={setGoogleMapsUrl}
-              placeholder="https://maps.app.goo.gl/..."
-              visible={visibility.maps}
-              onToggle={() => setVisibility((v) => ({ ...v, maps: !v.maps }))}
-            />
-          </div>
-
-          {error && <p className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-medium text-rose-700">{error}</p>}
-
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={() => {
-                if (!validateContactStep()) return
-                goToStep(8)
-              }}
-              className="inline-flex h-12 items-center gap-2 rounded-xl bg-[#141413] px-6 text-sm font-semibold text-white hover:bg-[#2A2A28]"
-            >
-              <span>Preview Business Profile</span>
-              <ArrowRight className="h-4 w-4" />
-            </button>
           </div>
         </div>
       )}
 
-      {/* STEP 8: LIVE BUSINESS PROFILE PREVIEW */}
-      {step === 8 && (
-        <div className="space-y-6">
+      {/* STEP 4: REVIEW, CUSTOM HANDLE, THEME & PUBLISH */}
+      {step === 4 && (
+        <div className="mx-auto max-w-2xl space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h1 className="text-[26px] sm:text-[32px] font-bold tracking-[-0.025em] leading-[1.15] text-[#141413]">
-                Preview Your Business Profile
+              <h1 className="text-2xl sm:text-[30px] font-extrabold tracking-tight text-ink">
+                Review &amp;{' '}
+                <span className="font-editorial italic font-normal text-lavender-deep">
+                  Publish Storefront
+                </span>
               </h1>
-              <p className="mt-1 text-sm text-[#5C5B57]">
-                This is your actual public profile. Publish to make <span className="font-mono font-semibold">{qrNumber}</span> live.
+              <p className="mt-1 text-sm text-ink-secondary">
+                Choose your theme and optional custom handle, then publish <span className="font-mono font-bold text-ink">{qrNumber}</span> live.
               </p>
             </div>
-            <div className="inline-flex rounded-xl border border-[#E6E4DF] bg-white p-1 self-start">
-              <button
-                type="button"
-                onClick={() => setTheme('light')}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold ${
-                  theme === 'light' ? 'bg-[#141413] text-white' : 'text-[#5C5B57]'
-                }`}
-              >
-                <Sun className="h-3.5 w-3.5" /> Light
-              </button>
+            <div className="inline-flex rounded-xl border border-surface-border bg-white p-1 self-start shadow-2xs">
               <button
                 type="button"
                 onClick={() => setTheme('dark')}
                 className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold ${
-                  theme === 'dark' ? 'bg-[#141413] text-white' : 'text-[#5C5B57]'
+                  theme === 'dark' ? 'bg-cetacean text-white' : 'text-ink-muted'
                 }`}
               >
-                <Moon className="h-3.5 w-3.5" /> Dark
+                <Moon className="h-3.5 w-3.5" /> Executive Dark
+              </button>
+              <button
+                type="button"
+                onClick={() => setTheme('light')}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                  theme === 'light' ? 'bg-cetacean text-white' : 'text-ink-muted'
+                }`}
+              >
+                <Sun className="h-3.5 w-3.5" /> Editorial Light
               </button>
             </div>
           </div>
 
-          <div className="mx-auto max-w-[390px] rounded-[34px] border-[6px] border-[#141413] bg-[#141413] p-1 shadow-2xl overflow-hidden">
+          <div className="rounded-2xl border border-surface-border bg-white p-5 shadow-editorial space-y-2">
+            <label className="block text-xs font-semibold text-ink">
+              Custom Profile URL Handle (Optional)
+            </label>
+            <div className="flex items-center rounded-xl border border-surface-border bg-ghost px-3.5 focus-within:border-lavender-deep">
+              <span className="text-xs font-mono text-ink-muted shrink-0">spreadnfc.in/p/</span>
+              <input
+                value={publicSlug}
+                onChange={(e) => setPublicSlug(normalizePublicSlug(e.target.value))}
+                placeholder="elevate-realty"
+                className="w-full bg-transparent px-1 py-2.5 text-sm font-mono text-ink focus:outline-none"
+              />
+            </div>
+            {slugStatus === 'checking' && <p className="text-xs text-ink-muted">Checking availability…</p>}
+            {slugStatus === 'available' && <p className="text-xs text-emerald-700 font-medium">Handle available.</p>}
+            {slugStatus === 'taken' && <p className="text-xs text-rose-600 font-medium">Already taken.</p>}
+            {slugStatus === 'invalid' && (
+              <p className="text-xs text-rose-600 font-medium">Use 3–40 lowercase letters, numbers, hyphens, or underscores.</p>
+            )}
+          </div>
+
+          <div className="mx-auto max-w-[380px] rounded-[34px] border-[6px] border-cetacean bg-cetacean p-1 shadow-2xl overflow-hidden">
             <div className="h-[560px] overflow-y-auto rounded-[28px]">
               <PublicProfileView
                 profile={previewProfile}
@@ -1346,14 +1345,18 @@ export function BusinessProfileOnboarding({
             </div>
           </div>
 
-          {error && <p className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-medium text-rose-700">{error}</p>}
+          {error && (
+            <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs font-medium text-rose-700">
+              {error}
+            </p>
+          )}
 
           <div className="flex justify-center">
             <button
               type="button"
               disabled={saving}
               onClick={handlePublish}
-              className="inline-flex h-12 min-w-[250px] items-center justify-center gap-2 rounded-xl bg-emerald-600 px-6 text-sm font-bold text-white hover:bg-emerald-700 shadow-lg disabled:opacity-60"
+              className="inline-flex h-12 min-w-[260px] items-center justify-center gap-2 rounded-xl bg-lavender-deep px-7 text-sm font-bold text-white hover:bg-lavender-hover shadow-lg transition-colors disabled:opacity-60"
             >
               {saving && <Spinner size={16} />}
               <span>{saving ? 'Publishing…' : 'Publish Business Profile'}</span>
@@ -1363,26 +1366,26 @@ export function BusinessProfileOnboarding({
         </div>
       )}
 
-      {/* STEP 9: PUBLISH CONFIRMATION */}
-      {step === 9 && (
-        <div className="rounded-3xl border border-[#E6E4DF] bg-white p-6 sm:p-8 text-center space-y-6 shadow-sm">
+      {/* STEP 5: PUBLISHED READY SCREEN */}
+      {step === 5 && (
+        <div className="mx-auto max-w-xl rounded-3xl border border-surface-border bg-white p-6 sm:p-8 text-center space-y-6 shadow-editorial">
           <div className="space-y-2">
-            <span className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700">
+            <span className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-lavender-subtle border border-lavender-soft text-lavender-deep">
               <CheckCircle2 className="h-6 w-6" />
             </span>
-            <h1 className="text-[28px] font-bold tracking-tight text-[#141413]">
-              Your Business Profile Is Ready!
+            <h1 className="text-2xl sm:text-[28px] font-extrabold tracking-tight text-ink">
+              Your Business Storefront Is Live
             </h1>
-            <p className="mx-auto max-w-md text-sm text-[#5C5B57]">
-              Scanning QR <span className="font-mono font-bold text-[#141413]">{qrNumber}</span> now opens your published Business Profile.
+            <p className="mx-auto max-w-md text-sm text-ink-secondary">
+              Scanning QR <span className="font-mono font-bold text-ink">{qrNumber}</span> now opens your published Business Profile.
             </p>
           </div>
 
-          <div className="rounded-2xl border border-[#E6E4DF] bg-[#FAF9F7] p-4 space-y-3">
-            <p className="text-[11px] font-mono uppercase tracking-wider text-[#6F6E69]">
+          <div className="rounded-2xl border border-surface-border bg-ghost p-4 space-y-3">
+            <p className="text-[11px] font-mono uppercase tracking-wider text-ink-muted">
               Public Profile URL
             </p>
-            <p className="font-mono text-xs font-semibold text-[#141413] break-all">{liveProfileUrl}</p>
+            <p className="font-mono text-xs font-semibold text-ink break-all">{liveProfileUrl}</p>
             <div className="flex flex-wrap justify-center gap-2">
               <button
                 type="button"
@@ -1391,25 +1394,25 @@ export function BusinessProfileOnboarding({
                   setCopiedUrl(true)
                   setTimeout(() => setCopiedUrl(false), 1500)
                 }}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-[#E6E4DF] bg-white px-3.5 py-2 text-xs font-semibold text-[#141413]"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-surface-border bg-white px-3.5 py-2 text-xs font-semibold text-ink hover:border-lavender-deep/50"
               >
                 {copiedUrl ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
-                <span>{copiedUrl ? 'Copied' : 'Copy Profile Link'}</span>
+                <span>{copiedUrl ? 'Copied' : 'Copy Link'}</span>
               </button>
               <a
                 href={liveProfileUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-xl border border-[#E6E4DF] bg-white px-3.5 py-2 text-xs font-semibold text-[#141413]"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-surface-border bg-white px-3.5 py-2 text-xs font-semibold text-ink hover:border-lavender-deep/50"
               >
-                <span>Open Profile</span>
+                <span>Open Storefront</span>
                 <ExternalLink className="h-3.5 w-3.5" />
               </a>
               <a
                 href={permanentQrUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-xl bg-[#141413] px-4 py-2 text-xs font-semibold text-white"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-cetacean px-4 py-2 text-xs font-semibold text-white hover:bg-cetacean-mid"
               >
                 <span>Test QR</span>
                 <ExternalLink className="h-3.5 w-3.5" />
@@ -1417,24 +1420,24 @@ export function BusinessProfileOnboarding({
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-5 border-t border-[#E6E4DF] pt-5">
-            <div className="h-32 w-32 rounded-2xl border border-[#E6E4DF] bg-white p-2 flex items-center justify-center">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-5 border-t border-surface-border pt-5">
+            <div className="h-32 w-32 rounded-2xl border border-surface-border bg-white p-2 flex items-center justify-center">
               {qrDataUrl ? <img src={qrDataUrl} alt={`QR ${qrNumber}`} className="h-full w-full object-contain" /> : <Spinner size={22} />}
             </div>
             <div className="space-y-2 text-center sm:text-left">
-              <p className="font-mono text-sm font-bold text-[#141413]">{qrNumber}</p>
+              <p className="font-mono text-sm font-bold text-ink">{qrNumber}</p>
               <div className="flex flex-wrap justify-center sm:justify-start gap-2">
                 <button
                   type="button"
                   onClick={() => downloadSingleQr(qrNumber, 'png')}
-                  className="inline-flex items-center gap-1 rounded-xl border border-[#E6E4DF] bg-[#FAF9F7] px-3 py-1.5 text-xs font-semibold text-[#141413]"
+                  className="inline-flex items-center gap-1 rounded-xl border border-surface-border bg-ghost px-3 py-1.5 text-xs font-semibold text-ink hover:bg-white"
                 >
                   <Download className="h-3.5 w-3.5" /> PNG
                 </button>
                 <button
                   type="button"
                   onClick={() => downloadSingleQr(qrNumber, 'svg')}
-                  className="inline-flex items-center gap-1 rounded-xl border border-[#E6E4DF] bg-[#FAF9F7] px-3 py-1.5 text-xs font-semibold text-[#141413]"
+                  className="inline-flex items-center gap-1 rounded-xl border border-surface-border bg-ghost px-3 py-1.5 text-xs font-semibold text-ink hover:bg-white"
                 >
                   <Download className="h-3.5 w-3.5" /> SVG
                 </button>
@@ -1445,10 +1448,10 @@ export function BusinessProfileOnboarding({
           <button
             type="button"
             onClick={onCompleteToEditor}
-            className="inline-flex items-center gap-2 rounded-xl bg-electric px-6 py-3 text-sm font-bold text-white hover:bg-electric-hover shadow-md"
+            className="inline-flex items-center gap-2 rounded-xl bg-lavender-deep px-6 py-3 text-sm font-bold text-white hover:bg-lavender-hover shadow-md transition-colors"
           >
             <Pencil className="h-4 w-4" />
-            <span>Open Business Profile Editor</span>
+            <span>Open Business Editor</span>
           </button>
         </div>
       )}
@@ -1476,8 +1479,8 @@ function ContactFieldRow({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between gap-2">
-        <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#141413]">
-          <Icon className="h-3.5 w-3.5 text-[#5C5B57]" />
+        <label className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink">
+          <Icon className="h-3.5 w-3.5 text-lavender-deep" />
           <span>{label}</span>
         </label>
         <button
@@ -1485,8 +1488,8 @@ function ContactFieldRow({
           onClick={onToggle}
           className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold border transition-colors ${
             visible
-              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-              : 'border-zinc-200 bg-zinc-100 text-zinc-600'
+              ? 'border-lavender-soft bg-lavender-subtle text-cetacean'
+              : 'border-surface-border bg-ghost text-ink-muted'
           }`}
         >
           {visible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
@@ -1497,7 +1500,7 @@ function ContactFieldRow({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-xl border border-[#E6E4DF] px-3.5 py-2.5 text-sm text-[#141413] focus:border-[#141413] focus:outline-none"
+        className="w-full rounded-xl border border-surface-border bg-white px-3.5 py-2.5 text-sm text-ink focus:border-lavender-deep focus:outline-none transition-colors"
       />
     </div>
   )

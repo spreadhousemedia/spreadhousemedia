@@ -374,8 +374,8 @@ export function UpdatePage() {
     return (
       <Suspense
         fallback={
-          <div className="flex min-h-screen items-center justify-center bg-[#F7F6F3]">
-            <Spinner size={26} className="text-[#141413]" />
+          <div className="flex min-h-screen items-center justify-center bg-[#F5F7FC]">
+            <Spinner size={26} className="text-cetacean" />
           </div>
         }
       >
@@ -399,8 +399,8 @@ export function UpdatePage() {
     return (
       <Suspense
         fallback={
-          <div className="flex min-h-screen items-center justify-center bg-[#F7F6F3]">
-            <Spinner size={26} className="text-[#141413]" />
+          <div className="flex min-h-screen items-center justify-center bg-[#F5F7FC]">
+            <Spinner size={26} className="text-cetacean" />
           </div>
         }
       >
@@ -424,8 +424,8 @@ export function UpdatePage() {
     return (
       <Suspense
         fallback={
-          <div className="flex min-h-screen items-center justify-center bg-[#F7F6F3]">
-            <Spinner size={26} className="text-[#141413]" />
+          <div className="flex min-h-screen items-center justify-center bg-[#F5F7FC]">
+            <Spinner size={26} className="text-cetacean" />
           </div>
         }
       >
@@ -446,7 +446,7 @@ export function UpdatePage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#F7F6F3] text-ink px-4 py-10 relative overflow-hidden">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-atmospheric-light text-ink px-4 py-10 relative overflow-hidden">
       {/* Ambient gradient glows */}
       <div className="absolute -top-40 -right-40 w-96 h-96 bg-electric/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-lavender/10 rounded-full blur-3xl pointer-events-none" />
@@ -484,7 +484,7 @@ export function UpdatePage() {
         <Suspense
           fallback={
             <div className="flex h-64 items-center justify-center">
-              <Spinner size={26} className="text-[#141413]" />
+              <Spinner size={26} className="text-cetacean" />
             </div>
           }
         >
@@ -535,7 +535,7 @@ export function UpdatePage() {
 
       {/* LOOKUP / SETUP CODE / FIRST-TIME PASSWORD / OWNER LOGIN */}
       {!isWideMode && (
-        <div className="w-full max-w-md rounded-2xl border border-surface-border bg-white p-7 sm:p-9 shadow-xl relative z-10">
+        <div className="w-full max-w-md rounded-2xl border border-surface-border bg-white p-7 sm:p-9 shadow-editorial relative z-10">
           {mode === 'lookup' && (
             <form
               onSubmit={handleLookupSubmit}
@@ -551,11 +551,11 @@ export function UpdatePage() {
 
               <h1 className="text-center text-2xl font-extrabold text-ink tracking-tight mt-3">
                 Manage Your{' '}
-                <span className="font-editorial italic font-normal text-electric">
+                <span className="font-editorial italic font-normal text-lavender-deep">
                   Smart Card &amp; Standee
                 </span>
               </h1>
-              <p className="mt-2 text-center text-xs sm:text-sm text-ink-muted leading-relaxed">
+              <p className="mt-2 text-center text-xs sm:text-sm text-ink-secondary leading-relaxed">
                 Enter your QR code number to activate your new device or open your Personal / Business dashboard.
               </p>
 
@@ -568,7 +568,7 @@ export function UpdatePage() {
                     <button
                       type="button"
                       onClick={() => setShowQrHelp((s) => !s)}
-                      className="text-xs font-semibold text-electric hover:text-electric-hover flex items-center gap-1 transition-colors"
+                      className="text-xs font-semibold text-lavender-deep hover:text-lavender-hover flex items-center gap-1 transition-colors"
                     >
                       <HelpCircle className="h-3.5 w-3.5" />
                       <span>Where to find this?</span>
@@ -580,21 +580,21 @@ export function UpdatePage() {
                     onChange={(e) => setQrNumber(normalizeQrNumber(e.target.value))}
                     placeholder="e.g. TF-1001 or Z100"
                     autoFocus
-                    className="w-full rounded-xl border border-surface-border px-3.5 py-3 text-sm font-mono text-ink bg-white placeholder:text-zinc-400 focus:border-electric focus:outline-none transition-colors"
+                    className="w-full rounded-xl border border-surface-border px-3.5 py-3 text-sm font-mono text-ink bg-white placeholder:text-zinc-400 focus:border-lavender-deep focus:outline-none transition-colors"
                     autoCapitalize="characters"
                   />
 
                   {showQrHelp && (
-                    <div className="mt-2.5 rounded-xl border border-electric/20 bg-electric/5 p-4 text-xs text-ink space-y-2">
-                      <p className="font-bold flex items-center gap-1.5 text-electric">
+                    <div className="mt-2.5 rounded-xl border border-lavender-soft bg-lavender-subtle/60 p-4 text-xs text-ink space-y-2">
+                      <p className="font-bold flex items-center gap-1.5 text-lavender-deep">
                         <span>Where to find your QR Code Number:</span>
                       </p>
-                      <ul className="space-y-1.5 text-ink-muted list-disc list-inside">
+                      <ul className="space-y-1.5 text-ink-secondary list-disc list-inside">
                         <li>
                           <strong className="text-ink">Method 1:</strong> Scan your QR or check the printed label below the QR code.
                         </li>
                         <li>
-                          <strong className="text-ink">Method 2:</strong> Need help? Reach out via our <Link to="/support" className="text-electric underline">Support Desk</Link>.
+                          <strong className="text-ink">Method 2:</strong> Need help? Reach out via our <Link to="/support" className="text-lavender-deep underline">Support Desk</Link>.
                         </li>
                       </ul>
                     </div>
@@ -610,7 +610,7 @@ export function UpdatePage() {
                 <button
                   type="submit"
                   disabled={checking}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-electric px-4 py-3.5 text-sm font-bold text-white hover:bg-electric-hover shadow-md transition-all duration-200 disabled:opacity-60"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-cetacean px-4 py-3.5 text-sm font-bold text-white hover:bg-cetacean-mid shadow-md transition-all duration-200 disabled:opacity-60"
                 >
                   {checking && <Spinner size={16} />}
                   {checking ? 'Verifying Device...' : 'Continue'}
@@ -628,16 +628,16 @@ export function UpdatePage() {
 
               <h1 className="text-center text-2xl font-extrabold text-ink tracking-tight mt-3">
                 Verify Packaging{' '}
-                <span className="font-editorial italic font-normal text-amber-600">
+                <span className="font-editorial italic font-normal text-lavender-deep">
                   Setup Code
                 </span>
               </h1>
-              <p className="mt-2 text-center text-xs sm:text-sm text-ink-muted leading-relaxed">
+              <p className="mt-2 text-center text-xs sm:text-sm text-ink-secondary leading-relaxed">
                 Enter the temporary setup code printed on your delivery slip or card packaging.
               </p>
 
-              <div className="mt-4 p-3 rounded-xl bg-amber-50 border border-amber-200/80 text-xs text-amber-900 flex items-center justify-between">
-                <span className="font-medium text-amber-800">QR Code Number:</span>
+              <div className="mt-4 p-3 rounded-xl bg-ghost border border-surface-border text-xs text-ink flex items-center justify-between">
+                <span className="font-medium text-ink-secondary">QR Code Number:</span>
                 <span className="font-mono font-bold tracking-wide">{normalizeQrNumber(qrNumber)}</span>
               </div>
 
@@ -645,10 +645,10 @@ export function UpdatePage() {
                 <div>
                   <label htmlFor="setupCodeInput" className="mb-1.5 flex items-center justify-between text-xs font-mono font-semibold uppercase tracking-wider text-ink-muted">
                     <span className="flex items-center gap-1.5">
-                      <KeyRound className="h-3.5 w-3.5 text-amber-600" />
+                      <KeyRound className="h-3.5 w-3.5 text-lavender-deep" />
                       Packaging Setup Code
                     </span>
-                    <span className="text-[10px] text-amber-700 font-sans font-medium">Inside box / slip</span>
+                    <span className="text-[10px] text-ink-muted font-sans font-medium">Inside box / slip</span>
                   </label>
                   <input
                     id="setupCodeInput"
@@ -656,7 +656,7 @@ export function UpdatePage() {
                     onChange={(e) => setSetupCode(e.target.value)}
                     placeholder="e.g. TF-A1B2 or 123456"
                     autoFocus
-                    className="w-full rounded-xl border border-surface-border bg-white px-3.5 py-3 text-sm font-mono text-ink placeholder:text-zinc-400 focus:border-amber-500 focus:outline-none transition-colors"
+                    className="w-full rounded-xl border border-surface-border bg-white px-3.5 py-3 text-sm font-mono text-ink placeholder:text-zinc-400 focus:border-lavender-deep focus:outline-none transition-colors"
                   />
                 </div>
 
@@ -669,7 +669,7 @@ export function UpdatePage() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 py-3.5 text-sm font-bold text-white hover:bg-amber-700 shadow-md transition-all duration-200 disabled:opacity-60"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-cetacean px-4 py-3.5 text-sm font-bold text-white hover:bg-cetacean-mid shadow-md transition-all duration-200 disabled:opacity-60"
                 >
                   {submitting && <Spinner size={16} />}
                   {submitting ? 'Verifying Code...' : 'Verify Setup Code'}
@@ -700,22 +700,22 @@ export function UpdatePage() {
 
               <h1 className="text-center text-2xl font-extrabold text-ink tracking-tight mt-3">
                 Secure Your{' '}
-                <span className="font-editorial italic font-normal text-emerald-600">
+                <span className="font-editorial italic font-normal text-lavender-deep">
                   Smart Card
                 </span>
               </h1>
-              <p className="mt-2 text-center text-xs sm:text-sm text-ink-muted leading-relaxed">
-                Create your personal password first. Next, you&apos;ll choose Personal Profile or Business Direct Redirection.
+              <p className="mt-2 text-center text-xs sm:text-sm text-ink-secondary leading-relaxed">
+                Create your personal password first. Next, choose Personal Profile, Business Direct Link, or Business Profile.
               </p>
 
-              <div className="mt-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200/80 text-xs text-emerald-800 flex items-center justify-between">
-                <span className="font-medium">QR Code Number:</span>
+              <div className="mt-4 p-3 rounded-xl bg-ghost border border-surface-border text-xs text-ink flex items-center justify-between">
+                <span className="font-medium text-ink-secondary">QR Code Number:</span>
                 <span className="font-mono font-bold tracking-wide">{normalizeQrNumber(qrNumber)}</span>
               </div>
 
               {isSetupVerified && (
-                <div className="mt-2 px-3 py-1.5 rounded-lg bg-emerald-100/70 border border-emerald-200 text-[11px] text-emerald-800 flex items-center gap-1.5">
-                  <Check className="h-3.5 w-3.5 text-emerald-700 shrink-0" />
+                <div className="mt-2 px-3 py-1.5 rounded-lg bg-lavender-subtle border border-lavender-soft text-[11px] text-cetacean flex items-center gap-1.5">
+                  <Check className="h-3.5 w-3.5 text-lavender-deep shrink-0" />
                   <span>Packaging setup code verified successfully.</span>
                 </div>
               )}
@@ -723,7 +723,7 @@ export function UpdatePage() {
               <div className="mt-5 space-y-4">
                 <div>
                   <label htmlFor="newPassword" className="mb-1.5 flex items-center gap-1.5 text-xs font-mono font-semibold uppercase tracking-wider text-ink-muted">
-                    <Lock className="h-3.5 w-3.5 text-emerald-600" />
+                    <Lock className="h-3.5 w-3.5 text-lavender-deep" />
                     Create Your Personal Password
                   </label>
                   <div className="relative">
@@ -734,7 +734,7 @@ export function UpdatePage() {
                       onChange={(e) => setNewPassword(e.target.value)}
                       placeholder="Min 4 characters"
                       autoFocus
-                      className="w-full rounded-xl border border-surface-border bg-white px-3.5 py-2.5 pr-10 text-sm font-mono text-ink placeholder:text-zinc-400 focus:border-emerald-500 focus:outline-none transition-colors"
+                      className="w-full rounded-xl border border-surface-border bg-white px-3.5 py-2.5 pr-10 text-sm font-mono text-ink placeholder:text-zinc-400 focus:border-lavender-deep focus:outline-none transition-colors"
                     />
                     <button
                       type="button"
@@ -749,7 +749,7 @@ export function UpdatePage() {
 
                 <div>
                   <label htmlFor="confirmPassword" className="mb-1.5 flex items-center gap-1.5 text-xs font-mono font-semibold uppercase tracking-wider text-ink-muted">
-                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                    <ShieldCheck className="h-3.5 w-3.5 text-lavender-deep" />
                     Confirm Password
                   </label>
                   <input
@@ -758,17 +758,17 @@ export function UpdatePage() {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Re-enter your password"
-                    className="w-full rounded-xl border border-surface-border bg-white px-3.5 py-2.5 text-sm font-mono text-ink placeholder:text-zinc-400 focus:border-emerald-500 focus:outline-none transition-colors"
+                    className="w-full rounded-xl border border-surface-border bg-white px-3.5 py-2.5 text-sm font-mono text-ink placeholder:text-zinc-400 focus:border-lavender-deep focus:outline-none transition-colors"
                   />
                 </div>
 
                 <div>
                   <label htmlFor="ownerEmail" className="mb-1.5 flex items-center justify-between text-xs font-mono font-semibold uppercase tracking-wider text-ink-muted">
                     <span className="flex items-center gap-1.5">
-                      <Mail className="h-3.5 w-3.5 text-emerald-600" />
+                      <Mail className="h-3.5 w-3.5 text-lavender-deep" />
                       Recovery Email
                     </span>
-                    <span className="text-[10px] text-zinc-400 font-sans">Optional</span>
+                    <span className="text-[10px] text-ink-muted font-sans">Optional</span>
                   </label>
                   <input
                     id="ownerEmail"
@@ -776,7 +776,7 @@ export function UpdatePage() {
                     value={ownerEmail}
                     onChange={(e) => setOwnerEmail(e.target.value)}
                     placeholder="you@example.com"
-                    className="w-full rounded-xl border border-surface-border bg-white px-3.5 py-2.5 text-sm font-mono text-ink placeholder:text-zinc-400 focus:border-emerald-500 focus:outline-none transition-colors"
+                    className="w-full rounded-xl border border-surface-border bg-white px-3.5 py-2.5 text-sm font-mono text-ink placeholder:text-zinc-400 focus:border-lavender-deep focus:outline-none transition-colors"
                   />
                 </div>
 
@@ -789,7 +789,7 @@ export function UpdatePage() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3.5 text-sm font-bold text-white hover:bg-emerald-700 shadow-md transition-all duration-200 disabled:opacity-60"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-cetacean px-4 py-3.5 text-sm font-bold text-white hover:bg-cetacean-mid shadow-md transition-all duration-200 disabled:opacity-60"
                 >
                   {submitting && <Spinner size={16} />}
                   <span>{submitting ? 'Claiming Device...' : 'Claim Card & Continue'}</span>
@@ -807,11 +807,11 @@ export function UpdatePage() {
 
               <h1 className="text-center text-2xl font-extrabold text-ink tracking-tight mt-3">
                 Sign In to{' '}
-                <span className="font-editorial italic font-normal text-electric">
+                <span className="font-editorial italic font-normal text-lavender-deep">
                   Your QR Dashboard
                 </span>
               </h1>
-              <p className="mt-2 text-center text-xs sm:text-sm text-ink-muted leading-relaxed">
+              <p className="mt-2 text-center text-xs sm:text-sm text-ink-secondary leading-relaxed">
                 Enter your personal password to manage your{' '}
                 {detectedUsageType === 'personal'
                   ? 'personal digital profile and social links.'
@@ -822,8 +822,8 @@ export function UpdatePage() {
                       : 'smart QR configuration.'}
               </p>
 
-              <div className="mt-4 p-3 rounded-xl bg-zinc-50 border border-zinc-200 text-xs text-zinc-700 flex items-center justify-between">
-                <span className="text-zinc-500">QR Code Number:</span>
+              <div className="mt-4 p-3 rounded-xl bg-ghost border border-surface-border text-xs text-ink flex items-center justify-between">
+                <span className="text-ink-secondary">QR Code Number:</span>
                 <span className="font-mono font-bold">{normalizeQrNumber(qrNumber)}</span>
               </div>
 
@@ -831,12 +831,12 @@ export function UpdatePage() {
                 <div>
                   <div className="mb-1.5 flex items-center justify-between">
                     <label htmlFor="currentPassword" className="flex items-center gap-1.5 text-xs font-mono font-semibold uppercase tracking-wider text-ink-muted">
-                      <Lock className="h-3.5 w-3.5 text-electric" />
+                      <Lock className="h-3.5 w-3.5 text-lavender-deep" />
                       Your Personal Password
                     </label>
                     <Link
                       to="/support"
-                      className="text-[11px] text-electric hover:underline font-medium"
+                      className="text-[11px] text-lavender-deep hover:underline font-medium"
                     >
                       Forgot password?
                     </Link>
@@ -849,7 +849,7 @@ export function UpdatePage() {
                       onChange={(e) => setCurrentPassword(e.target.value)}
                       placeholder="••••••••"
                       autoFocus
-                      className="w-full rounded-xl border border-surface-border bg-white px-3.5 py-3 pr-10 text-sm font-mono text-ink placeholder:text-zinc-400 focus:border-electric focus:outline-none transition-colors"
+                      className="w-full rounded-xl border border-surface-border bg-white px-3.5 py-3 pr-10 text-sm font-mono text-ink placeholder:text-zinc-400 focus:border-lavender-deep focus:outline-none transition-colors"
                     />
                     <button
                       type="button"
@@ -871,7 +871,7 @@ export function UpdatePage() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-electric px-4 py-3.5 text-sm font-bold text-white hover:bg-electric-hover shadow-md transition-all duration-200 disabled:opacity-60"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-cetacean px-4 py-3.5 text-sm font-bold text-white hover:bg-cetacean-mid shadow-md transition-all duration-200 disabled:opacity-60"
                 >
                   {submitting && <Spinner size={16} />}
                   <span>{submitting ? 'Signing In...' : 'Open My Dashboard'}</span>
@@ -923,24 +923,16 @@ export function UpdatePage() {
 
 function HeaderBadge({
   icon: Icon,
-  color,
   children,
 }: {
   icon: React.ComponentType<{ className?: string }>
   color: 'electric' | 'emerald' | 'amber'
   children: React.ReactNode
 }) {
-  let styleClasses = 'bg-electric/10 text-electric border border-electric/20'
-  if (color === 'emerald') {
-    styleClasses = 'bg-emerald-100/80 text-emerald-700 border border-emerald-300'
-  } else if (color === 'amber') {
-    styleClasses = 'bg-amber-100/80 text-amber-800 border border-amber-300'
-  }
-
   return (
     <div className="flex justify-center">
-      <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-mono font-bold tracking-wider uppercase ${styleClasses}`}>
-        <Icon className="h-3.5 w-3.5" />
+      <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-mono font-bold tracking-wider uppercase bg-lavender-subtle text-cetacean border border-lavender-soft">
+        <Icon className="h-3.5 w-3.5 text-lavender-deep" />
         <span>{children}</span>
       </span>
     </div>
