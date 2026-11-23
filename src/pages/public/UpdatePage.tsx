@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { invalidateQrRedirectCache } from '../../lib/cache'
+import { switchCustomerUsageMode } from '../../lib/profileApi'
 import {
   clearAllMultiQrVaultSessions,
   listMultiQrVault,
@@ -310,6 +311,17 @@ export function UpdatePage() {
     setSubmitting(true)
 
     const norm = normalizeQrNumber(qrNumber)
+    if (dashboard?.qr.usage_type) {
+      const res = await switchCustomerUsageMode(sessionToken, norm, chosen)
+      setSubmitting(false)
+      if (!res.ok) {
+        setError(res.error || 'Could not switch profile mode. Please try again.')
+        return
+      }
+      await loadCustomerDashboard(sessionToken, norm, false)
+      return
+    }
+
     const { data, error: rpcError } = await supabase.rpc('customer_select_usage_mode', {
       p_session_token: sessionToken,
       p_usage_type: chosen,
@@ -391,6 +403,12 @@ export function UpdatePage() {
             setForceWizard(false)
             setWizardDoneToEditor(true)
           }}
+          onSwitchMode={() => {
+            setError(null)
+            setForceWizard(false)
+            setWizardDoneToEditor(false)
+            setMode('select_mode')
+          }}
           onLogout={() => handleCustomerLogout(false)}
         />
       </Suspense>
@@ -416,6 +434,12 @@ export function UpdatePage() {
             setForceWizard(false)
             setWizardDoneToEditor(true)
           }}
+          onSwitchMode={() => {
+            setError(null)
+            setForceWizard(false)
+            setWizardDoneToEditor(false)
+            setMode('select_mode')
+          }}
           onLogout={() => handleCustomerLogout(false)}
         />
       </Suspense>
@@ -440,6 +464,12 @@ export function UpdatePage() {
           onCompleteToEditor={() => {
             setForceWizard(false)
             setWizardDoneToEditor(true)
+          }}
+          onSwitchMode={() => {
+            setError(null)
+            setForceWizard(false)
+            setWizardDoneToEditor(false)
+            setMode('select_mode')
           }}
           onLogout={() => handleCustomerLogout(false)}
         />

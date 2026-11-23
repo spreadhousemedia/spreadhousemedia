@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, Check, CloudOff, Loader2, LogOut } from 'lucide-react'
+import { ArrowLeft, ArrowRightLeft, Check, CloudOff, Loader2, LogOut } from 'lucide-react'
 import { ProgressIndicator } from './ProgressIndicator'
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
@@ -13,6 +13,7 @@ interface OnboardingLayoutProps {
   saveStatus: SaveStatus
   wide?: boolean
   onBack?: () => void
+  onSwitchMode?: () => void
   onLogout: () => void
   children: ReactNode
 }
@@ -25,6 +26,7 @@ export function OnboardingLayout({
   saveStatus,
   wide = false,
   onBack,
+  onSwitchMode,
   onLogout,
   children,
 }: OnboardingLayoutProps) {
@@ -64,6 +66,18 @@ export function OnboardingLayout({
                 <CloudOff className="h-3 w-3" />
                 <span>Retry save</span>
               </span>
+            )}
+
+            {onSwitchMode && (
+              <button
+                type="button"
+                onClick={onSwitchMode}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-surface-border bg-white px-2.5 py-1 text-[12px] font-semibold text-ink hover:border-[#171717]/40 hover:bg-ghost transition-colors"
+                title="Switch between Personal Profile, Business Profile, or Direct Link"
+              >
+                <ArrowRightLeft className="h-3.5 w-3.5" />
+                <span>Switch Mode</span>
+              </button>
             )}
 
             <button

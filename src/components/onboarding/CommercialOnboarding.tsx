@@ -38,6 +38,7 @@ interface CommercialOnboardingProps {
   sessionToken: string
   onRefresh: () => Promise<void>
   onCompleteToEditor: () => void
+  onSwitchMode?: () => void
   onLogout: () => void
 }
 
@@ -69,6 +70,7 @@ export function CommercialOnboarding({
   sessionToken,
   onRefresh,
   onCompleteToEditor,
+  onSwitchMode,
   onLogout,
 }: CommercialOnboardingProps) {
   const qrNumber = dashboard.qr.qr_number
@@ -166,6 +168,7 @@ export function CommercialOnboarding({
       stepLabel={STEP_LABELS[step] ?? 'Commercial Setup'}
       saveStatus={saveStatus}
       onBack={step === 2 ? () => setStep(1) : undefined}
+      onSwitchMode={onSwitchMode}
       onLogout={onLogout}
     >
       {step === 1 && (

@@ -29,6 +29,7 @@ interface PersonalOnboardingProps {
   sessionToken: string
   onRefresh: () => Promise<void>
   onCompleteToEditor: () => void
+  onSwitchMode?: () => void
   onLogout: () => void
 }
 
@@ -89,6 +90,7 @@ export function PersonalOnboarding({
   sessionToken,
   onRefresh,
   onCompleteToEditor,
+  onSwitchMode,
   onLogout,
 }: PersonalOnboardingProps) {
   const qrNumber = dashboard.qr.qr_number
@@ -382,6 +384,7 @@ export function PersonalOnboarding({
       stepLabel={STEP_LABELS[step] ?? 'Setup'}
       saveStatus={saveStatus}
       onBack={handleBack}
+      onSwitchMode={onSwitchMode}
       onLogout={onLogout}
     >
       {step === 1 && (

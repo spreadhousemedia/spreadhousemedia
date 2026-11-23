@@ -65,6 +65,7 @@ interface BusinessProfileOnboardingProps {
   sessionToken: string
   onRefresh: () => Promise<void>
   onCompleteToEditor: () => void
+  onSwitchMode?: () => void
   onLogout: () => void
 }
 
@@ -123,6 +124,7 @@ export function BusinessProfileOnboarding({
   sessionToken,
   onRefresh,
   onCompleteToEditor,
+  onSwitchMode,
   onLogout,
 }: BusinessProfileOnboardingProps) {
   const qrNumber = dashboard.qr.qr_number
@@ -659,6 +661,7 @@ export function BusinessProfileOnboarding({
       saveStatus={saveStatus}
       wide={step <= 4}
       onBack={step > 1 && step < 5 ? () => goToStep(step - 1) : undefined}
+      onSwitchMode={onSwitchMode}
       onLogout={onLogout}
     >
       {/* STEPS 1–3: TWO-COLUMN DESIGNER STUDIO + LIVE PREVIEW */}
