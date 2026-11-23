@@ -11,12 +11,13 @@ import {
   KeyRound,
   Lock,
   QrCode,
+  RotateCcw,
   ShieldCheck,
   User,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { qrPublicUrl } from '../../lib/config'
-import { switchCustomerUsageMode } from '../../lib/profileApi'
+import { resetCustomerQrProfile, switchCustomerUsageMode } from '../../lib/profileApi'
 import { isValidPassword } from '../../lib/validation'
 import { rpcErrorMessage, type UsageType } from '../../types'
 import { Spinner } from '../Spinner'
@@ -66,6 +67,8 @@ export function CustomerAccountSettings({
 
   const [pendingMode, setPendingMode] = useState<UsageType | null>(null)
   const [switchingMode, setSwitchingMode] = useState(false)
+  const [confirmingReset, setConfirmingReset] = useState(false)
+  const [resettingQr, setResettingQr] = useState(false)
   const [modeError, setModeError] = useState<string | null>(null)
 
   const [currentPassword, setCurrentPassword] = useState('')
@@ -92,6 +95,24 @@ export function CustomerAccountSettings({
       return
     }
 
+    setPendingMode(null)
+    if (onModeSwitched) {
+      await onModeSwitched()
+    }
+  }
+
+  async function handleConfirmResetQr() {
+    setModeError(null)
+    setResettingQr(true)
+    const res = await resetCustomerQrProfile(sessionToken, qrNumber)
+    setResettingQr(false)
+
+    if (!res.ok) {
+      setModeError(res.error || 'Could not reset QR profile. Please try again.')
+      return
+    }
+
+    setConfirmingReset(false)
     setPendingMode(null)
     if (onModeSwitched) {
       await onModeSwitched()
@@ -276,6 +297,66 @@ export function CustomerAccountSettings({
               {modeError}
             </p>
           )}
+
+          {/* Reset QR & Start Fresh */}
+          <div className="pt-3 border-t border-[#E5E7EB] space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+              <div>
+                <p className="text-xs font-bold text-ink">Reset QR &amp; Start Fresh</p>
+                <p className="text-[11px] text-ink-muted">
+                  Clear your current profile, links, and redirect URL to set up {qrNumber} from scratch. Your password stays the same.
+                </p>
+              </div>
+              {!confirmingReset && (
+                <button
+                  type="button"
+                  disabled={switchingMode || resettingQr}
+                  onClick={() => {
+                    setPendingMode(null)
+                    setModeError(null)
+                    setConfirmingReset(true)
+                  }}
+                  className="inline-flex items-center gap-1.5 self-start sm:self-auto shrink-0 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100 transition-colors"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  <span>Reset My QR</span>
+                </button>
+              )}
+            </div>
+
+            {confirmingReset && (
+              <div className="rounded-xl border border-rose-300 bg-rose-50 p-3.5 space-y-3">
+                <p className="flex items-start gap-2 text-xs text-rose-900">
+                  <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+                  <span>
+                    Are you sure you want to reset <strong>{qrNumber}</strong>? This clears your current mode, profile info, links, and redirect URL and takes you back to fresh setup. Your login password will stay active.
+                  </span>
+                </p>
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    disabled={resettingQr}
+                    onClick={() => {
+                      setConfirmingReset(false)
+                      setModeError(null)
+                    }}
+                    className="rounded-xl border border-rose-200 bg-white px-3 py-1.5 text-xs font-semibold text-rose-900 hover:bg-rose-100/50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={resettingQr}
+                    onClick={handleConfirmResetQr}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-rose-700 disabled:opacity-60"
+                  >
+                    {resettingQr ? <Spinner size={13} /> : <RotateCcw className="h-3.5 w-3.5" />}
+                    <span>{resettingQr ? 'Resetting…' : 'Yes, Reset QR'}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

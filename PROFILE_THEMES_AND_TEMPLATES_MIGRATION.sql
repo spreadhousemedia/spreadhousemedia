@@ -563,3 +563,55 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.customer_switch_usage_mode(TEXT, TEXT) TO anon, authenticated, service_role;
 
+-- 6. Self-Service Customer Reset QR (Clears mode, profile, links & redirect URL while keeping owner password/session)
+CREATE OR REPLACE FUNCTION public.customer_reset_qr_profile(
+    p_session_token TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, extensions, pg_temp
+AS $$
+DECLARE
+    v_qr_id UUID;
+    v_qr_number TEXT;
+BEGIN
+    v_qr_id := public.verify_customer_session(p_session_token);
+    IF v_qr_id IS NULL THEN
+        RETURN jsonb_build_object('ok', false, 'error', 'unauthorized');
+    END IF;
+
+    SELECT qr_number INTO v_qr_number
+    FROM public.qr_codes
+    WHERE id = v_qr_id
+    FOR UPDATE;
+
+    IF v_qr_number IS NULL THEN
+        RETURN jsonb_build_object('ok', false, 'error', 'not_found');
+    END IF;
+
+    DELETE FROM public.qr_links
+    WHERE qr_profile_id IN (
+        SELECT id FROM public.qr_profiles WHERE qr_code_id = v_qr_id
+    );
+
+    DELETE FROM public.qr_profiles
+    WHERE qr_code_id = v_qr_id;
+
+    UPDATE public.qr_codes
+    SET usage_type = NULL,
+        destination_url = NULL,
+        business_name = NULL,
+        business_purpose = NULL,
+        updated_at = now()
+    WHERE id = v_qr_id;
+
+    RETURN jsonb_build_object(
+        'ok', true,
+        'qr_number', v_qr_number
+    );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.customer_reset_qr_profile(TEXT) TO anon, authenticated, service_role;
+

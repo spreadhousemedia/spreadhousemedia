@@ -400,6 +400,14 @@ try {
   assert.equal(funkySave.data.ok, true)
   assert.equal(mockDb.getPublicProfile({ p_identifier: 'Z103' }).data.profile.theme, 'per_pop_yellow')
 
+  const resetRes = mockDb.resetCustomerQrProfile({ p_session_token: bpToken })
+  assert.equal(resetRes.data.ok, true)
+  const bpAfterReset = mockDb.getCustomerDashboard({ p_session_token: bpToken })
+  assert.equal(bpAfterReset.data.ok, true)
+  assert.equal(bpAfterReset.data.qr.usage_type, null)
+  assert.equal(bpAfterReset.data.profile, null)
+  assert.equal(bpAfterReset.data.links.length, 0)
+
   console.log('\n✅ ALL MULTI-LINK & SECURITY VERIFICATION TESTS PASSED!')
 } finally {
   rmSync(tmpDir, { recursive: true, force: true })

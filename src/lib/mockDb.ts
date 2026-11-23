@@ -891,6 +891,35 @@ export const mockDb = {
     }
   },
 
+  resetCustomerQrProfile(params: { p_session_token: string }) {
+    const qrId = verifySession(params.p_session_token)
+    if (!qrId) return { data: { ok: false, error: 'unauthorized' }, error: null }
+
+    const qrs = this.getQrs()
+    const target = qrs.find((q) => q.id === qrId)
+    if (!target) return { data: { ok: false, error: 'not_found' }, error: null }
+
+    const profiles = this.getProfiles()
+    const removedProfileIds = new Set(
+      profiles.filter((p) => p.qr_code_id === qrId).map((p) => p.id),
+    )
+    this.saveProfiles(profiles.filter((p) => p.qr_code_id !== qrId))
+
+    if (removedProfileIds.size > 0) {
+      const links = this.getLinks()
+      this.saveLinks(links.filter((l) => !l.qr_profile_id || !removedProfileIds.has(l.qr_profile_id)))
+    }
+
+    target.usage_type = null
+    target.destination_url = ''
+    target.business_name = null
+    target.business_purpose = null
+    target.updated_at = new Date().toISOString()
+    this.saveQrs(qrs)
+
+    return { data: { ok: true, qr_number: target.qr_number }, error: null }
+  },
+
   savePersonalProfile(params: {
     p_session_token: string
     p_profile_name: string

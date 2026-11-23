@@ -141,6 +141,8 @@ export function UpdatePage() {
       syncMultiQrCount()
       setDashboard(dash)
       if (!dash.qr.usage_type) {
+        setForceWizard(false)
+        setWizardDoneToEditor(false)
         setMode('select_mode')
       } else if (showWelcomeIfConfigured && isDashConfigured(dash)) {
         setMode('welcome_back')

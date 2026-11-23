@@ -302,3 +302,29 @@ export async function switchCustomerUsageMode(
   }
 }
 
+export async function resetCustomerQrProfile(
+  sessionToken: string,
+  qrNumber: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const { data, error } = await supabase.rpc('customer_reset_qr_profile', {
+    p_session_token: sessionToken,
+  })
+
+  if (error || !data?.ok) {
+    return { ok: false, error: rpcErrorMessage(data?.error ?? error?.message) }
+  }
+
+  try {
+    localStorage.removeItem(`spreadnfc_personal_draft_${qrNumber}`)
+    localStorage.removeItem(`spreadnfc_business_draft_${qrNumber}`)
+    localStorage.removeItem(`spreadnfc_business_profile_draft_${qrNumber}`)
+  } catch {
+    // ignore storage errors
+  }
+
+  invalidateQrRedirectCache(qrNumber)
+  invalidateProfileCache(qrNumber)
+
+  return { ok: true }
+}
+

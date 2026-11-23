@@ -477,6 +477,8 @@ export const supabase = {
           return mockDb.selectUsageMode(params)
         case 'customer_switch_usage_mode':
           return mockDb.switchUsageMode(params)
+        case 'customer_reset_qr_profile':
+          return mockDb.resetCustomerQrProfile(params)
         case 'customer_save_personal_profile':
           return mockDb.savePersonalProfile(params)
         case 'customer_save_business_profile':
