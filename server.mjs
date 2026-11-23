@@ -731,11 +731,17 @@ const server = http.createServer(async (req, res) => {
       const qs = new URLSearchParams()
       if (action === 'select') {
         const rawCols = String(body.columns || '*')
-        // Never allow selecting password_hash even for admin
-        const safeCols = table === 'qr_codes' && rawCols.includes('password_hash')
-          ? 'id, qr_number, qr_name, destination_url, status, batch_id, password_changed, claimed_at, owner_email, usage_type, business_name, business_purpose, scan_count, created_at, updated_at'
-          : rawCols
+        // Never allow selecting password_hash or setup_code_hash even for admin
+        const safeCols =
+          table === 'qr_codes' &&
+          (rawCols.includes('*') || rawCols.includes('password_hash') || rawCols.includes('setup_code_hash'))
+            ? 'id, qr_number, qr_name, destination_url, status, batch_id, password_changed, claimed_at, owner_email, usage_type, business_name, business_purpose, scan_count, created_at, updated_at'
+            : rawCols
         qs.set('select', safeCols)
+      }
+
+      if (action === 'upsert' && typeof body.onConflict === 'string' && /^[a-zA-Z0-9_,]+$/.test(body.onConflict)) {
+        qs.set('on_conflict', body.onConflict)
       }
 
       const filters = Array.isArray(body.filters) ? body.filters : []
@@ -745,7 +751,7 @@ const server = http.createServer(async (req, res) => {
           qs.set('or', `(${f.value})`)
         } else if (typeof f.column === 'string') {
           const col = f.column
-          if (col === 'password_hash') continue
+          if (col === 'password_hash' || col === 'setup_code_hash') continue
           if (f.op === 'eq') qs.append(col, `eq.${f.value}`)
           else if (f.op === 'neq') qs.append(col, `neq.${f.value}`)
           else if (f.op === 'is') qs.append(col, `is.${f.value}`)
@@ -756,17 +762,27 @@ const server = http.createServer(async (req, res) => {
         }
       }
 
+      if (isPublicProductSelect && !bearer) {
+        qs.set('is_active', 'eq.true')
+      }
+
       if (body.order && typeof body.order.column === 'string') {
         qs.set('order', `${body.order.column}.${body.order.ascending ? 'asc' : 'desc'}`)
       }
       if (typeof body.limit === 'number' && body.limit > 0) {
-        qs.set('limit', String(Math.min(body.limit, 5000)))
+        const maxLimit = !bearer ? 200 : 5000
+        qs.set('limit', String(Math.min(body.limit, maxLimit)))
       }
 
       const extraHeaders = {}
       const preferParts = []
       if (body.count === 'exact') preferParts.push('count=exact')
-      if (action === 'insert' || action === 'update') preferParts.push('return=representation')
+      if (action === 'insert' || action === 'update' || action === 'upsert') {
+        preferParts.push('return=representation')
+      }
+      if (action === 'upsert') {
+        preferParts.push('resolution=merge-duplicates')
+      }
       if (preferParts.length > 0) extraHeaders.Prefer = preferParts.join(',')
       if (body.range && typeof body.range.from === 'number' && typeof body.range.to === 'number') {
         extraHeaders.Range = `${body.range.from}-${body.range.to}`
@@ -775,7 +791,7 @@ const server = http.createServer(async (req, res) => {
       let httpMethod = 'GET'
       let reqBody = undefined
       if (action === 'select' && body.head) httpMethod = 'HEAD'
-      else if (action === 'insert') {
+      else if (action === 'insert' || action === 'upsert') {
         httpMethod = 'POST'
         reqBody = body.payload
       } else if (action === 'update') {
@@ -792,7 +808,7 @@ const server = http.createServer(async (req, res) => {
         bearer,
       })
 
-      if ((action === 'update' || action === 'delete') && (table === 'qr_codes' || table === 'qr_profiles')) {
+      if ((action === 'update' || action === 'upsert' || action === 'delete') && (table === 'qr_codes' || table === 'qr_profiles')) {
         REDIRECT_CACHE.clear()
       }
 

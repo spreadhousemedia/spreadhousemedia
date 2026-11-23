@@ -198,7 +198,7 @@ type FilterSpec =
  */
 class ServerApiQueryBuilder {
   private table: string
-  private action: 'select' | 'insert' | 'update' | 'delete' = 'select'
+  private action: 'select' | 'insert' | 'upsert' | 'update' | 'delete' = 'select'
   private columns = '*'
   private countMode: 'exact' | undefined
   private headOnly = false
@@ -207,6 +207,7 @@ class ServerApiQueryBuilder {
   private limitVal: number | undefined
   private rangeSpec: { from: number; to: number } | undefined
   private bodyPayload: unknown = undefined
+  private onConflictCol: string | undefined
 
   constructor(table: string) {
     this.table = table
@@ -224,6 +225,13 @@ class ServerApiQueryBuilder {
   insert(payload: unknown) {
     this.action = 'insert'
     this.bodyPayload = payload
+    return this
+  }
+
+  upsert(payload: unknown, options?: { onConflict?: string }) {
+    this.action = 'upsert'
+    this.bodyPayload = payload
+    this.onConflictCol = options?.onConflict
     return this
   }
 
@@ -300,6 +308,7 @@ class ServerApiQueryBuilder {
           limit: this.limitVal,
           range: this.rangeSpec,
           payload: this.bodyPayload,
+          onConflict: this.onConflictCol,
         }),
       })
       const json = await parseApiJson(res)
